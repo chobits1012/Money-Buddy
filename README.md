@@ -1,73 +1,38 @@
-# React + TypeScript + Vite
+# 個人理財追蹤中心 (Portfolio Tracker)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+專為個人設計的高品質理財追蹤 Progressive Web App (PWA)。
+完美支援台股、美股、證券與基金的資產追蹤，並使用日式深色質感風格打造。
 
-Currently, two official plugins are available:
+## 核心功能 (Features)
+- 📊 **自動化資產圓餅圖：** 即時追蹤閒置資金與已投入資產。
+- 🇺🇸 **美股特別處理：** 支援 USD 輸入與即時匯率換算為 TWD。
+- 📱 **PWA 原生體驗：** 加到手機主畫面後即可如原生 App 般全視窗流暢運作。
+- 🔒 **隱私優先儲存：** 資料透過 LocalStorage 只存在使用者的設備上。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 開發架構 (Tech Stack)
+- React 18
+- Vite
+- TypeScript (Strict Mode)
+- Tailwind CSS
+- Zustand (State Management)
+- Recharts (Data Visualization)
+- Lucide React (Icons)
 
-## React Compiler
+## 安裝與執行 (Getting Started)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 安裝依賴
+npm install --legacy-peer-deps
 
-## Expanding the ESLint configuration
+# 啟動開發伺服器
+npm run dev
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 進行生產環境建置
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 部署至 Vercel
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. 將本專案推播至 GitHub。
+2. 在 Vercel 建立新專案，選擇匯入此 GitHub Repository。
+3. Vercel 會自動偵測 Vite 設定並執行部署。
