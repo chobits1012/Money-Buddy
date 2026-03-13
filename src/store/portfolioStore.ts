@@ -1,43 +1,134 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { PortfolioState, Transaction, AssetType } from '../types';
+import type { PortfolioState, Transaction, AssetType, StockHolding, StockAssetType, PurchaseRecord, CustomCategory, CapitalDeposit } from '../types';
 import { DEFAULT_USD_RATE } from '../utils/constants';
 
-// 定義完整的 Zustand Store 型別，包含狀態與異動方法
+// 從購買紀錄重新計算持倉聚合值
+function recalcHolding(holding: StockHolding): StockHolding {
+    const purchases = holding.purchases;
+    if (purchases.length === 0) {
+        return { ...holding, shares: 0, avgPrice: 0, totalAmount: 0, totalAmountUSD: 0 };
+    }
+
+    const totalShares = purchases.reduce((sum, p) => sum + p.shares, 0);
+    const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+    const totalCostUSD = purchases.reduce((sum, p) => sum + (p.totalCostUSD ?? 0), 0);
+
+    const isUSStock = holding.type === 'US_STOCK';
+    const avgPrice = totalShares > 0
+        ? (isUSStock ? totalCostUSD / totalShares : totalCost / totalShares)
+        : 0;
+
+    return {
+        ...holding,
+        shares: totalShares,
+        avgPrice: Math.round(avgPrice * 100) / 100,
+        totalAmount: totalCost,
+        totalAmountUSD: totalCostUSD > 0 ? totalCostUSD : undefined,
+        updatedAt: new Date().toISOString(),
+    };
+}
+
+// Zustand Store 介面
 interface PortfolioStore extends PortfolioState {
-    // 設定初始資本
     setCapitalPool: (amount: number) => void;
-    // 更新美金匯率
+    addCapitalDeposit: (params: { amount: number; note: string }) => void;
+    removeCapitalDeposit: (id: string) => void;
     setExchangeRate: (rate: number) => void;
-    // 新增交易紀錄 (驗證與計算邏輯將在 Component 或 Service 中呼叫此處)
     addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
-    // 刪除交易紀錄
     removeTransaction: (id: string) => void;
-    // 獲得剩餘可用資金 (Getter)
     getAvailableCapital: () => number;
-    // 獲得各項資產加總 (Getter)
     getAssetTotals: () => Record<AssetType, number>;
-    // 重置所有資料 (危險操作)
     resetAll: () => void;
+
+    // ═══ 美股資金池管理 ═══
+    setUsStockFundPool: (amount: number) => void;
+    getUsStockAvailableCapital: () => number;
+
+    // ═══ 個股持倉管理 ═══
+    buyStock: (params: {
+        type: StockAssetType;
+        name: string;
+        shares: number;
+        pricePerShare: number;
+        totalCost: number;
+        totalCostUSD?: number;
+        exchangeRate?: number;
+        note?: string;
+    }) => void;
+    removePurchase: (holdingId: string, purchaseId: string) => void;
+    updateHoldingName: (id: string, name: string) => void;
+    removeHolding: (id: string) => void;
+    getHoldingsByType: (type: StockAssetType) => StockHolding[];
+    getHoldingsTotalByType: (type: StockAssetType) => number;
+    updatePurchase: (holdingId: string, purchaseId: string, updates: {
+        shares?: number;
+        pricePerShare?: number;
+        totalCost?: number;
+        totalCostUSD?: number;
+        exchangeRate?: number;
+        note?: string;
+    }) => void;
+
+    // ═══ 自訂欄位管理 ═══
+    addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
+    updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
+    removeCustomCategory: (id: string) => void;
+    getCustomCategoriesTotal: () => number;
 }
 
 const initialState: PortfolioState = {
     totalCapitalPool: 0,
+    capitalDeposits: [],
+    usStockFundPool: 0,
     exchangeRateUSD: DEFAULT_USD_RATE,
     transactions: [],
+    holdings: [],
+    customCategories: [],
     isConfigured: false,
 };
 
-// 使用 Zustand 建立 Store，並掛載 persist middleware 以安全寫入 LocalStorage
 export const usePortfolioStore = create<PortfolioStore>()(
     persist(
         (set, get) => ({
             ...initialState,
 
             setCapitalPool: (amount: number) => {
-                // [防禦性程式碼] 防止惡意輸入
                 if (amount < 0 || isNaN(amount)) return;
-                set({ totalCapitalPool: amount, isConfigured: true });
+                const now = new Date().toISOString();
+                const deposit: CapitalDeposit = {
+                    id: crypto.randomUUID(),
+                    amount,
+                    note: '初始設定',
+                    date: now,
+                };
+                set({ totalCapitalPool: amount, capitalDeposits: [deposit], isConfigured: true });
+            },
+
+            addCapitalDeposit: (params) => {
+                if (params.amount <= 0 || isNaN(params.amount)) return;
+                const now = new Date().toISOString();
+                const deposit: CapitalDeposit = {
+                    id: crypto.randomUUID(),
+                    amount: params.amount,
+                    note: params.note || '入金',
+                    date: now,
+                };
+                set((state) => ({
+                    totalCapitalPool: state.totalCapitalPool + params.amount,
+                    capitalDeposits: [...state.capitalDeposits, deposit],
+                }));
+            },
+
+            removeCapitalDeposit: (id) => {
+                set((state) => {
+                    const deposit = state.capitalDeposits.find((d) => d.id === id);
+                    if (!deposit) return {};
+                    return {
+                        totalCapitalPool: state.totalCapitalPool - deposit.amount,
+                        capitalDeposits: state.capitalDeposits.filter((d) => d.id !== id),
+                    };
+                });
             },
 
             setExchangeRate: (rate: number) => {
@@ -45,13 +136,27 @@ export const usePortfolioStore = create<PortfolioStore>()(
                 set({ exchangeRateUSD: rate });
             },
 
+            // ═══ 美股資金池 ═══
+            setUsStockFundPool: (amount: number) => {
+                if (amount < 0 || isNaN(amount)) return;
+                set({ usStockFundPool: amount });
+            },
+
+            getUsStockAvailableCapital: () => {
+                const state = get();
+                const usHoldingsTotal = state.holdings
+                    .filter((h) => h.type === 'US_STOCK')
+                    .reduce((sum, h) => sum + h.totalAmount, 0);
+                const available = state.usStockFundPool - usHoldingsTotal;
+                return available > 0 ? available : 0;
+            },
+
             addTransaction: (payload) => {
                 const newTransaction: Transaction = {
                     ...payload,
-                    id: crypto.randomUUID(), // 使用瀏覽器內建安全的 UUID 生成
+                    id: crypto.randomUUID(),
                     date: new Date().toISOString(),
                 };
-
                 set((state) => ({
                     transactions: [newTransaction, ...state.transactions],
                 }));
@@ -65,24 +170,23 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
             getAssetTotals: () => {
                 const state = get();
-                // 初始化累加器
                 const totals: Record<AssetType, number> = {
                     TAIWAN_STOCK: 0,
                     US_STOCK: 0,
-                    BONDS: 0,
                     FUNDS: 0,
+                    CRYPTO: 0,
                 };
 
-                // 遍歷所有紀錄計算 (投入加, 取回減)
-                state.transactions.forEach((t) => {
-                    if (t.action === 'DEPOSIT') {
-                        totals[t.type] += t.amount;
-                    } else if (t.action === 'WITHDRAWAL') {
-                        totals[t.type] -= t.amount;
+                // 台股、基金、虛擬幣從 holdings 累加
+                state.holdings.forEach((h) => {
+                    if (h.type in totals && h.type !== 'US_STOCK') {
+                        totals[h.type] += h.totalAmount;
                     }
                 });
 
-                // 確保沒有負數情況 (避免浮點或刪除順序導致的邊界異常)
+                // 美股使用資金池整體金額
+                totals.US_STOCK = state.usStockFundPool;
+
                 (Object.keys(totals) as AssetType[]).forEach(k => {
                     if (totals[k] < 0) totals[k] = 0;
                 });
@@ -94,18 +198,156 @@ export const usePortfolioStore = create<PortfolioStore>()(
                 const state = get();
                 const totals = state.getAssetTotals();
                 const totalInvested = Object.values(totals).reduce((sum, val) => sum + val, 0);
-
-                const available = state.totalCapitalPool - totalInvested;
+                const customTotal = state.customCategories.reduce((sum, c) => sum + c.amount, 0);
+                const available = state.totalCapitalPool - totalInvested - customTotal;
                 return available > 0 ? available : 0;
             },
 
             resetAll: () => {
                 set(initialState);
             },
+
+            // ═══ 購買股票 (自動合併) ═══
+
+            buyStock: (params) => {
+                const now = new Date().toISOString();
+                const newPurchase: PurchaseRecord = {
+                    id: crypto.randomUUID(),
+                    date: now,
+                    shares: params.shares,
+                    pricePerShare: params.pricePerShare,
+                    totalCost: params.totalCost,
+                    totalCostUSD: params.totalCostUSD,
+                    exchangeRate: params.exchangeRate,
+                    note: params.note,
+                };
+
+                set((state) => {
+                    const existingIndex = state.holdings.findIndex(
+                        (h) => h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase()
+                    );
+
+                    if (existingIndex >= 0) {
+                        const updated = [...state.holdings];
+                        const existing = { ...updated[existingIndex] };
+                        existing.purchases = [...existing.purchases, newPurchase];
+                        updated[existingIndex] = recalcHolding(existing);
+                        return { holdings: updated };
+                    } else {
+                        const newHolding: StockHolding = {
+                            id: crypto.randomUUID(),
+                            type: params.type,
+                            name: params.name.trim(),
+                            purchases: [newPurchase],
+                            shares: 0,
+                            avgPrice: 0,
+                            totalAmount: 0,
+                            createdAt: now,
+                            updatedAt: now,
+                        };
+                        return { holdings: [...state.holdings, recalcHolding(newHolding)] };
+                    }
+                });
+            },
+
+            removePurchase: (holdingId, purchaseId) => {
+                set((state) => {
+                    const holdingIndex = state.holdings.findIndex((h) => h.id === holdingId);
+                    if (holdingIndex < 0) return {};
+
+                    const updated = [...state.holdings];
+                    const holding = { ...updated[holdingIndex] };
+                    holding.purchases = holding.purchases.filter((p) => p.id !== purchaseId);
+
+                    if (holding.purchases.length === 0) {
+                        return { holdings: state.holdings.filter((h) => h.id !== holdingId) };
+                    }
+
+                    updated[holdingIndex] = recalcHolding(holding);
+                    return { holdings: updated };
+                });
+            },
+
+            updateHoldingName: (id, name) => {
+                set((state) => ({
+                    holdings: state.holdings.map((h) =>
+                        h.id === id ? { ...h, name, updatedAt: new Date().toISOString() } : h
+                    ),
+                }));
+            },
+
+            removeHolding: (id) => {
+                set((state) => ({
+                    holdings: state.holdings.filter((h) => h.id !== id),
+                }));
+            },
+
+            getHoldingsByType: (type) => {
+                return get().holdings.filter((h) => h.type === type);
+            },
+
+            getHoldingsTotalByType: (type) => {
+                return get().holdings
+                    .filter((h) => h.type === type)
+                    .reduce((sum, h) => sum + h.totalAmount, 0);
+            },
+
+            updatePurchase: (holdingId, purchaseId, updates) => {
+                set((state) => {
+                    const holdingIndex = state.holdings.findIndex((h) => h.id === holdingId);
+                    if (holdingIndex < 0) return {};
+
+                    const updatedHoldings = [...state.holdings];
+                    const holding = { ...updatedHoldings[holdingIndex] };
+                    holding.purchases = holding.purchases.map((p) => {
+                        if (p.id !== purchaseId) return p;
+                        return { ...p, ...updates };
+                    });
+
+                    updatedHoldings[holdingIndex] = recalcHolding(holding);
+                    return { holdings: updatedHoldings };
+                });
+            },
+
+            // ═══ 自訂欄位 CRUD ═══
+
+            addCustomCategory: (params) => {
+                const now = new Date().toISOString();
+                const newCategory: CustomCategory = {
+                    id: crypto.randomUUID(),
+                    name: params.name.trim(),
+                    amount: params.amount,
+                    note: params.note,
+                    createdAt: now,
+                    updatedAt: now,
+                };
+                set((state) => ({
+                    customCategories: [...state.customCategories, newCategory],
+                }));
+            },
+
+            updateCustomCategory: (id, updates) => {
+                set((state) => ({
+                    customCategories: state.customCategories.map((c) =>
+                        c.id === id
+                            ? { ...c, ...updates, updatedAt: new Date().toISOString() }
+                            : c
+                    ),
+                }));
+            },
+
+            removeCustomCategory: (id) => {
+                set((state) => ({
+                    customCategories: state.customCategories.filter((c) => c.id !== id),
+                }));
+            },
+
+            getCustomCategoriesTotal: () => {
+                return get().customCategories.reduce((sum, c) => sum + c.amount, 0);
+            },
         }),
         {
-            name: 'portfolio-tracker-storage', // LocalStorage 的 key
-            // 確保就算資料損毀，也不會讓整個 App Crush (防脫軌機制)
+            name: 'portfolio-tracker-storage',
             onRehydrateStorage: () => (_state, error) => {
                 if (error) {
                     console.error('復原 LocalStorage 資料時發生錯誤:', error);

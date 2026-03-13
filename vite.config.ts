@@ -16,8 +16,8 @@ export default defineConfig({
         name: '個人理財追蹤',
         short_name: '理財儀表板',
         description: '個人專屬資金控管中心與資產配置儀表板',
-        theme_color: '#121212',
-        background_color: '#121212',
+        theme_color: '#f2f0ed',
+        background_color: '#f2f0ed',
         display: 'standalone',
         icons: [
           {

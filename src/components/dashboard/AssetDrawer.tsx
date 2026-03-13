@@ -4,7 +4,6 @@ import type { AssetType } from '../../types';
 import { ASSET_LABELS, ASSET_COLORS } from '../../utils/constants';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { XIcon } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface AssetDrawerProps {
@@ -100,7 +99,7 @@ export const AssetDrawer = ({ isOpen, onClose, type }: AssetDrawerProps) => {
         <>
             <div
                 className={cn(
-                    "fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300",
+                    "fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-300",
                     isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
                 )}
                 onClick={onClose}
@@ -108,7 +107,7 @@ export const AssetDrawer = ({ isOpen, onClose, type }: AssetDrawerProps) => {
 
             <div
                 className={cn(
-                    "fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-white/10 rounded-t-3xl p-6 transition-transform duration-300 ease-in-out shadow-2xl max-w-md mx-auto",
+                    "fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-stoneSoft rounded-t-3xl p-6 transition-transform duration-300 ease-in-out shadow-2xl max-w-md mx-auto",
                     isOpen ? "translate-y-0" : "translate-y-full"
                 )}
             >
@@ -117,10 +116,10 @@ export const AssetDrawer = ({ isOpen, onClose, type }: AssetDrawerProps) => {
                         <div className={cn("px-3 py-1 text-xs font-semibold rounded-full", ASSET_COLORS[type])}>
                             {ASSET_LABELS[type]}
                         </div>
-                        <h3 className="text-xl font-bold text-white">新增投入資金</h3>
+                        <h3 className="text-xl font-light text-slate-800">新增投入資金</h3>
                     </div>
-                    <button onClick={onClose} className="p-2 -mr-2 text-textSecondary hover:text-white transition-colors">
-                        <XIcon className="w-5 h-5" />
+                    <button onClick={onClose} className="p-2 -mr-2 text-clay hover:text-slate-800 transition-colors">
+                        <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
@@ -161,7 +160,7 @@ export const AssetDrawer = ({ isOpen, onClose, type }: AssetDrawerProps) => {
                     />
 
                     {error && (
-                        <div className="p-3 bg-accentDanger/10 border border-accentDanger/20 rounded-xl text-accentDanger text-sm">
+                        <div className="p-3 bg-rust/10 border border-rust/20 rounded-xl text-rust text-sm">
                             {error}
                         </div>
                     )}

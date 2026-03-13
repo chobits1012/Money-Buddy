@@ -1,26 +1,80 @@
 // 採用嚴格型別定義資產與紀錄 (遵循 typescript-expert 規範)
 
-export type AssetType = 'TAIWAN_STOCK' | 'US_STOCK' | 'BONDS' | 'FUNDS';
+export type AssetType = 'TAIWAN_STOCK' | 'US_STOCK' | 'FUNDS' | 'CRYPTO';
+
+// 支援持倉管理的資產類型 (全部類型皆使用持倉系統)
+export type StockAssetType = AssetType;
+
+// 簡易模式的類型 (只需名稱 + 金額，不需股數/價格)
+export const SIMPLE_HOLDING_TYPES: AssetType[] = ['FUNDS'];
 
 export interface Transaction {
     id: string;
     type: AssetType;
-    amount: number; // 統一使用台幣
-    amountUSD?: number; // 如果是美股，可選擇紀錄當時的美金金額
-    exchangeRate?: number; // 當時匯率
-    date: string; // ISO 格式字串
+    amount: number;
+    amountUSD?: number;
+    exchangeRate?: number;
+    date: string;
     note: string;
-    action: 'DEPOSIT' | 'WITHDRAWAL'; // 投入或取回
+    action: 'DEPOSIT' | 'WITHDRAWAL';
+    holdingId?: string;
+}
+
+// 單次購買紀錄
+export interface PurchaseRecord {
+    id: string;
+    date: string;
+    shares: number;
+    pricePerShare: number;
+    totalCost: number;
+    totalCostUSD?: number;
+    exchangeRate?: number;
+    note?: string;
+}
+
+// 個股/基金持倉資料 (由 PurchaseRecords 聚合)
+export interface StockHolding {
+    id: string;
+    type: StockAssetType;
+    name: string;
+    purchases: PurchaseRecord[];
+    shares: number;
+    avgPrice: number;
+    totalAmount: number;
+    totalAmountUSD?: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// 使用者自訂欄位 (e.g. 緊急預備金、保險)
+export interface CustomCategory {
+    id: string;
+    name: string;
+    amount: number;
+    note: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// 總資產入金紀錄
+export interface CapitalDeposit {
+    id: string;
+    amount: number;
+    note: string;
+    date: string;
 }
 
 export interface PortfolioState {
-    totalCapitalPool: number; // 初始總資金水位 (TWD)
-    exchangeRateUSD: number;  // 當前全域美金匯率 (用於即時顯示)
+    totalCapitalPool: number;
+    capitalDeposits: CapitalDeposit[];
+    usStockFundPool: number;
+    exchangeRateUSD: number;
     transactions: Transaction[];
-    isConfigured: boolean; // 是否已完成初始設定
+    holdings: StockHolding[];
+    customCategories: CustomCategory[];
+    isConfigured: boolean;
 }
 
-// 供圖表與儀表板使用的衍生資料型別
 export interface AssetSummary {
     type: AssetType;
     totalAmount: number;

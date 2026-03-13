@@ -1,15 +1,45 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════
+   🎨 Tailwind CSS v4 — Wabi-Sabi 侘寂風格 (清水模質感)
+   ═══════════════════════════════════════════════════ */
+@theme {
+  /* 🏔 底板色階 (暖灰大地色) */
+  --color-background: #f2f0ed;
+  --color-surface: rgba(255, 255, 255, 0.4);
+  --color-surfaceHighlight: rgba(229, 225, 220, 0.5);
+
+  /* 📝 文字層級 */
+  --color-textPrimary: #334155;
+  --color-textSecondary: #a89e94;
+
+  /* 🔥 主色調 (暖橙) */
+  --color-primary: #ec5b13;
+
+  /* 🍃 功能色 */
+  --color-moss: #7a8266;
+  --color-rust: #b46b4d;
+  --color-clay: #a89e94;
+  --color-stoneSoft: #e5e1dc;
+
+  /* ✅ 語意色 */
+  --color-accentPrimary: #ec5b13;
+  --color-accentSuccess: #7a8266;
+  --color-accentDanger: #b46b4d;
+
+  /* ⚡ 邊界線 */
+  --color-border: rgba(0, 0, 0, 0.06);
+}
+
 @layer base {
   body {
-    background-color: var(--color-background, #121212);
-    color: var(--color-text-primary, #E0E0E0);
-    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-textPrimary);
+    font-family: 'Public Sans', 'Noto Sans TC', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* 隱藏原生捲軸但保留捲動功能 */
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
@@ -19,23 +49,42 @@
   }
 }
 
-/* 玻璃擬態質感共用類別 */
+/* ═══════════════════════════════════════════════════
+   🏗️ 清水模 (Exposed Concrete) 紋理背景
+   ═══════════════════════════════════════════════════ */
+@layer components {
+  .concrete-bg {
+    background-color: #f2f0ed;
+    background-image:
+      radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+      linear-gradient(rgba(0, 0, 0, 0.01) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.01) 1px, transparent 1px);
+    background-size: 100px 100px, 40px 40px, 40px 40px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ✨ 侘寂風格卡片 (Wabi-Sabi Card)
+   ═══════════════════════════════════════════════════ */
 @layer components {
   .glass-panel {
-    background-color: rgba(30, 30, 30, 0.8);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid var(--color-stoneSoft);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    border-radius: 0.75rem;
   }
 
   .card-hover {
-    transition: all 300ms cubic-bezier(0, 0, 0.2, 1);
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .card-hover:hover {
-    background-color: #2D2D2D;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    transform: translateY(-4px);
+    background-color: rgba(255, 255, 255, 0.6);
+    box-shadow:
+      0 8px 30px -4px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transform: translateY(-2px);
   }
 }

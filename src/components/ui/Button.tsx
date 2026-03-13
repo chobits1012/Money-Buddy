@@ -16,10 +16,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 className={cn(
                     'inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none',
                     {
-                        'bg-accentPrimary hover:bg-accentPrimary/90 text-white shadow-lg shadow-accentPrimary/20': variant === 'primary',
-                        'bg-surfaceHighlight hover:bg-surfaceHighlight/80 text-textPrimary': variant === 'secondary',
-                        'bg-accentDanger/10 text-accentDanger hover:bg-accentDanger hover:text-white': variant === 'danger',
-                        'bg-transparent hover:bg-white/5 text-textSecondary hover:text-textPrimary': variant === 'ghost',
+                        'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20': variant === 'primary',
+                        'bg-stoneSoft/50 hover:bg-stoneSoft/80 text-textPrimary': variant === 'secondary',
+                        'bg-rust/10 text-rust hover:bg-rust hover:text-white': variant === 'danger',
+                        'bg-transparent hover:bg-stoneSoft/30 text-textSecondary hover:text-textPrimary': variant === 'ghost',
                         'h-9 px-4 text-sm': size === 'sm',
                         'h-11 px-6 text-base': size === 'md',
                         'h-14 px-8 text-lg': size === 'lg',

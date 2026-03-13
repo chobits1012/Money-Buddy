@@ -12,25 +12,25 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         return (
             <div className="flex flex-col gap-1.5 w-full">
                 {label && (
-                    <label className="text-sm font-medium text-textSecondary ml-1">
+                    <label className="text-sm font-medium text-clay ml-1">
                         {label}
                     </label>
                 )}
                 <div className="relative">
                     {icon && (
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-textSecondary">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-clay">
                             {icon}
                         </div>
                     )}
                     <input
                         type={type}
                         className={cn(
-                            'flex w-full rounded-xl border border-white/10 bg-surface/50 px-3 py-3 text-sm text-textPrimary shadow-sm transition-colors',
-                            'placeholder:text-textSecondary/50',
-                            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accentPrimary focus-visible:border-accentPrimary',
+                            'flex w-full rounded-xl border border-stoneSoft bg-white/60 px-3 py-3 text-sm text-textPrimary shadow-sm transition-colors',
+                            'placeholder:text-clay/50',
+                            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary',
                             'disabled:cursor-not-allowed disabled:opacity-50',
                             icon && 'pl-10',
-                            error && 'border-accentDanger focus-visible:ring-accentDanger focus-visible:border-accentDanger',
+                            error && 'border-rust focus-visible:ring-rust focus-visible:border-rust',
                             className
                         )}
                         ref={ref}
@@ -38,8 +38,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                     />
                 </div>
                 {error && (
-                    <p className="text-sm text-accentDanger ml-1 flex items-center gap-1 mt-1 animate-pulse">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-accentDanger" />
+                    <p className="text-sm text-rust ml-1 flex items-center gap-1 mt-1 animate-pulse">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-rust" />
                         {error}
                     </p>
                 )}

@@ -3,7 +3,6 @@ import { usePortfolioStore } from '../../store/portfolioStore';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { WalletIcon, ArrowRightIcon } from 'lucide-react';
 
 export const WelcomeSetup = () => {
     const setCapitalPool = usePortfolioStore((state) => state.setCapitalPool);
@@ -44,19 +43,19 @@ export const WelcomeSetup = () => {
     return (
         <div className="flex-1 flex flex-col justify-center items-center px-4 -mt-16 sm:mt-0 animate-in fade-in duration-700">
             <div className="mb-10 text-center">
-                <div className="w-16 h-16 bg-accentPrimary/20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-accentPrimary/10">
-                    <WalletIcon className="w-8 h-8 text-accentPrimary" />
+                <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/10">
+                    <span className="material-symbols-outlined text-primary text-3xl">account_balance_wallet</span>
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight text-white/90 mb-3">
+                <h1 className="text-3xl font-light tracking-tight text-slate-800 mb-3">
                     歡迎使用資產控管中心
                 </h1>
-                <p className="text-textSecondary text-sm max-w-sm mx-auto leading-relaxed">
+                <p className="text-clay text-sm max-w-sm mx-auto leading-relaxed">
                     為了精準追蹤您的財務分配，請先設定您的
-                    <strong className="text-white/80 font-medium ml-1">初始總資金 (TWD)</strong>。
+                    <strong className="text-slate-700 font-medium ml-1">初始總資金 (TWD)</strong>。
                 </p>
             </div>
 
-            <Card className="w-full max-w-sm border-white/10 shadow-2xl">
+            <Card className="w-full max-w-sm">
                 <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                     <Input
                         label="總資金池金額"
@@ -64,17 +63,17 @@ export const WelcomeSetup = () => {
                         value={amountInput}
                         onChange={handleAmountChange}
                         error={error}
-                        icon={<span className="font-semibold px-2">NT$</span>}
+                        icon={<span className="font-semibold px-2 text-clay">NT$</span>}
                         autoFocus
                     />
                     <Button type="submit" size="lg" className="w-full group">
                         開始追蹤
-                        <ArrowRightIcon className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+                        <span className="material-symbols-outlined text-base ml-2 transition-transform group-hover:translate-x-1">arrow_forward</span>
                     </Button>
                 </form>
             </Card>
 
-            <p className="mt-8 text-xs text-textSecondary/60 text-center">
+            <p className="mt-8 text-xs text-clay/60 text-center">
                 * 資料由您的瀏覽器進行本地加密儲存，絕對保障個人隱私
             </p>
         </div>
