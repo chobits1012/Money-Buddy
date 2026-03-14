@@ -322,41 +322,44 @@ export const Dashboard = () => {
                 </Card>
 
                 {/* 操作按鈕區 */}
-                <Card className="flex flex-col gap-3 justify-center">
-                    <Button
-                        className="w-full justify-between group"
-                        variant="secondary"
+                <div className="flex flex-col gap-3 justify-center h-full">
+                    <button
                         onClick={() => setActiveHoldingsType('TAIWAN_STOCK')}
+                        className="glass-panel card-hover flex items-center justify-between p-4 sm:p-5 text-slate-800 group"
                     >
-                        <span className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-moss" />
-                            台股
-                        </span>
-                        <span className="material-symbols-outlined text-base text-clay group-hover:text-textPrimary transition-colors">chevron_right</span>
-                    </Button>
-                    <Button
-                        className="w-full justify-between group"
-                        variant="secondary"
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-moss/15 text-moss flex items-center justify-center group-hover:scale-110 group-hover:bg-moss/20 transition-all">
+                                <span className="material-symbols-outlined text-xl">ssid_chart</span>
+                            </div>
+                            <span className="text-sm font-medium tracking-wide">台股</span>
+                        </div>
+                        <span className="material-symbols-outlined text-clay group-hover:text-slate-800 transition-colors">chevron_right</span>
+                    </button>
+                    <button
                         onClick={() => setActiveHoldingsType('US_STOCK')}
+                        className="glass-panel card-hover flex items-center justify-between p-4 sm:p-5 text-slate-800 group"
                     >
-                        <span className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-rust" />
-                            美股
-                        </span>
-                        <span className="material-symbols-outlined text-base text-clay group-hover:text-textPrimary transition-colors">chevron_right</span>
-                    </Button>
-                    <Button
-                        className="w-full justify-between group"
-                        variant="secondary"
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-rust/15 text-rust flex items-center justify-center group-hover:scale-110 group-hover:bg-rust/20 transition-all">
+                                <span className="material-symbols-outlined text-xl">public</span>
+                            </div>
+                            <span className="text-sm font-medium tracking-wide">美股</span>
+                        </div>
+                        <span className="material-symbols-outlined text-clay group-hover:text-slate-800 transition-colors">chevron_right</span>
+                    </button>
+                    <button
                         onClick={() => setActiveHoldingsType('FUNDS')}
+                        className="glass-panel card-hover flex items-center justify-between p-4 sm:p-5 text-slate-800 group"
                     >
-                        <span className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-clay" />
-                            基金
-                        </span>
-                        <span className="material-symbols-outlined text-base text-clay group-hover:text-textPrimary transition-colors">chevron_right</span>
-                    </Button>
-                </Card>
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-clay/15 text-clayDark flex items-center justify-center group-hover:scale-110 group-hover:bg-clay/25 transition-all">
+                                <span className="material-symbols-outlined text-xl">pie_chart</span>
+                            </div>
+                            <span className="text-sm font-medium tracking-wide">基金</span>
+                        </div>
+                        <span className="material-symbols-outlined text-clay group-hover:text-slate-800 transition-colors">chevron_right</span>
+                    </button>
+                </div>
             </div>
 
             {/* ═══ 自訂欄位區域 ═══ */}

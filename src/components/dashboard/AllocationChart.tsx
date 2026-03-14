@@ -57,24 +57,34 @@ export const AllocationChart = () => {
                         paddingAngle={3}
                         dataKey="value"
                         stroke="none"
+                        onClick={() => {}} // Ensure mobile tap registers as hover
                     >
                         {filteredData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} className="transition-all duration-300 hover:opacity-80 drop-shadow-sm" />
                         ))}
                     </Pie>
                     <Tooltip
-                        formatter={(value: unknown) => {
+                        formatter={(value: any, name: any) => {
                             const numValue = typeof value === 'number' ? value : Number(value);
-                            return [`NT$ ${numValue.toLocaleString()}`, '金額'];
+                            return [`NT$ ${numValue.toLocaleString()}`, name];
                         }}
+                        trigger="hover"
+                        wrapperStyle={{ zIndex: 100 }}
                         contentStyle={{
                             backgroundColor: '#f2f0ed',
                             border: '1px solid #e5e1dc',
                             borderRadius: '8px',
                             color: '#334155',
-                            boxShadow: '0 4px 20px -2px rgba(0,0,0,0.08)'
+                            boxShadow: '0 4px 20px -2px rgba(0,0,0,0.08)',
+                            whiteSpace: 'normal',
+                            wordWrap: 'break-word',
+                            maxWidth: '260px',
+                            padding: '8px 12px'
                         }}
-                        itemStyle={{ color: '#334155' }}
+                        itemStyle={{ 
+                            color: '#334155',
+                            wordWrap: 'break-word'
+                        }}
                     />
                 </PieChart>
             </ResponsiveContainer>
