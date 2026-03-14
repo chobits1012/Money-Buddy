@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/Input';
 import type { StockAssetType } from '../../types';
 import twStocks from '../../data/tw_stocks.json';
