@@ -4,6 +4,7 @@ import { SIMPLE_HOLDING_TYPES } from '../../types';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { ASSET_LABELS, ASSET_COLORS } from '../../utils/constants';
 import { Input } from '../ui/Input';
+import { AssetSearchInput } from './AssetSearchInput';
 import { Button } from '../ui/Button';
 import { cn } from '../../utils/cn';
 
@@ -30,6 +31,7 @@ export const BuyStockDrawer = ({
     const availableCapital = isUSStock ? getUsStockAvailableCapital() : getAvailableCapital();
 
     const [name, setName] = useState('');
+    const [symbol, setSymbol] = useState('');
     const [shares, setShares] = useState('');
     const [price, setPrice] = useState('');
     const [amount, setAmount] = useState(''); // 簡易模式用
@@ -49,6 +51,7 @@ export const BuyStockDrawer = ({
         if (isOpen) {
             if (editingPurchase) {
                 setName(editingHoldingName || '');
+                setSymbol('');
                 if (isSimpleMode) {
                     setAmount(editingPurchase.totalCost.toLocaleString('en-US'));
                 } else {
@@ -58,6 +61,7 @@ export const BuyStockDrawer = ({
                 setNote(editingPurchase.note || '');
             } else {
                 setName('');
+                setSymbol('');
                 setShares('');
                 setPrice('');
                 setAmount('');
@@ -116,6 +120,7 @@ export const BuyStockDrawer = ({
                 buyStock({
                     type,
                     name: trimmedName,
+                    symbol: symbol || undefined,
                     shares: 1,
                     pricePerShare: numAmount,
                     totalCost: numAmount,
@@ -152,6 +157,7 @@ export const BuyStockDrawer = ({
                 buyStock({
                     type,
                     name: trimmedName,
+                    symbol: symbol || undefined,
                     shares: numShares,
                     pricePerShare: numPrice,
                     totalCost: calcTotalTWD,
@@ -196,12 +202,17 @@ export const BuyStockDrawer = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                    <Input
-                        label="標的名稱"
-                        placeholder={getNamePlaceholder()}
+                    <AssetSearchInput
+                        type={type}
                         value={name}
-                        onChange={(e) => { setName(e.target.value); setError(''); }}
-                        autoFocus
+                        onChange={(v) => setName(v)}
+                        onSelect={(n, sym) => {
+                            setName(`${n} (${sym})`);
+                            setSymbol(sym);
+                            setError('');
+                        }}
+                        placeholder={getNamePlaceholder()}
+                        error={error}
                         disabled={isEditMode}
                     />
 

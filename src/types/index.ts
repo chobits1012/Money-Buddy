@@ -37,6 +37,7 @@ export interface StockHolding {
     id: string;
     type: StockAssetType;
     name: string;
+    symbol?: string; // 加入 symbol 供報價使用
     purchases: PurchaseRecord[];
     shares: number;
     avgPrice: number;

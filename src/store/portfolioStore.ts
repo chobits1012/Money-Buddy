@@ -57,6 +57,7 @@ interface PortfolioStore extends PortfolioState {
     buyStock: (params: {
         type: StockAssetType;
         name: string;
+        symbol?: string; // 加入 symbol
         shares: number;
         pricePerShare: number;
         totalCost: number;
@@ -247,6 +248,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                             id: crypto.randomUUID(),
                             type: params.type,
                             name: params.name.trim(),
+                            symbol: params.symbol,
                             purchases: [newPurchase],
                             shares: 0,
                             avgPrice: 0,
