@@ -146,6 +146,7 @@ const CustomCategoryDrawer = ({ isOpen, onClose, editingCategory }: CustomCatego
 
 export const Dashboard = () => {
     const {
+        holdings, exchangeRateUSD,
         totalCapitalPool, resetAll, customCategories, removeCustomCategory,
         capitalDeposits, addCapitalDeposit, removeCapitalDeposit,
     } = usePortfolioStore();
@@ -174,6 +175,11 @@ export const Dashboard = () => {
     const availableCapital = getAvailableCapital();
     const invested = totalCapitalPool - availableCapital;
     const investedPercentage = totalCapitalPool > 0 ? (invested / totalCapitalPool) * 100 : 0;
+
+    const totalUnrealizedPnL = holdings.reduce((sum, h) => {
+        const pnl = h.unrealizedPnL || 0;
+        return sum + (h.type === 'US_STOCK' ? pnl * exchangeRateUSD : pnl);
+    }, 0);
 
     // ═══ 入金相關 ═══
     const handleDepositAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,6 +245,15 @@ export const Dashboard = () => {
                         <p className="text-xs text-clay mt-1">
                             總資產: {FORMAT_TWD.format(totalCapitalPool)}
                         </p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[10px] uppercase font-semibold tracking-wider text-clay">未實現損益</span>
+                            <span className={cn(
+                                "text-sm font-semibold",
+                                totalUnrealizedPnL > 0 ? "text-rust" : totalUnrealizedPnL < 0 ? "text-moss" : "text-clay"
+                            )}>
+                                {totalUnrealizedPnL > 0 ? '+' : ''}{FORMAT_TWD.format(totalUnrealizedPnL)}
+                            </span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-1">
                         <Button variant="secondary" size="sm" onClick={openDepositDrawer} className="text-xs">

@@ -42,6 +42,8 @@ export interface StockHolding {
     avgPrice: number;
     totalAmount: number;
     totalAmountUSD?: number;
+    currentPrice?: number;
+    unrealizedPnL?: number;
     createdAt: string;
     updatedAt: string;
 }

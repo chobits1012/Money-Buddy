@@ -19,12 +19,20 @@ function recalcHolding(holding: StockHolding): StockHolding {
         ? (isUSStock ? totalCostUSD / totalShares : totalCost / totalShares)
         : 0;
 
+    let unrealizedPnL = holding.unrealizedPnL;
+    if (holding.currentPrice !== undefined && totalShares > 0) {
+        unrealizedPnL = (holding.currentPrice - avgPrice) * totalShares;
+    } else if (totalShares === 0) {
+        unrealizedPnL = undefined;
+    }
+
     return {
         ...holding,
         shares: totalShares,
         avgPrice: Math.round(avgPrice * 100) / 100,
         totalAmount: totalCost,
         totalAmountUSD: totalCostUSD > 0 ? totalCostUSD : undefined,
+        unrealizedPnL: unrealizedPnL !== undefined ? Math.round(unrealizedPnL * 100) / 100 : undefined,
         updatedAt: new Date().toISOString(),
     };
 }
@@ -58,6 +66,7 @@ interface PortfolioStore extends PortfolioState {
     }) => void;
     removePurchase: (holdingId: string, purchaseId: string) => void;
     updateHoldingName: (id: string, name: string) => void;
+    updateHoldingQuote: (id: string, currentPrice: number) => void;
     removeHolding: (id: string) => void;
     getHoldingsByType: (type: StockAssetType) => StockHolding[];
     getHoldingsTotalByType: (type: StockAssetType) => number;
@@ -274,6 +283,19 @@ export const usePortfolioStore = create<PortfolioStore>()(
                         h.id === id ? { ...h, name, updatedAt: new Date().toISOString() } : h
                     ),
                 }));
+            },
+
+            updateHoldingQuote: (id, currentPrice) => {
+                set((state) => {
+                    const holdingIndex = state.holdings.findIndex((h) => h.id === id);
+                    if (holdingIndex < 0) return {};
+
+                    const updated = [...state.holdings];
+                    const holding = { ...updated[holdingIndex], currentPrice };
+                    updated[holdingIndex] = recalcHolding(holding);
+                    
+                    return { holdings: updated };
+                });
             },
 
             removeHolding: (id) => {

@@ -265,8 +265,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                 </p>
                                             </div>
                                         ) : (
-                                            /* ═══ 股數模式 (台股/美股)：股數 + 均價 + 總額 ═══ */
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-3 gap-y-4 gap-x-2 mt-2">
                                                 <div>
                                                     <p className="text-[10px] text-clay uppercase tracking-wider">總股數</p>
                                                     <p className="text-sm font-medium text-textPrimary mt-0.5">
@@ -283,9 +282,45 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">總額</p>
+                                                    <p className="text-[10px] text-clay uppercase tracking-wider">現價</p>
+                                                    <p className="text-sm font-medium text-textPrimary mt-0.5">
+                                                        {holding.currentPrice !== undefined
+                                                            ? (isUSStock
+                                                                ? `$${holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                : `$${holding.currentPrice.toLocaleString('en-US', { maximumFractionDigits: 1 })}`)
+                                                            : '-'
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-clay uppercase tracking-wider">總成本</p>
+                                                    <p className="text-sm font-medium text-textPrimary mt-0.5">
+                                                        {isUSStock && holding.totalAmountUSD ? `$${holding.totalAmountUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : FORMAT_TWD.format(holding.totalAmount)}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-clay uppercase tracking-wider">市值</p>
                                                     <p className="text-sm font-bold text-slate-800 mt-0.5">
-                                                        {FORMAT_TWD.format(holding.totalAmount)}
+                                                        {holding.currentPrice !== undefined && holding.shares > 0
+                                                            ? (isUSStock 
+                                                                ? `$${(holding.currentPrice * holding.shares).toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
+                                                                : FORMAT_TWD.format(holding.currentPrice * holding.shares))
+                                                            : '-'
+                                                        }
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-clay uppercase tracking-wider">未實現損益</p>
+                                                    <p className={cn(
+                                                        "text-sm font-bold mt-0.5",
+                                                        holding.unrealizedPnL && holding.unrealizedPnL > 0 ? "text-rust" : holding.unrealizedPnL && holding.unrealizedPnL < 0 ? "text-moss" : "text-clay"
+                                                    )}>
+                                                        {holding.unrealizedPnL !== undefined
+                                                            ? (isUSStock
+                                                                ? `${holding.unrealizedPnL > 0 ? '+' : ''}$${holding.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                : `${holding.unrealizedPnL > 0 ? '+' : ''}${FORMAT_TWD.format(holding.unrealizedPnL)}`)
+                                                            : '-'
+                                                        }
                                                     </p>
                                                 </div>
                                             </div>
