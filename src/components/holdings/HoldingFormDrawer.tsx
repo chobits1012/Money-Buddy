@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { StockAssetType, PurchaseRecord } from '../../types';
 import { SIMPLE_HOLDING_TYPES } from '../../types';
 import { usePortfolioStore } from '../../store/portfolioStore';
-import { ASSET_LABELS, ASSET_COLORS } from '../../utils/constants';
+import { ASSET_LABELS, ASSET_COLORS, FORMAT_TWD } from '../../utils/constants';
 import { Input } from '../ui/Input';
 import { AssetSearchInput } from './AssetSearchInput';
 import { Button } from '../ui/Button';
@@ -21,7 +21,7 @@ export const BuyStockDrawer = ({
     isOpen, onClose, type,
     editingPurchase, editingHoldingId, editingHoldingName,
 }: BuyStockDrawerProps) => {
-    const { buyStock, updatePurchase, exchangeRateUSD, getAvailableCapital, getUsStockAvailableCapital } = usePortfolioStore();
+    const { buyStock, updatePurchase, exchangeRateUSD, getAvailableCapital, getUsStockAvailableCapital, holdings } = usePortfolioStore();
 
     const isUSStock = type === 'US_STOCK';
     const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type);
@@ -32,11 +32,17 @@ export const BuyStockDrawer = ({
 
     const [name, setName] = useState('');
     const [symbol, setSymbol] = useState('');
+    const [action, setAction] = useState<'BUY' | 'SELL'>('BUY');
     const [shares, setShares] = useState('');
     const [price, setPrice] = useState('');
     const [amount, setAmount] = useState(''); // 簡易模式用
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
+
+    // 取得當前輸入的標的以做防呆
+    const currentHolding = holdings.find((h) => h.type === type && h.name.toLowerCase() === name.trim().toLowerCase());
+    const availableShares = currentHolding ? currentHolding.shares : 0;
+    const availableAmount = currentHolding ? currentHolding.totalAmount : 0;
 
     // 股數模式：自動計算總額
     const numShares = Number(shares.replace(/,/g, '') || 0);
@@ -52,6 +58,7 @@ export const BuyStockDrawer = ({
             if (editingPurchase) {
                 setName(editingHoldingName || '');
                 setSymbol('');
+                setAction(editingPurchase.action || 'BUY');
                 if (isSimpleMode) {
                     setAmount(editingPurchase.totalCost.toLocaleString('en-US'));
                 } else {
@@ -62,6 +69,7 @@ export const BuyStockDrawer = ({
             } else {
                 setName('');
                 setSymbol('');
+                setAction('BUY');
                 setShares('');
                 setPrice('');
                 setAmount('');
@@ -100,6 +108,11 @@ export const BuyStockDrawer = ({
             // ═══ 簡易模式 (基金) ═══
             if (isNaN(numAmount) || numAmount <= 0) { setError('請輸入有效的金額'); return; }
 
+            if (action === 'SELL' && !isEditMode && numAmount > availableAmount) {
+                setError(`減少的金額不能大於目前總投入金額 (${FORMAT_TWD.format(availableAmount)})`);
+                return;
+            }
+
             if (isEditMode && editingHoldingId && editingPurchase) {
                 const diff = numAmount - editingPurchase.totalCost;
                 if (diff > 0 && diff > availableCapital) {
@@ -107,13 +120,14 @@ export const BuyStockDrawer = ({
                     return;
                 }
                 updatePurchase(editingHoldingId, editingPurchase.id, {
-                    shares: 1,
+                    action,
+                    shares: 1, // 簡易模式暫以 shares=1 記錄，主要使用 totalCost
                     pricePerShare: numAmount,
                     totalCost: numAmount,
                     note: note || undefined,
                 });
             } else {
-                if (numAmount > availableCapital) {
+                if (action === 'BUY' && numAmount > availableCapital) {
                     setError(`超出剩餘可動用資金 (NT$ ${availableCapital.toLocaleString()})`);
                     return;
                 }
@@ -121,6 +135,7 @@ export const BuyStockDrawer = ({
                     type,
                     name: trimmedName,
                     symbol: symbol || undefined,
+                    action,
                     shares: 1,
                     pricePerShare: numAmount,
                     totalCost: numAmount,
@@ -130,17 +145,23 @@ export const BuyStockDrawer = ({
         } else {
             // ═══ 股數模式 (台股/美股/虛擬幣) ═══
             if (isNaN(numShares) || numShares <= 0) { setError('請輸入有效的數量'); return; }
-            if (isNaN(numPrice) || numPrice <= 0) { setError('請輸入有效的買入價格'); return; }
+            if (isNaN(numPrice) || numPrice <= 0) { setError(`請輸入有效的${action === 'BUY' ? '買入' : '賣出'}價格`); return; }
+
+            if (action === 'SELL' && !isEditMode && numShares > availableShares) {
+                setError(`賣出數量不能大於目前持有數量 (${availableShares.toLocaleString()})`);
+                return;
+            }
 
             if (isEditMode && editingHoldingId && editingPurchase) {
                 const oldTotalTWD = editingPurchase.totalCost;
-                const diff = calcTotalTWD - oldTotalTWD;
-                if (diff > 0 && diff > availableCapital) {
+                const diff = action === 'BUY' ? calcTotalTWD - oldTotalTWD : 0; // 賣出不扣款
+                if (diff > 0 && diff > availableCapital && action === 'BUY') {
                     const label = isUSStock ? '美股帳戶' : '總資產';
                     setError(`增加的金額超出${label}剩餘可動用資金`);
                     return;
                 }
                 updatePurchase(editingHoldingId, editingPurchase.id, {
+                    action,
                     shares: numShares,
                     pricePerShare: numPrice,
                     totalCost: calcTotalTWD,
@@ -149,7 +170,7 @@ export const BuyStockDrawer = ({
                     note: note || undefined,
                 });
             } else {
-                if (calcTotalTWD > availableCapital) {
+                if (action === 'BUY' && calcTotalTWD > availableCapital) {
                     const label = isUSStock ? '美股帳戶' : '總資產';
                     setError(`超出${label}剩餘可動用資金 (NT$ ${availableCapital.toLocaleString()})`);
                     return;
@@ -158,6 +179,7 @@ export const BuyStockDrawer = ({
                     type,
                     name: trimmedName,
                     symbol: symbol || undefined,
+                    action,
                     shares: numShares,
                     pricePerShare: numPrice,
                     totalCost: calcTotalTWD,
@@ -193,7 +215,7 @@ export const BuyStockDrawer = ({
                             {ASSET_LABELS[type]}
                         </div>
                         <h3 className="text-xl font-light text-slate-800">
-                            {isEditMode ? '編輯紀錄' : (isSimpleMode ? '記錄投入' : '記錄買入')}
+                            {isEditMode ? '編輯紀錄' : (isSimpleMode ? '新增紀錄' : '新增交易')}
                         </h3>
                     </div>
                     <button onClick={onClose} className="p-2 -mr-2 text-clay hover:text-slate-800 transition-colors">
@@ -202,6 +224,30 @@ export const BuyStockDrawer = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                    {/* 買入 / 賣出 Toggle */}
+                    <div className="flex bg-stoneSoft/30 p-1 rounded-xl">
+                        <button
+                            type="button"
+                            onClick={() => { setAction('BUY'); setError(''); }}
+                            className={cn(
+                                "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+                                action === 'BUY' ? "bg-white shadow-sm text-rust" : "text-clay hover:text-slate-800"
+                            )}
+                        >
+                            {isSimpleMode ? '投入' : '買入'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setAction('SELL'); setError(''); }}
+                            className={cn(
+                                "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+                                action === 'SELL' ? "bg-white shadow-sm text-moss" : "text-clay hover:text-slate-800"
+                            )}
+                        >
+                            {isSimpleMode ? '取回' : '賣出'}
+                        </button>
+                    </div>
+
                     {type === 'TAIWAN_STOCK' || type === 'US_STOCK' ? (
                         <AssetSearchInput
                             type={type}
@@ -235,7 +281,7 @@ export const BuyStockDrawer = ({
                     {isSimpleMode ? (
                         /* ═══ 簡易模式：只有金額 ═══ */
                         <Input
-                            label="投入金額 (TWD)"
+                            label={action === 'BUY' ? "投入金額 (TWD)" : "取回金額 (TWD)"}
                             placeholder="例如: 10,000"
                             value={amount}
                             onChange={handleAmountChange}
@@ -246,7 +292,7 @@ export const BuyStockDrawer = ({
                         <>
                             <div className="grid grid-cols-2 gap-4">
                                 <Input
-                                    label={type === 'CRYPTO' ? '買入數量' : '買入股數'}
+                                    label={type === 'CRYPTO' ? (action === 'BUY' ? '買入數量' : '賣出數量') : (action === 'BUY' ? '買入股數' : '賣出股數')}
                                     placeholder="0"
                                     value={shares}
                                     onChange={(e) => {
@@ -256,7 +302,7 @@ export const BuyStockDrawer = ({
                                     }}
                                 />
                                 <Input
-                                    label={isUSStock ? '買入價格 (USD)' : '買入價格 (TWD)'}
+                                    label={isUSStock ? (action === 'BUY' ? '買入價格 (USD)' : '賣出價格 (USD)') : (action === 'BUY' ? '買入價格 (TWD)' : '賣出價格 (TWD)')}
                                     placeholder="0"
                                     value={price}
                                     onChange={(e) => {
@@ -274,9 +320,16 @@ export const BuyStockDrawer = ({
                             {/* 自動計算總額 */}
                             {calcTotal > 0 && (
                                 <div className="p-3 rounded-xl bg-stoneSoft/30 border border-stoneSoft">
-                                    <p className="text-xs text-clay mb-1">
-                                        {isEditMode ? '修改後投入金額' : '此次投入金額'}
-                                    </p>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <p className="text-xs text-clay">
+                                            {isEditMode ? '修改後總金額' : (action === 'BUY' ? '此次投入金額' : '此次拿回金額')}
+                                        </p>
+                                        {action === 'SELL' && availableShares > 0 && (
+                                            <p className="text-[10px] text-clay bg-white/50 px-1.5 py-0.5 rounded">
+                                                可賣出餘額: {availableShares.toLocaleString()}
+                                            </p>
+                                        )}
+                                    </div>
                                     <div className="flex items-baseline gap-2">
                                         {isUSStock && (
                                             <span className="text-lg font-light text-slate-800">

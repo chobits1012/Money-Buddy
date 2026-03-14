@@ -187,6 +187,11 @@ export const Dashboard = () => {
         return sum + (h.type === 'US_STOCK' ? pnl * exchangeRateUSD : pnl);
     }, 0);
 
+    const totalRealizedPnL = holdings.reduce((sum, h) => {
+        const pnl = h.realizedPnL || 0;
+        return sum + (h.type === 'US_STOCK' ? pnl * exchangeRateUSD : pnl);
+    }, 0);
+
     // ═══ 入金相關 ═══
     const handleDepositAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/,/g, '').replace(/[^\d]/g, '');
@@ -251,17 +256,32 @@ export const Dashboard = () => {
                         <p className="text-xs text-clay mt-1">
                             總資產: {FORMAT_TWD.format(totalCapitalPool)}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
-                            <span className="text-[10px] uppercase font-semibold tracking-wider text-clay flex items-center gap-1">
-                                未實現損益
-                                {isLoadingQuotes && <span className="material-symbols-outlined text-[10px] animate-spin">sync</span>}
-                            </span>
-                            <span className={cn(
-                                "text-sm font-semibold",
-                                totalUnrealizedPnL > 0 ? "text-rust" : totalUnrealizedPnL < 0 ? "text-moss" : "text-clay"
-                            )}>
-                                {totalUnrealizedPnL > 0 ? '+' : ''}{FORMAT_TWD.format(totalUnrealizedPnL)}
-                            </span>
+                        <div className="flex flex-col gap-1 mt-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] uppercase font-semibold tracking-wider text-clay flex items-center gap-1">
+                                    未實現損益
+                                    {isLoadingQuotes && <span className="material-symbols-outlined text-[10px] animate-spin">sync</span>}
+                                </span>
+                                <span className={cn(
+                                    "text-sm font-semibold",
+                                    totalUnrealizedPnL > 0 ? "text-rust" : totalUnrealizedPnL < 0 ? "text-moss" : "text-clay"
+                                )}>
+                                    {totalUnrealizedPnL > 0 ? '+' : ''}{FORMAT_TWD.format(totalUnrealizedPnL)}
+                                </span>
+                            </div>
+                            {totalRealizedPnL !== 0 && (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] uppercase font-semibold tracking-wider text-clay flex items-center gap-1">
+                                        已實現損益
+                                    </span>
+                                    <span className={cn(
+                                        "text-sm font-semibold",
+                                        totalRealizedPnL > 0 ? "text-rust" : totalRealizedPnL < 0 ? "text-moss" : "text-clay"
+                                    )}>
+                                        {totalRealizedPnL > 0 ? '+' : ''}{FORMAT_TWD.format(totalRealizedPnL)}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-1">

@@ -106,7 +106,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, getHoldingsTotalByType, removeHolding, removePurchase,
         usStockFundPool, getUsStockAvailableCapital,
-        isLoadingQuotes, fetchQuotesForHoldings
+        isLoadingQuotes, fetchQuotesForHoldings, exchangeRateUSD
     } = usePortfolioStore();
 
     useEffect(() => {
@@ -240,7 +240,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                         <span className="material-symbols-outlined text-clay text-2xl">add</span>
                     </div>
                     <p className="text-clay text-sm mb-1">尚無持倉紀錄</p>
-                    <p className="text-clay/60 text-xs">點擊下方按鈕記錄第一筆買入</p>
+                    <p className="text-clay/60 text-xs">點擊下方按鈕記錄第一筆交易</p>
                 </Card>
             ) : (
                 <div className="flex flex-col gap-3">
@@ -260,7 +260,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                 {holding.name}
                                             </h4>
                                             <span className="text-[10px] text-clay bg-stoneSoft/40 px-1.5 py-0.5 rounded shrink-0">
-                                                {holding.purchases.length} 筆{isSimpleMode ? '投入' : '買入'}
+                                                {holding.purchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
                                             </span>
                                         </div>
                                         {isSimpleMode ? (
@@ -321,17 +321,47 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                         未實現損益
                                                         {isLoadingQuotes && <span className="material-symbols-outlined text-[10px] animate-spin">sync</span>}
                                                     </p>
-                                                    <p className={cn(
-                                                        "text-sm font-bold mt-0.5",
-                                                        holding.unrealizedPnL && holding.unrealizedPnL > 0 ? "text-rust" : holding.unrealizedPnL && holding.unrealizedPnL < 0 ? "text-moss" : "text-clay"
-                                                    )}>
-                                                        {holding.unrealizedPnL !== undefined
-                                                            ? (isUSStock
-                                                                ? `${holding.unrealizedPnL > 0 ? '+' : ''}$${holding.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                : `${holding.unrealizedPnL > 0 ? '+' : ''}${FORMAT_TWD.format(holding.unrealizedPnL)}`)
-                                                            : '-'
-                                                        }
+                                                    <div className="flex flex-col mt-0.5">
+                                                        <p className={cn(
+                                                            "text-sm font-bold",
+                                                            holding.unrealizedPnL && holding.unrealizedPnL > 0 ? "text-rust" : holding.unrealizedPnL && holding.unrealizedPnL < 0 ? "text-moss" : "text-clay"
+                                                        )}>
+                                                            {holding.unrealizedPnL !== undefined
+                                                                ? (isUSStock
+                                                                    ? `${holding.unrealizedPnL > 0 ? '+' : ''}$${holding.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                    : `${holding.unrealizedPnL > 0 ? '+' : ''}${FORMAT_TWD.format(holding.unrealizedPnL)}`)
+                                                                : '-'
+                                                            }
+                                                        </p>
+                                                        {isUSStock && holding.unrealizedPnL !== undefined && (
+                                                            <p className="text-[10px] text-clay/60">
+                                                                ≈ {FORMAT_TWD.format(holding.unrealizedPnL * exchangeRateUSD)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] text-clay uppercase tracking-wider flex items-center gap-1 cursor-help" title="已結算的實際獲利">
+                                                        已實現損益
                                                     </p>
+                                                    <div className="flex flex-col mt-0.5">
+                                                        <p className={cn(
+                                                            "text-sm font-bold",
+                                                            holding.realizedPnL && holding.realizedPnL > 0 ? "text-rust" : holding.realizedPnL && holding.realizedPnL < 0 ? "text-moss" : "text-clay"
+                                                        )}>
+                                                            {holding.realizedPnL !== undefined && holding.realizedPnL !== 0
+                                                                ? (isUSStock
+                                                                    ? `${holding.realizedPnL > 0 ? '+' : ''}$${holding.realizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                    : `${holding.realizedPnL > 0 ? '+' : ''}${FORMAT_TWD.format(holding.realizedPnL)}`)
+                                                                : '-'
+                                                            }
+                                                        </p>
+                                                        {isUSStock && holding.realizedPnL !== undefined && holding.realizedPnL !== 0 && (
+                                                            <p className="text-[10px] text-clay/60">
+                                                                ≈ {FORMAT_TWD.format(holding.realizedPnL * exchangeRateUSD)}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
@@ -347,7 +377,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                 {isExpanded && (
                                     <div className="border-t border-stoneSoft/60 bg-stoneSoft/10">
                                         <div className="px-4 py-2 flex justify-between items-center">
-                                            <p className="text-[10px] text-clay uppercase tracking-wider font-medium">{isSimpleMode ? '投入紀錄' : '購買紀錄'}</p>
+                                            <p className="text-[10px] text-clay uppercase tracking-wider font-medium">{isSimpleMode ? '投入與取回紀錄' : '交易紀錄'}</p>
                                             <button
                                                 onClick={() => setConfirmAction({
                                                     title: '刪除標的',
@@ -374,10 +404,16 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                     )}
                                                 >
                                                     <div className="flex-1">
-                                                        <div className="flex items-center gap-2 text-xs">
+                                                        <div className="flex items-center gap-2 text-[10px]">
+                                                            <span className={cn(
+                                                                "px-1.5 py-0.5 rounded font-medium tracking-wider uppercase",
+                                                                purchase.action === 'SELL' ? "bg-moss/10 text-moss" : "bg-rust/10 text-rust"
+                                                            )}>
+                                                                {purchase.action === 'SELL' ? 'SELL' : 'BUY'}
+                                                            </span>
                                                             <span className="text-clay">{dateStr}</span>
                                                             {purchase.note && (
-                                                                <span className="text-clay/60 bg-stoneSoft/30 px-1.5 py-0.5 rounded text-[10px]">
+                                                                <span className="text-clay/60 bg-stoneSoft/30 px-1.5 py-0.5 rounded">
                                                                     {purchase.note}
                                                                 </span>
                                                             )}
@@ -401,10 +437,10 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                                         : `$${purchase.pricePerShare.toLocaleString('en-US')}`
                                                                     }
                                                                 </span>
-                                                                <span className="text-moss font-medium">
+                                                                <span className={cn("font-medium", purchase.action === 'SELL' ? "text-moss" : "text-rust")}>
                                                                     {isUSStock && purchase.totalCostUSD
-                                                                        ? `$${purchase.totalCostUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                        : FORMAT_TWD.format(purchase.totalCost)
+                                                                        ? `${purchase.action === 'BUY' ? '-' : '+'}$${purchase.totalCostUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                        : `${purchase.action === 'BUY' ? '-' : '+'}${FORMAT_TWD.format(purchase.totalCost)}`
                                                                     }
                                                                 </span>
                                                             </div>
@@ -450,7 +486,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                 size="lg"
             >
                 <span className="material-symbols-outlined text-xl mr-2 transition-transform group-hover:rotate-90">add</span>
-                {isSimpleMode ? '記錄投入' : '記錄買入'}
+                {isSimpleMode ? '記錄交易' : '記錄交易'} 
             </Button>
 
             {/* 買入 / 編輯表單抽屜 */}

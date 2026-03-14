@@ -20,13 +20,14 @@ export interface Transaction {
     holdingId?: string;
 }
 
-// 單次購買紀錄
+// 單次交易紀錄 (原購買紀錄擴充)
 export interface PurchaseRecord {
     id: string;
+    action?: 'BUY' | 'SELL'; // 買或賣 (為了向後相容，預設為 BUY)
     date: string;
     shares: number;
     pricePerShare: number;
-    totalCost: number;
+    totalCost: number; // 如果是 SELL，代表拿回的總金額
     totalCostUSD?: number;
     exchangeRate?: number;
     note?: string;
@@ -45,6 +46,7 @@ export interface StockHolding {
     totalAmountUSD?: number;
     currentPrice?: number;
     unrealizedPnL?: number;
+    realizedPnL?: number; // 已實現損益
     createdAt: string;
     updatedAt: string;
 }

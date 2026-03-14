@@ -7,32 +7,76 @@ import { DEFAULT_USD_RATE } from '../utils/constants';
 function recalcHolding(holding: StockHolding): StockHolding {
     const purchases = holding.purchases;
     if (purchases.length === 0) {
-        return { ...holding, shares: 0, avgPrice: 0, totalAmount: 0, totalAmountUSD: 0 };
+        return { ...holding, shares: 0, avgPrice: 0, totalAmount: 0, totalAmountUSD: undefined, unrealizedPnL: undefined, realizedPnL: 0 };
     }
 
-    const totalShares = purchases.reduce((sum, p) => sum + p.shares, 0);
-    const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
-    const totalCostUSD = purchases.reduce((sum, p) => sum + (p.totalCostUSD ?? 0), 0);
+    // 確保以時間順序處理交易
+    const sortedPurchases = [...purchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let totalShares = 0;
+    let totalCost = 0;
+    let totalCostUSD = 0;
+    let realizedPnL = 0;
 
     const isUSStock = holding.type === 'US_STOCK';
+
+    for (const p of sortedPurchases) {
+        const action = p.action || 'BUY';
+
+        if (action === 'BUY') {
+            totalShares += p.shares;
+            totalCost += p.totalCost;
+            if (p.totalCostUSD) {
+                totalCostUSD += p.totalCostUSD;
+            }
+        } else if (action === 'SELL') {
+            const currentAvgPrice = totalShares > 0
+                ? (isUSStock ? totalCostUSD / totalShares : totalCost / totalShares)
+                : 0;
+
+            const sellShares = Math.min(p.shares, totalShares); // 防止超賣
+            
+            // 已實現損益：(賣出總額 - 目前均價 * 賣出單位數)
+            const pnl = isUSStock && p.totalCostUSD
+                ? (p.totalCostUSD - currentAvgPrice * sellShares)
+                : (p.totalCost - currentAvgPrice * sellShares);
+
+            realizedPnL += pnl;
+
+            // 按比例扣除總成本，保持均價不變
+            if (totalShares > 0) {
+                const proportion = sellShares / totalShares;
+                totalCost -= (totalCost * proportion);
+                totalCostUSD -= (totalCostUSD * proportion);
+            }
+            totalShares -= sellShares;
+        }
+    }
+
+    // 防禦性處理浮點數誤差
+    if (totalShares < 0.000001) {
+        totalShares = 0;
+        totalCost = 0;
+        totalCostUSD = 0;
+    }
+
     const avgPrice = totalShares > 0
         ? (isUSStock ? totalCostUSD / totalShares : totalCost / totalShares)
         : 0;
 
-    let unrealizedPnL = holding.unrealizedPnL;
+    let unrealizedPnL = undefined;
     if (holding.currentPrice !== undefined && totalShares > 0) {
         unrealizedPnL = (holding.currentPrice - avgPrice) * totalShares;
-    } else if (totalShares === 0) {
-        unrealizedPnL = undefined;
     }
 
     return {
         ...holding,
-        shares: totalShares,
+        shares: Number(totalShares.toFixed(6)),
         avgPrice: Math.round(avgPrice * 100) / 100,
-        totalAmount: totalCost,
-        totalAmountUSD: totalCostUSD > 0 ? totalCostUSD : undefined,
+        totalAmount: Math.round(totalCost), // 台幣取整數
+        totalAmountUSD: totalCostUSD > 0 ? Number(totalCostUSD.toFixed(2)) : undefined, // 美金取兩位
         unrealizedPnL: unrealizedPnL !== undefined ? Math.round(unrealizedPnL * 100) / 100 : undefined,
+        realizedPnL: Math.round(realizedPnL * 100) / 100,
         updatedAt: new Date().toISOString(),
     };
 }
@@ -59,6 +103,7 @@ interface PortfolioStore extends PortfolioState {
         type: StockAssetType;
         name: string;
         symbol?: string; // 加入 symbol
+        action?: 'BUY' | 'SELL';
         shares: number;
         pricePerShare: number;
         totalCost: number;
@@ -73,6 +118,7 @@ interface PortfolioStore extends PortfolioState {
     getHoldingsByType: (type: StockAssetType) => StockHolding[];
     getHoldingsTotalByType: (type: StockAssetType) => number;
     updatePurchase: (holdingId: string, purchaseId: string, updates: {
+        action?: 'BUY' | 'SELL';
         shares?: number;
         pricePerShare?: number;
         totalCost?: number;
@@ -227,6 +273,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                 const newPurchase: PurchaseRecord = {
                     id: crypto.randomUUID(),
                     date: now,
+                    action: params.action || 'BUY',
                     shares: params.shares,
                     pricePerShare: params.pricePerShare,
                     totalCost: params.totalCost,
@@ -240,12 +287,28 @@ export const usePortfolioStore = create<PortfolioStore>()(
                         (h) => h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase()
                     );
 
+                    let updatedHoldings = [...state.holdings];
+                    let pnlDeltaTWD = 0;
+                    let pnlDeltaUSD = 0;
+
                     if (existingIndex >= 0) {
-                        const updated = [...state.holdings];
-                        const existing = { ...updated[existingIndex] };
+                        const existing = { ...updatedHoldings[existingIndex] };
+                        const oldPnL = existing.realizedPnL || 0;
+                        
                         existing.purchases = [...existing.purchases, newPurchase];
-                        updated[existingIndex] = recalcHolding(existing);
-                        return { holdings: updated };
+                        const recalculated = recalcHolding(existing);
+                        updatedHoldings[existingIndex] = recalculated;
+                        
+                        const newPnL = recalculated.realizedPnL || 0;
+                        const diff = newPnL - oldPnL;
+                        
+                        if (existing.type === 'US_STOCK') {
+                            // 美國股票的 realizedPnL 實際上儲存的單位也是根據是否傳入 USD 來決定的（這裡目前依據 recalHolding 邏輯，美股算出來的 PnL 是美金單位）
+                            pnlDeltaUSD = diff; 
+                        } else {
+                            pnlDeltaTWD = diff;
+                        }
+
                     } else {
                         const newHolding: StockHolding = {
                             id: crypto.randomUUID(),
@@ -259,8 +322,26 @@ export const usePortfolioStore = create<PortfolioStore>()(
                             createdAt: now,
                             updatedAt: now,
                         };
-                        return { holdings: [...state.holdings, recalcHolding(newHolding)] };
+                        const recalculated = recalcHolding(newHolding);
+                        updatedHoldings = [...updatedHoldings, recalculated];
+                        
+                        if (recalculated.type === 'US_STOCK') {
+                            pnlDeltaUSD = recalculated.realizedPnL || 0;
+                        } else {
+                            pnlDeltaTWD = recalculated.realizedPnL || 0;
+                        }
                     }
+
+                    // 如果是賣出，代表有現金收回。
+                    // 目前架構下：
+                    // 台股/基金/虛擬幣：占用 totalCapitalPool 裡面的「可用資金」。賣出後，不需要特別去改 CapitalPool，因為 totalInvested 會變少。
+                    // 但是！如果你「虧損」或「獲益」，這部分資金是真正的增減，需要反映回總資金池。
+                    // 因此我們將 Delta(RealizedPnL) 加回到資金池中。
+                    return { 
+                        holdings: updatedHoldings,
+                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                    };
                 });
             },
 
@@ -271,14 +352,37 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                     const updated = [...state.holdings];
                     const holding = { ...updated[holdingIndex] };
+                    const oldPnL = holding.realizedPnL || 0;
                     holding.purchases = holding.purchases.filter((p) => p.id !== purchaseId);
 
+                    let pnlDeltaTWD = 0;
+                    let pnlDeltaUSD = 0;
+
                     if (holding.purchases.length === 0) {
-                        return { holdings: state.holdings.filter((h) => h.id !== holdingId) };
+                        const diff = 0 - oldPnL;
+                        if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
+                        else pnlDeltaTWD = diff;
+
+                        return { 
+                            holdings: state.holdings.filter((h) => h.id !== holdingId),
+                            totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
+                            usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                        };
                     }
 
-                    updated[holdingIndex] = recalcHolding(holding);
-                    return { holdings: updated };
+                    const recalculated = recalcHolding(holding);
+                    updated[holdingIndex] = recalculated;
+                    
+                    const newPnL = recalculated.realizedPnL || 0;
+                    const diff = newPnL - oldPnL;
+                    if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
+                    else pnlDeltaTWD = diff;
+
+                    return { 
+                        holdings: updated,
+                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                    };
                 });
             },
 
@@ -304,9 +408,24 @@ export const usePortfolioStore = create<PortfolioStore>()(
             },
 
             removeHolding: (id) => {
-                set((state) => ({
-                    holdings: state.holdings.filter((h) => h.id !== id),
-                }));
+                set((state) => {
+                    const holding = state.holdings.find((h) => h.id === id);
+                    if (!holding) return {};
+                    
+                    let pnlDeltaTWD = 0;
+                    let pnlDeltaUSD = 0;
+                    const oldPnL = holding.realizedPnL || 0;
+                    const diff = 0 - oldPnL;
+
+                    if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
+                    else pnlDeltaTWD = diff;
+
+                    return {
+                        holdings: state.holdings.filter((h) => h.id !== id),
+                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                    };
+                });
             },
 
             getHoldingsByType: (type) => {
@@ -326,13 +445,28 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                     const updatedHoldings = [...state.holdings];
                     const holding = { ...updatedHoldings[holdingIndex] };
+                    const oldPnL = holding.realizedPnL || 0;
                     holding.purchases = holding.purchases.map((p) => {
                         if (p.id !== purchaseId) return p;
                         return { ...p, ...updates };
                     });
 
-                    updatedHoldings[holdingIndex] = recalcHolding(holding);
-                    return { holdings: updatedHoldings };
+                    const recalculated = recalcHolding(holding);
+                    updatedHoldings[holdingIndex] = recalculated;
+
+                    const newPnL = recalculated.realizedPnL || 0;
+                    const diff = newPnL - oldPnL;
+
+                    let pnlDeltaTWD = 0;
+                    let pnlDeltaUSD = 0;
+                    if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
+                    else pnlDeltaTWD = diff;
+
+                    return { 
+                        holdings: updatedHoldings,
+                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                    };
                 });
             },
 
