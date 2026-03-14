@@ -43,15 +43,21 @@ export const WelcomeSetup = () => {
     return (
         <div className="flex-1 flex flex-col justify-center items-center px-4 -mt-16 sm:mt-0 animate-in fade-in duration-700">
             <div className="mb-10 text-center">
-                <div className="w-16 h-16 bg-primary/15 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/10">
-                    <span className="material-symbols-outlined text-primary text-3xl">account_balance_wallet</span>
+                <div className="flex justify-center mb-4">
+                    <img 
+                        src="/pwa-192x192.png" 
+                        alt="財柴" 
+                        className="w-24 h-24 object-contain drop-shadow-md pb-2" 
+                    />
                 </div>
-                <h1 className="text-3xl font-light tracking-tight text-slate-800 mb-3">
-                    歡迎使用資產控管中心
+                <h1 className="text-xl sm:text-2xl font-medium tracking-tight text-textPrimary mb-4 leading-snug">
+                    歡迎使用money buddy<br />
+                    我是你的錢錢好夥伴-財柴
                 </h1>
-                <p className="text-clay text-sm max-w-sm mx-auto leading-relaxed">
-                    為了精準追蹤您的財務分配，請先設定您的
-                    <strong className="text-slate-700 font-medium ml-1">初始總資金 (TWD)</strong>。
+                <p className="text-textSecondary text-sm max-w-sm mx-auto leading-relaxed">
+                    為了讓我追蹤您的財務分配，<br />
+                    請先設定您的
+                    <strong className="text-textPrimary font-medium ml-1">初始總資金 (TWD)</strong>
                 </p>
             </div>
 
@@ -66,7 +72,7 @@ export const WelcomeSetup = () => {
                         icon={<span className="font-semibold px-2 text-clay">NT$</span>}
                         autoFocus
                     />
-                    <Button type="submit" size="lg" className="w-full group">
+                    <Button type="submit" size="lg" className="w-full group !bg-moss hover:!bg-moss/90 !shadow-moss/20">
                         開始追蹤
                         <span className="material-symbols-outlined text-base ml-2 transition-transform group-hover:translate-x-1">arrow_forward</span>
                     </Button>
