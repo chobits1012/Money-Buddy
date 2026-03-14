@@ -7,6 +7,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { BuyStockDrawer } from './HoldingFormDrawer';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { cn } from '../../utils/cn';
 
 interface HoldingsPageProps {
@@ -110,6 +111,13 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [isBuyOpen, setIsBuyOpen] = useState(false);
     const [isDepositOpen, setIsDepositOpen] = useState(false);
     const [expandedHoldingId, setExpandedHoldingId] = useState<string | null>(null);
+
+    // ConfirmModal 狀態
+    const [confirmAction, setConfirmAction] = useState<{
+        title: string;
+        message: string;
+        action: () => void;
+    } | null>(null);
 
     // 編輯模式狀態
     const [editingPurchase, setEditingPurchase] = useState<PurchaseRecord | undefined>(undefined);
@@ -296,7 +304,11 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                         <div className="px-4 py-2 flex justify-between items-center">
                                             <p className="text-[10px] text-clay uppercase tracking-wider font-medium">{isSimpleMode ? '投入紀錄' : '購買紀錄'}</p>
                                             <button
-                                                onClick={() => { if (window.confirm(`確定要刪除「${holding.name}」所有資料嗎？`)) removeHolding(holding.id); }}
+                                                onClick={() => setConfirmAction({
+                                                    title: '刪除標的',
+                                                    message: `確定要刪除「${holding.name}」所有資料嗎？此動作無法復原。`,
+                                                    action: () => removeHolding(holding.id)
+                                                })}
                                                 className="text-[10px] text-rust/60 hover:text-rust transition-colors px-2 py-1 rounded"
                                             >
                                                 刪除此標的
@@ -364,7 +376,11 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                         </button>
                                                         {/* 刪除按鈕 */}
                                                         <button
-                                                            onClick={() => { if (window.confirm('確定要刪除這筆買入紀錄嗎？')) removePurchase(holding.id, purchase.id); }}
+                                                            onClick={() => setConfirmAction({
+                                                                title: '刪除紀錄',
+                                                                message: '確定要刪除這筆買入紀錄嗎？',
+                                                                action: () => removePurchase(holding.id, purchase.id)
+                                                            })}
                                                             className="p-2 rounded-lg text-clay/40 hover:text-rust hover:bg-rust/10 transition-all"
                                                             title="刪除此筆買入"
                                                         >
@@ -409,6 +425,19 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                     onClose={() => { setIsDepositOpen(false); }}
                 />
             )}
+
+            {/* Confirm Modal */}
+            <ConfirmModal
+                isOpen={!!confirmAction}
+                title={confirmAction?.title || ''}
+                message={confirmAction?.message || ''}
+                confirmText="刪除"
+                onConfirm={() => {
+                    if (confirmAction) confirmAction.action();
+                    setConfirmAction(null);
+                }}
+                onCancel={() => setConfirmAction(null)}
+            />
         </div>
     );
 };

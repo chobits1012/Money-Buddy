@@ -2,9 +2,12 @@ import { usePortfolioStore } from '../../store/portfolioStore';
 import { ASSET_LABELS, ASSET_COLORS } from '../../utils/constants';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { ConfirmModal } from '../ui/ConfirmModal';
+import { useState } from 'react';
 
 export const TransactionHistory = () => {
     const { transactions, removeTransaction } = usePortfolioStore();
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     // 過濾掉舊的已移除類型 (如 BONDS)，避免 label 查找失敗
     const validTypes = new Set(['TAIWAN_STOCK', 'US_STOCK', 'FUNDS']);
@@ -69,7 +72,7 @@ export const TransactionHistory = () => {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => { if (window.confirm('確定要刪除這筆紀錄嗎？')) removeTransaction(tx.id); }}
+                                    onClick={() => setConfirmDeleteId(tx.id)}
                                     className="w-8 h-8 p-0 text-clay hover:text-rust hover:bg-rust/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity md:opacity-100"
                                     title="刪除此筆紀錄"
                                 >
@@ -80,6 +83,18 @@ export const TransactionHistory = () => {
                     );
                 })}
             </div>
+
+            <ConfirmModal
+                isOpen={!!confirmDeleteId}
+                title="刪除紀錄"
+                message="確定要刪除這筆紀錄嗎？此動作無法復原。"
+                confirmText="刪除"
+                onConfirm={() => {
+                    if (confirmDeleteId) removeTransaction(confirmDeleteId);
+                    setConfirmDeleteId(null);
+                }}
+                onCancel={() => setConfirmDeleteId(null)}
+            />
         </div>
     );
 };

@@ -8,6 +8,7 @@ import { Input } from '../ui/Input';
 import type { StockAssetType, CustomCategory } from '../../types';
 import { TransactionHistory } from '../history/TransactionHistory';
 import { HoldingsPage } from '../holdings/HoldingsPage';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { cn } from '../../utils/cn';
 
 // ═══ 自訂欄位新增/編輯 Drawer ═══
@@ -163,6 +164,13 @@ export const Dashboard = () => {
     const [depositError, setDepositError] = useState('');
     const [showDepositHistory, setShowDepositHistory] = useState(false);
 
+    // ConfirmModal 狀態
+    const [confirmAction, setConfirmAction] = useState<{
+        title: string;
+        message: string;
+        action: () => void;
+    } | null>(null);
+
     const availableCapital = getAvailableCapital();
     const invested = totalCapitalPool - availableCapital;
     const investedPercentage = totalCapitalPool > 0 ? (invested / totalCapitalPool) * 100 : 0;
@@ -237,7 +245,11 @@ export const Dashboard = () => {
                             <span className="material-symbols-outlined text-base mr-1">add</span>
                             入金
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => { if (window.confirm('確定要重設所有資料嗎？此操作無法復原。')) resetAll(); }} className="text-xs opacity-50 hover:opacity-100">
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmAction({
+                            title: '重設所有資料',
+                            message: '確定要重設所有資料嗎？此操作無法復原。',
+                            action: resetAll
+                        })} className="text-xs opacity-50 hover:opacity-100">
                             重設
                         </Button>
                     </div>
@@ -283,7 +295,11 @@ export const Dashboard = () => {
                                                 {dep.note && <span className="text-clay/60 bg-stoneSoft/30 px-1.5 py-0.5 rounded text-[10px]">{dep.note}</span>}
                                             </div>
                                             <button
-                                                onClick={() => { if (window.confirm('確定要刪除這筆入金紀錄嗎？總資產將相應減少。')) removeCapitalDeposit(dep.id); }}
+                                                onClick={() => setConfirmAction({
+                                                    title: '刪除入金紀錄',
+                                                    message: '確定要刪除這筆入金紀錄嗎？總資產將相應減少。',
+                                                    action: () => removeCapitalDeposit(dep.id)
+                                                })}
                                                 className="p-1 rounded text-clay/30 hover:text-rust hover:bg-rust/10 transition-all opacity-0 group-hover/dep:opacity-100"
                                                 title="刪除"
                                             >
@@ -398,7 +414,11 @@ export const Dashboard = () => {
                                                 <span className="material-symbols-outlined text-lg">edit</span>
                                             </button>
                                             <button
-                                                onClick={() => { if (window.confirm(`確定要刪除「${cat.name}」嗎？`)) removeCustomCategory(cat.id); }}
+                                                onClick={() => setConfirmAction({
+                                                    title: '刪除自訂欄位',
+                                                    message: `確定要刪除「${cat.name}」嗎？`,
+                                                    action: () => removeCustomCategory(cat.id)
+                                                })}
                                                 className="p-1.5 rounded-lg text-clay/40 hover:text-rust hover:bg-rust/10 transition-all"
                                                 title="刪除"
                                             >
@@ -465,6 +485,19 @@ export const Dashboard = () => {
                     </div>
                 </>
             )}
+
+            {/* Confirm Modal */}
+            <ConfirmModal
+                isOpen={!!confirmAction}
+                title={confirmAction?.title || ''}
+                message={confirmAction?.message || ''}
+                confirmText="確定"
+                onConfirm={() => {
+                    if (confirmAction) confirmAction.action();
+                    setConfirmAction(null);
+                }}
+                onCancel={() => setConfirmAction(null)}
+            />
         </div>
     );
 };

@@ -29,7 +29,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                             'placeholder:text-clay/50',
                             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary',
                             'disabled:cursor-not-allowed disabled:opacity-50',
-                            icon && 'pl-10',
+                            icon && 'pl-14',
                             error && 'border-rust focus-visible:ring-rust focus-visible:border-rust',
                             className
                         )}
