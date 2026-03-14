@@ -13,7 +13,9 @@ export default async function handler(req: any, res: any) {
         
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Origin': 'https://finance.yahoo.com',
+                'Referer': 'https://finance.yahoo.com/'
             }
         });
 
