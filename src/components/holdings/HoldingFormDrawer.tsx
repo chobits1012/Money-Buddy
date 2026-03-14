@@ -202,19 +202,35 @@ export const BuyStockDrawer = ({
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                    <AssetSearchInput
-                        type={type}
-                        value={name}
-                        onChange={(v) => setName(v)}
-                        onSelect={(n, sym) => {
-                            setName(`${n} (${sym})`);
-                            setSymbol(sym);
-                            setError('');
-                        }}
-                        placeholder={getNamePlaceholder()}
-                        error={error}
-                        disabled={isEditMode}
-                    />
+                    {type === 'TAIWAN_STOCK' || type === 'US_STOCK' ? (
+                        <AssetSearchInput
+                            type={type}
+                            value={name}
+                            onChange={(v) => setName(v)}
+                            onSelect={(n, sym) => {
+                                setName(`${n} (${sym})`);
+                                setSymbol(sym);
+                                setError('');
+                            }}
+                            placeholder={getNamePlaceholder()}
+                            error={error}
+                            disabled={isEditMode}
+                        />
+                    ) : (
+                        <Input
+                            label="標的名稱"
+                            placeholder={getNamePlaceholder()}
+                            value={name}
+                            onChange={(e) => { 
+                                setName(e.target.value); 
+                                setSymbol(''); // Non-stock assets don't need symbols for quotes right now
+                                setError(''); 
+                            }}
+                            autoFocus
+                            disabled={isEditMode}
+                            error={error}
+                        />
+                    )}
 
                     {isSimpleMode ? (
                         /* ═══ 簡易模式：只有金額 ═══ */

@@ -4,10 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
+import YahooFinance from 'yahoo-finance2';
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    yahooSearchPlugin(),
+    localApiPlugin(),
     tailwindcss(),
     react(),
     VitePWA({
@@ -47,13 +50,13 @@ export default defineConfig({
     },
   },
   server: {
-    // We use a custom plugin below for /api/search to bypass Yahoo's strict header/proxy blocks locally
+    // API served via custom plugin locally
   }
 })
 
-function yahooSearchPlugin() {
+function localApiPlugin() {
   return {
-    name: 'yahoo-search-plugin',
+    name: 'local-api-plugin',
     configureServer(server: any) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         if (req.url?.startsWith('/api/search')) {
@@ -63,25 +66,42 @@ function yahooSearchPlugin() {
             res.statusCode = 400;
             return res.end(JSON.stringify({ error: 'Missing q' }));
           }
-          
           try {
-            const targetUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&enableFuzzyQuery=false`;
-            
-            // Dynamic import of node-fetch or use native fetch if available in Node 18+
-            const response = await fetch(targetUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                // Adding a fake referer/origin is sometimes needed
-                'Origin': 'https://finance.yahoo.com',
-                'Referer': 'https://finance.yahoo.com/'
-              }
+            const results = await yahooFinance.search(q, {
+              quotesCount: 10,
+              newsCount: 0,
+              enableFuzzyQuery: false,
             });
-            
-            const data: any = await response.json();
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(data.quotes || []));
+            res.end(JSON.stringify((results as any).quotes || []));
           } catch (err) {
-            console.error('Yahoo proxy error:', err);
+            console.error('Yahoo search error:', err);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'Proxy error' }));
+          }
+          return;
+        }
+
+        if (req.url?.startsWith('/api/quote')) {
+          const urlObj = new URL(req.url, `http://${req.headers.host}`);
+          const symbolsStr = urlObj.searchParams.get('symbols');
+          if (!symbolsStr) {
+            res.statusCode = 400;
+            return res.end(JSON.stringify({ error: 'Missing symbols' }));
+          }
+          try {
+            const symbolArray = symbolsStr.split(',').map(s => s.trim());
+            const quotes = await yahooFinance.quote(symbolArray);
+            const results = Array.isArray(quotes) ? quotes : [quotes];
+            const mapped = results.map((q: any) => ({
+                symbol: q.symbol,
+                price: q.regularMarketPrice,
+                currency: q.currency,
+            }));
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(mapped));
+          } catch (err) {
+            console.error('Yahoo quote error:', err);
             res.statusCode = 500;
             res.end(JSON.stringify({ error: 'Proxy error' }));
           }

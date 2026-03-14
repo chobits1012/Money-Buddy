@@ -22,6 +22,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
     "vite-plugin-pwa": "^1.2.0",
+    "yahoo-finance2": "^3.13.2",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -37,6 +38,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0",
-    "vite-plugin-api-routes": "^1.2.6"
+    "vite-plugin-api-routes": "^1.2.6",
+    "vite-plugin-vercel": "^9.1.1"
   }
 }

@@ -39,6 +39,7 @@ function recalcHolding(holding: StockHolding): StockHolding {
 
 // Zustand Store 介面
 interface PortfolioStore extends PortfolioState {
+    isLoadingQuotes: boolean;
     setCapitalPool: (amount: number) => void;
     addCapitalDeposit: (params: { amount: number; note: string }) => void;
     removeCapitalDeposit: (id: string) => void;
@@ -79,6 +80,7 @@ interface PortfolioStore extends PortfolioState {
         exchangeRate?: number;
         note?: string;
     }) => void;
+    fetchQuotesForHoldings: () => Promise<void>;
 
     // ═══ 自訂欄位管理 ═══
     addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
@@ -102,6 +104,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
     persist(
         (set, get) => ({
             ...initialState,
+            isLoadingQuotes: false,
 
             setCapitalPool: (amount: number) => {
                 if (amount < 0 || isNaN(amount)) return;
@@ -368,6 +371,51 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
             getCustomCategoriesTotal: () => {
                 return get().customCategories.reduce((sum, c) => sum + c.amount, 0);
+            },
+
+            fetchQuotesForHoldings: async () => {
+                const state = get();
+                const targetHoldings = state.holdings.filter(
+                    h => (h.type === 'TAIWAN_STOCK' || h.type === 'US_STOCK') && h.symbol
+                );
+
+                if (targetHoldings.length === 0) return;
+
+                set({ isLoadingQuotes: true });
+
+                try {
+                    // Extract unique symbols. TW stocks may need .TW appended if Yahoo API requires it.
+                    // For now, assume the user selected a valid symbol from AssetSearchInput.
+                    const symbols = [...new Set(targetHoldings.map(h => h.type === 'TAIWAN_STOCK' && !h.symbol!.includes('.') ? `${h.symbol}.TW` : h.symbol!))];
+                    
+                    // Simple batching: if too many, we might need chunks, but let's assume < 100
+                    const res = await fetch(`/api/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
+                    if (!res.ok) throw new Error('Failed to fetch quotes');
+                    
+                    const quotes = await res.json();
+                    
+                    const quoteMap: Record<string, number> = {};
+                    quotes.forEach((q: any) => {
+                        quoteMap[q.symbol] = q.price;
+                        // Map 2330.TW back to 2330 so we can match it in store
+                        if (q.symbol.endsWith('.TW')) {
+                            quoteMap[q.symbol.replace('.TW', '')] = q.price;
+                        }
+                    });
+
+                    set((state) => {
+                        const updated = state.holdings.map(h => {
+                            if (!h.symbol || !quoteMap[h.symbol]) return h;
+                            const currentPrice = quoteMap[h.symbol];
+                            return recalcHolding({ ...h, currentPrice });
+                        });
+                        return { holdings: updated, isLoadingQuotes: false };
+                    });
+
+                } catch (error) {
+                    console.error('Failed to update quotes:', error);
+                    set({ isLoadingQuotes: false });
+                }
             },
         }),
         {

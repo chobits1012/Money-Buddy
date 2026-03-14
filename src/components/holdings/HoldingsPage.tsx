@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { StockAssetType, PurchaseRecord } from '../../types';
 import { SIMPLE_HOLDING_TYPES } from '../../types';
 import { usePortfolioStore } from '../../store/portfolioStore';
@@ -106,7 +106,14 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, getHoldingsTotalByType, removeHolding, removePurchase,
         usStockFundPool, getUsStockAvailableCapital,
+        isLoadingQuotes, fetchQuotesForHoldings
     } = usePortfolioStore();
+
+    useEffect(() => {
+        if (!SIMPLE_HOLDING_TYPES.includes(type)) {
+            fetchQuotesForHoldings();
+        }
+    }, [type, fetchQuotesForHoldings]);
 
     const [isBuyOpen, setIsBuyOpen] = useState(false);
     const [isDepositOpen, setIsDepositOpen] = useState(false);
@@ -310,7 +317,10 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">未實現損益</p>
+                                                    <p className="text-[10px] text-clay uppercase tracking-wider flex items-center gap-1">
+                                                        未實現損益
+                                                        {isLoadingQuotes && <span className="material-symbols-outlined text-[10px] animate-spin">sync</span>}
+                                                    </p>
                                                     <p className={cn(
                                                         "text-sm font-bold mt-0.5",
                                                         holding.unrealizedPnL && holding.unrealizedPnL > 0 ? "text-rust" : holding.unrealizedPnL && holding.unrealizedPnL < 0 ? "text-moss" : "text-clay"

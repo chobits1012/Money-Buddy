@@ -149,8 +149,14 @@ export const Dashboard = () => {
         holdings, exchangeRateUSD,
         totalCapitalPool, resetAll, customCategories, removeCustomCategory,
         capitalDeposits, addCapitalDeposit, removeCapitalDeposit,
+        fetchQuotesForHoldings, isLoadingQuotes
     } = usePortfolioStore();
     const getAvailableCapital = usePortfolioStore((state) => state.getAvailableCapital);
+
+    React.useEffect(() => {
+        // Fetch real-time quotes when the dashboard loads
+        fetchQuotesForHoldings();
+    }, [fetchQuotesForHoldings]);
 
     const [activeHoldingsType, setActiveHoldingsType] = useState<StockAssetType | null>(null);
 
@@ -246,7 +252,10 @@ export const Dashboard = () => {
                             總資產: {FORMAT_TWD.format(totalCapitalPool)}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
-                            <span className="text-[10px] uppercase font-semibold tracking-wider text-clay">未實現損益</span>
+                            <span className="text-[10px] uppercase font-semibold tracking-wider text-clay flex items-center gap-1">
+                                未實現損益
+                                {isLoadingQuotes && <span className="material-symbols-outlined text-[10px] animate-spin">sync</span>}
+                            </span>
                             <span className={cn(
                                 "text-sm font-semibold",
                                 totalUnrealizedPnL > 0 ? "text-rust" : totalUnrealizedPnL < 0 ? "text-moss" : "text-clay"
