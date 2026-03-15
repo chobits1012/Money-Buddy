@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import CryptoJS from 'crypto-js';
 import type { PortfolioState, Transaction, AssetType, StockHolding, StockAssetType, PurchaseRecord, CustomCategory, CapitalDeposit } from '../types';
 import { DEFAULT_USD_RATE } from '../utils/constants';
 
@@ -147,6 +148,30 @@ const initialState: PortfolioState = {
     holdings: [],
     customCategories: [],
     isConfigured: false,
+};
+
+const ENCRYPTION_KEY = import.meta.env.VITE_STORAGE_ENCRYPTION_KEY || 'default_secret_key_DO_NOT_USE_IN_PROD';
+
+const encryptedStorage = {
+    getItem: (name: string) => {
+        const encrypted = localStorage.getItem(name);
+        if (!encrypted) return null;
+        try {
+            const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
+            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+            return decrypted ? decrypted : null;
+        } catch (e) {
+            console.error('解密本地資料失敗', e);
+            return null;
+        }
+    },
+    setItem: (name: string, value: string) => {
+        const encrypted = CryptoJS.AES.encrypt(value, ENCRYPTION_KEY).toString();
+        localStorage.setItem(name, encrypted);
+    },
+    removeItem: (name: string) => {
+        localStorage.removeItem(name);
+    },
 };
 
 export const usePortfolioStore = create<PortfolioStore>()(
@@ -561,6 +586,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
         }),
         {
             name: 'portfolio-tracker-storage',
+            storage: createJSONStorage(() => encryptedStorage),
             onRehydrateStorage: () => (_state, error) => {
                 if (error) {
                     console.error('復原 LocalStorage 資料時發生錯誤:', error);
