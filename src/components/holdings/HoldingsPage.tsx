@@ -71,8 +71,8 @@ const FundTransferDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
             return;
         }
 
-        if (mode === 'OUT' && numTWD > availableInUS) {
-            setError(`金額不可大於美股帳戶目前可用餘額 (NT$ ${availableInUS.toLocaleString()})`);
+        if (mode === 'OUT' && numUSD > availableInUS) {
+            setError(`金額不可大於美股帳戶目前可用餘額 ($ ${availableInUS.toLocaleString()})`);
             return;
         }
 
@@ -186,7 +186,7 @@ const FundTransferDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, getHoldingsTotalByType, removeHolding, removePurchase,
-        usStockFundPool, getUsStockAvailableCapital,
+        usStockFundPool,
         isLoadingQuotes, fetchQuotesForHoldings, exchangeRateUSD
     } = usePortfolioStore();
 
@@ -212,12 +212,16 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [editingHoldingId, setEditingHoldingId] = useState<string | undefined>(undefined);
     const [editingHoldingName, setEditingHoldingName] = useState<string | undefined>(undefined);
 
-    const holdings = getHoldingsByType(type);
-    const totalInvested = getHoldingsTotalByType(type);
     const isUSStock = type === 'US_STOCK';
     const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type);
+    
+    const holdings = getHoldingsByType(type);
+    const totalInvested = getHoldingsTotalByType(type);
+    const totalInvestedUSD = isUSStock
+        ? holdings.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0)
+        : 0;
 
-    const usStockAvailable = isUSStock ? getUsStockAvailableCapital() : 0;
+    const usStockAvailable = isUSStock ? usStockFundPool - totalInvestedUSD : 0;
 
     const toggleExpand = (id: string) => {
         setExpandedHoldingId((prev) => (prev === id ? null : id));
@@ -262,10 +266,15 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                     <div className="z-10 relative">
                         <div className="flex justify-between items-start mb-3">
                             <div>
-                                <p className="text-clay text-xs font-medium tracking-wide uppercase">美股帳戶資金</p>
-                                <p className="text-2xl font-light text-slate-800 mt-0.5">
-                                    {FORMAT_TWD.format(usStockFundPool)}
-                                </p>
+                                <p className="text-clay text-xs font-medium tracking-wide uppercase">美股帳戶總資產</p>
+                                <div className="flex flex-col">
+                                    <p className="text-2xl font-light text-slate-800 mt-0.5">
+                                        ${usStockFundPool.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-xs text-clay/70">
+                                        ≈ {FORMAT_TWD.format(Math.round(usStockFundPool * exchangeRateUSD))}
+                                    </p>
+                                </div>
                             </div>
                             <Button
                                 variant="secondary"
@@ -279,15 +288,15 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="p-2.5 rounded-lg bg-stoneSoft/20">
-                                <p className="text-[10px] text-clay uppercase tracking-wider">已投入標的</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">已投入標的 (USD)</p>
                                 <p className="text-sm font-medium text-textPrimary mt-0.5">
-                                    {FORMAT_TWD.format(totalInvested)}
+                                    ${totalInvestedUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
                             <div className="p-2.5 rounded-lg bg-moss/8">
-                                <p className="text-[10px] text-clay uppercase tracking-wider">帳戶可用餘額</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">帳戶可用餘額 (USD)</p>
                                 <p className="text-sm font-medium text-moss mt-0.5">
-                                    {FORMAT_TWD.format(usStockAvailable)}
+                                    ${usStockAvailable.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
                         </div>

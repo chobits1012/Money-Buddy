@@ -137,6 +137,7 @@ interface PortfolioStore extends PortfolioState {
 
     // ═══ 雲端同步 ═══
     overwriteState: (newState: PortfolioState) => void;
+    restoreFromSnapshot: () => boolean;
 }
 
 const initialState: PortfolioState = {
@@ -234,10 +235,10 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
             getUsStockAvailableCapital: () => {
                 const state = get();
-                const usHoldingsTotal = state.holdings
+                const usHoldingsTotalUSD = state.holdings
                     .filter((h) => h.type === 'US_STOCK')
-                    .reduce((sum, h) => sum + h.totalAmount, 0);
-                const available = state.usStockFundPool - usHoldingsTotal;
+                    .reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0);
+                const available = state.usStockFundPool - usHoldingsTotalUSD;
                 return available > 0 ? available : 0;
             },
 
@@ -304,8 +305,8 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     }
                 });
 
-                // 美股使用資金池整體金額
-                totals.US_STOCK = state.usStockFundPool;
+                // 美股使用資金池整體金額，並轉換為台幣供 Dashboard 顯示
+                totals.US_STOCK = Math.round(state.usStockFundPool * state.exchangeRateUSD);
 
                 (Object.keys(totals) as AssetType[]).forEach(k => {
                     if (totals[k] < 0) totals[k] = 0;
@@ -324,7 +325,33 @@ export const usePortfolioStore = create<PortfolioStore>()(
             },
 
             resetAll: () => {
-                set(initialState);
+                const currentState = get();
+                const now = new Date().toISOString();
+                
+                // 1. 儲存緊急快照到 localStorage (不包含函數)
+                const { 
+                    isLoadingQuotes, setCapitalPool, addCapitalDeposit, removeCapitalDeposit, 
+                    setExchangeRate, addTransaction, removeTransaction, getAvailableCapital, 
+                    getAssetTotals, resetAll, setUsStockFundPool, getUsStockAvailableCapital,
+                    buyStock, removePurchase, updateHoldingName, updateHoldingQuote, 
+                    removeHolding, getHoldingsByType, getHoldingsTotalByType, updatePurchase,
+                    fetchQuotesForHoldings, addCustomCategory, updateCustomCategory, 
+                    removeCustomCategory, getCustomCategoriesTotal, overwriteState,
+                    restoreFromSnapshot,
+                    ...stateData 
+                } = currentState;
+
+                encryptedStorage.setItem('portfolio-tracker-snapshot', JSON.stringify({
+                    ...stateData,
+                    snapshotTime: now
+                }));
+
+                // 2. 清空資料，但更新 lastSyncedAt 告知雲端這是「最新狀態」（刪除全部）
+                set({ 
+                    ...initialState, 
+                    lastSyncedAt: now,
+                    isConfigured: true // 保持已設定狀態，或是根據需求決定
+                });
             },
 
             // ═══ 購買股票 (自動合併) ═══
@@ -616,6 +643,29 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
             overwriteState: (newState) => {
                 set({ ...newState, isConfigured: true });
+            },
+
+            restoreFromSnapshot: () => {
+                const snapshotJson = encryptedStorage.getItem('portfolio-tracker-snapshot');
+                if (!snapshotJson) return false;
+
+                try {
+                    const snapshot = JSON.parse(snapshotJson);
+                    const { snapshotTime, ...stateData } = snapshot;
+                    
+                    // 恢復資料
+                    set({ 
+                        ...stateData, 
+                        lastSyncedAt: new Date().toISOString() 
+                    });
+                    
+                    // 清除快照，防止重複還原
+                    encryptedStorage.removeItem('portfolio-tracker-snapshot');
+                    return true;
+                } catch (e) {
+                    console.error('還原快照失敗', e);
+                    return false;
+                }
             },
         }),
         {

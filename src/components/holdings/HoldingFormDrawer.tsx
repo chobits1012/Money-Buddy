@@ -153,11 +153,14 @@ export const BuyStockDrawer = ({
             }
 
             if (isEditMode && editingHoldingId && editingPurchase) {
-                const oldTotalTWD = editingPurchase.totalCost;
-                const diff = action === 'BUY' ? calcTotalTWD - oldTotalTWD : 0; // 賣出不扣款
+                const diff = isUSStock
+                    ? (action === 'BUY' ? calcTotal - (editingPurchase.totalCostUSD || 0) : 0)
+                    : (action === 'BUY' ? calcTotalTWD - editingPurchase.totalCost : 0);
+
                 if (diff > 0 && diff > availableCapital && action === 'BUY') {
                     const label = isUSStock ? '美股帳戶' : '總資產';
-                    setError(`增加的金額超出${label}剩餘可動用資金`);
+                    const symbol = isUSStock ? '$' : 'NT$ ';
+                    setError(`增加的金額超出${label}剩餘可動用資金 (${symbol}${availableCapital.toLocaleString()})`);
                     return;
                 }
                 updatePurchase(editingHoldingId, editingPurchase.id, {
@@ -170,10 +173,14 @@ export const BuyStockDrawer = ({
                     note: note || undefined,
                 });
             } else {
-                if (action === 'BUY' && calcTotalTWD > availableCapital) {
-                    const label = isUSStock ? '美股帳戶' : '總資產';
-                    setError(`超出${label}剩餘可動用資金 (NT$ ${availableCapital.toLocaleString()})`);
-                    return;
+                if (action === 'BUY') {
+                    const isOverLimit = isUSStock ? (calcTotal > availableCapital) : (calcTotalTWD > availableCapital);
+                    if (isOverLimit) {
+                        const label = isUSStock ? '美股帳戶' : '總資產';
+                        const symbol = isUSStock ? '$' : 'NT$ ';
+                        setError(`超出${label}剩餘可動用資金 (${symbol}${availableCapital.toLocaleString()})`);
+                        return;
+                    }
                 }
                 buyStock({
                     type,
