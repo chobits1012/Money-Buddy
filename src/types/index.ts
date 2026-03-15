@@ -18,6 +18,7 @@ export interface Transaction {
     note: string;
     action: 'DEPOSIT' | 'WITHDRAWAL';
     holdingId?: string;
+    updatedAt?: string;
 }
 
 // 單次交易紀錄 (原購買紀錄擴充)
@@ -31,6 +32,7 @@ export interface PurchaseRecord {
     totalCostUSD?: number;
     exchangeRate?: number;
     note?: string;
+    updatedAt?: string;
 }
 
 // 個股/基金持倉資料 (由 PurchaseRecords 聚合)
@@ -67,6 +69,7 @@ export interface CapitalDeposit {
     amount: number;
     note: string;
     date: string;
+    updatedAt?: string;
 }
 
 export interface PortfolioState {
@@ -78,6 +81,7 @@ export interface PortfolioState {
     holdings: StockHolding[];
     customCategories: CustomCategory[];
     isConfigured: boolean;
+    lastSyncedAt?: string;
 }
 
 export interface AssetSummary {

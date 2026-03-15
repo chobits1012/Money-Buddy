@@ -148,6 +148,7 @@ const initialState: PortfolioState = {
     holdings: [],
     customCategories: [],
     isConfigured: false,
+    lastSyncedAt: undefined,
 };
 
 const ENCRYPTION_KEY = import.meta.env.VITE_STORAGE_ENCRYPTION_KEY || 'default_secret_key_DO_NOT_USE_IN_PROD';
@@ -188,6 +189,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     amount,
                     note: '初始設定',
                     date: now,
+                    updatedAt: now,
                 };
                 set({ totalCapitalPool: amount, capitalDeposits: [deposit], isConfigured: true });
             },
@@ -200,6 +202,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     amount: params.amount,
                     note: params.note || '入金',
                     date: now,
+                    updatedAt: now,
                 };
                 set((state) => ({
                     totalCapitalPool: state.totalCapitalPool + params.amount,
@@ -243,6 +246,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     ...payload,
                     id: crypto.randomUUID(),
                     date: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
                 };
                 set((state) => ({
                     transactions: [newTransaction, ...state.transactions],
@@ -308,6 +312,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     totalCostUSD: params.totalCostUSD,
                     exchangeRate: params.exchangeRate,
                     note: params.note,
+                    updatedAt: now,
                 };
 
                 set((state) => {
@@ -586,7 +591,64 @@ export const usePortfolioStore = create<PortfolioStore>()(
         }),
         {
             name: 'portfolio-tracker-storage',
+            version: 1, // v0 → v1: 為所有陣列項目補上 updatedAt
             storage: createJSONStorage(() => encryptedStorage),
+            migrate: (persistedState: unknown, version: number) => {
+                const state = persistedState as Record<string, unknown>;
+
+                if (version < 1) {
+                    // Migration: 為舊資料補上 updatedAt
+                    const now = new Date().toISOString();
+
+                    // capitalDeposits
+                    if (Array.isArray(state.capitalDeposits)) {
+                        state.capitalDeposits = state.capitalDeposits.map((d: Record<string, unknown>) => ({
+                            ...d,
+                            updatedAt: d.updatedAt || (d.date as string) || now,
+                        }));
+                    }
+
+                    // transactions
+                    if (Array.isArray(state.transactions)) {
+                        state.transactions = state.transactions.map((t: Record<string, unknown>) => ({
+                            ...t,
+                            updatedAt: t.updatedAt || (t.date as string) || now,
+                        }));
+                    }
+
+                    // holdings & purchases
+                    if (Array.isArray(state.holdings)) {
+                        state.holdings = state.holdings.map((h: Record<string, unknown>) => {
+                            const purchases = Array.isArray(h.purchases)
+                                ? h.purchases.map((p: Record<string, unknown>) => ({
+                                    ...p,
+                                    updatedAt: p.updatedAt || (p.date as string) || now,
+                                }))
+                                : h.purchases;
+                            return {
+                                ...h,
+                                purchases,
+                                updatedAt: h.updatedAt || (h.createdAt as string) || now,
+                            };
+                        });
+                    }
+
+                    // customCategories
+                    if (Array.isArray(state.customCategories)) {
+                        state.customCategories = state.customCategories.map((c: Record<string, unknown>) => ({
+                            ...c,
+                            updatedAt: c.updatedAt || (c.createdAt as string) || now,
+                        }));
+                    }
+
+                    // 初始化 lastSyncedAt
+                    if (!state.lastSyncedAt) {
+                        state.lastSyncedAt = undefined;
+                    }
+                }
+
+                return state as unknown as PortfolioState & { isLoadingQuotes: boolean };
+            },
             onRehydrateStorage: () => (_state, error) => {
                 if (error) {
                     console.error('復原 LocalStorage 資料時發生錯誤:', error);
