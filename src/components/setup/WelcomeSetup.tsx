@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePortfolioStore } from '../../store/portfolioStore';
+import { useSupabaseSync } from '../../hooks/useSupabaseSync';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
@@ -8,6 +10,14 @@ export const WelcomeSetup = () => {
     const setCapitalPool = usePortfolioStore((state) => state.setCapitalPool);
     const [amountInput, setAmountInput] = useState('');
     const [error, setError] = useState('');
+    const navigate = useNavigate();
+    const { user, loginWithGoogle } = useSupabaseSync();
+
+    useEffect(() => {
+        if (user) {
+            navigate('/backup');
+        }
+    }, [user, navigate]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,6 +88,24 @@ export const WelcomeSetup = () => {
                     </Button>
                 </form>
             </Card>
+
+            {/* 新增登入提示與卡片 */}
+            <div className="mt-8 flex flex-col items-center gap-3">
+                <p className="text-sm text-textSecondary">或者「登入」取回你的雲端數據</p>
+                <button
+                    onClick={async () => {
+                        const res = await loginWithGoogle();
+                        if (res && !res.success) {
+                            setError(res.message);
+                        }
+                    }}
+                    type="button"
+                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-clayDark hover:bg-clayDark/90 transition-colors text-white text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                >
+                    <span className="material-symbols-outlined text-base">cloud_sync</span>
+                    登入
+                </button>
+            </div>
 
             <p className="mt-8 text-xs text-clay/60 text-center">
                 * 資料由您的瀏覽器進行本地加密儲存，絕對保障個人隱私

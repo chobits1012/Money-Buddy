@@ -10,8 +10,9 @@ interface ConfirmModalProps {
     confirmText?: string;
     cancelText?: string;
     onConfirm: () => void;
-    onCancel: () => void;
+    onCancel?: () => void;
     variant?: 'danger' | 'primary';
+    isAlert?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -22,18 +23,23 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     cancelText = '取消',
     onConfirm,
     onCancel,
-    variant = 'danger'
+    variant = 'danger',
+    isAlert = false
 }) => {
     // Escape 鍵可以關閉 Modal
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isOpen) {
-                onCancel();
+                if (isAlert) {
+                    onConfirm();
+                } else if (onCancel) {
+                    onCancel();
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onCancel]);
+    }, [isOpen, onCancel, onConfirm, isAlert]);
 
     if (!isOpen) return null;
 
@@ -45,7 +51,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     "fixed inset-0 bg-black/30 backdrop-blur-sm z-50 transition-opacity duration-300",
                     isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
                 )}
-                onClick={onCancel}
+                onClick={isAlert ? onConfirm : (onCancel || onConfirm)}
             />
             {/* 彈出視窗容器 */}
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
@@ -57,16 +63,26 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 >
                     <div className="flex flex-col gap-2.5">
                         <h3 className="text-2xl font-light text-slate-800 tracking-tight">{title}</h3>
-                        <p className="text-base text-clayDark leading-relaxed font-medium">{message}</p>
+                        <p className="text-base text-clayDark leading-relaxed font-medium whitespace-pre-line">{message}</p>
                     </div>
                     
                     <div className="flex justify-end gap-3 mt-4">
-                        <Button variant="ghost" onClick={onConfirm} className="text-rust hover:text-white hover:bg-rust">
-                            {confirmText}
-                        </Button>
-                        <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onCancel} autoFocus>
-                            {cancelText}
-                        </Button>
+                        {isAlert ? (
+                            <Button variant="primary" onClick={onConfirm} autoFocus>
+                                {confirmText}
+                            </Button>
+                        ) : (
+                            <>
+                                <Button variant="ghost" onClick={onConfirm} className={cn(variant === 'danger' ? "text-rust hover:text-white hover:bg-rust" : "text-moss hover:bg-moss hover:text-white")}>
+                                    {confirmText}
+                                </Button>
+                                {onCancel && (
+                                    <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onCancel} autoFocus>
+                                        {cancelText}
+                                    </Button>
+                                )}
+                            </>
+                        )}
                     </div>
                 </Card>
             </div>

@@ -22,7 +22,7 @@
   --color-moss: #7a8266;
   --color-rust: #b46b4d;
   --color-clay: #a89e94;
-  --color-clayDark: #80786d; /* 更深的大地色，用於需要高對比的文字 */
+  --color-clayDark: #a69486; /* 使用者指定的淺大地色 */
   --color-stoneSoft: #e5e1dc;
 
   /* ✅ 語意色 */

@@ -40,7 +40,7 @@ export function useSupabaseSync() {
       if (error) throw error;
     } catch (error) {
       console.error('Login error:', error);
-      alert('登入失敗，請稍後再試。');
+      return { success: false, message: '登入失敗，請稍後再試。' };
     }
   };
 
@@ -56,10 +56,9 @@ export function useSupabaseSync() {
   };
 
   // 4. 上傳資料 (Backup)
-  const uploadData = useCallback(async () => {
+  const uploadData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!user) {
-      alert('請先登入才能備份資料');
-      return false;
+      return { success: false, message: '請先登入才能備份資料' };
     }
 
     setIsSyncing(true);
@@ -83,27 +82,19 @@ export function useSupabaseSync() {
       if (error) throw error;
 
       setLastSyncTime(new Date().toISOString());
-      alert('資料備份成功！');
-      return true;
+      return { success: true, message: '資料備份成功！' };
     } catch (error) {
       console.error('Upload Error:', error);
-      alert('備份失敗，請檢查網路連線。');
-      return false;
+      return { success: false, message: '備份失敗，請檢查網路連線。' };
     } finally {
       setIsSyncing(false);
     }
   }, [user]);
 
   // 5. 下載資料 (Restore)
-  const downloadData = useCallback(async () => {
+  const downloadData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!user) {
-      alert('請先登入才能下載資料');
-      return false;
-    }
-
-    // 加入防呆機制
-    if (!window.confirm('警告：從雲端下載資料將會「覆寫」您目前裝置上的所有紀錄！\n這項操作無法復原，確定要繼續嗎？')) {
-      return false;
+      return { success: false, message: '請先登入才能下載資料' };
     }
 
     setIsSyncing(true);
@@ -120,21 +111,18 @@ export function useSupabaseSync() {
         // 使用剛才加在 store 裡的方法覆蓋本地狀態
         overwriteState(data.portfolio_data);
         setLastSyncTime(data.updated_at);
-        alert('雲端資料已成功還原至本機！');
-        return true;
+        return { success: true, message: '雲端資料已成功還原至本機！' };
       } else {
-        alert('雲端目前沒有您的備份資料。');
-        return false;
+        return { success: false, message: '雲端目前沒有您的備份資料。' };
       }
     } catch (error: any) {
       console.error('Download Error:', error);
       if (error.code === 'PGRST116') {
           // Supabase 找不到資料時會回傳這個錯誤碼
-          alert('雲端目前沒有您的備份資料。');
+          return { success: false, message: '雲端目前沒有您的備份資料。' };
       } else {
-          alert('下載備份失敗，請稍後再試。');
+          return { success: false, message: '下載備份失敗，請稍後再試。' };
       }
-      return false;
     } finally {
       setIsSyncing(false);
     }

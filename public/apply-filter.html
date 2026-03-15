@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>套用 Wabi-Sabi 濾鏡</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #e8e6e1; color: #5c5346;}
+        .container { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 40px;}
+        .card { background: #fdfbf7; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .preview { margin-top: 10px; }
+        canvas, .css-preview { 
+            border: 1px dashed #d0c8b8; 
+            background-color: transparent;
+            /* 將這兩個限制在合理的顯示大小，但 Canvas 背後的實際尺寸是原圖大小喔 */
+            max-width: 256px; 
+            max-height: 256px; 
+            object-fit: contain;
+        }
+        button { 
+            padding: 8px 16px; 
+            background: #8B7355; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+        button:hover { background: #6b5840; }
+        .css-preview {
+            /* 您的參數 */
+            filter: saturate(0.5) sepia(0.3) contrast(0.85) opacity(0.9);
+        }
+    </style>
+</head>
+<body>
+    <h1>Canvas 濾鏡處理工具 (PWA Icons)</h1>
+    <p>目前使用的 CSS Filter 參數：<code>saturate(0.5) sepia(0.3) contrast(0.85) opacity(0.9)</code></p>
+    <p style="font-size: 0.9em; color: #888;">
+        請點擊「下載」後，將檔案覆寫原本 `public/` 目錄下的對應圖示。
+    </p>
+
+    <!-- pwa-192x192.png -->
+    <h2>1. pwa-192x192.png</h2>
+    <div class="container">
+        <div class="card">
+            <h3>CSS 預覽 (您的效果)</h3>
+            <img src="/pwa-192x192.png" class="css-preview">
+        </div>
+        <div class="card">
+            <h3>Canvas 渲染結果 (192x192)</h3>
+            <canvas id="canvas192"></canvas>
+            <div>
+                <button onclick="downloadImage('canvas192', 'pwa-192x192-filtered.png')">下載處理後的 pwa-192x192.png</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- pwa-512x512.png -->
+    <h2>2. pwa-512x512.png</h2>
+    <div class="container">
+        <div class="card">
+            <h3>CSS 預覽 (您的效果)</h3>
+            <img src="/pwa-512x512.png" class="css-preview">
+        </div>
+        <div class="card">
+            <h3>Canvas 渲染結果 (512x512)</h3>
+            <canvas id="canvas512"></canvas>
+            <div>
+                <button onclick="downloadImage('canvas512', 'pwa-512x512-filtered.png')">下載處理後的 pwa-512x512.png</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- apple-touch-icon.png -->
+    <h2>3. apple-touch-icon.png</h2>
+    <div class="container">
+        <div class="card">
+            <h3>CSS 預覽 (您的效果)</h3>
+            <img src="/apple-touch-icon.png" class="css-preview">
+        </div>
+        <div class="card">
+            <h3>Canvas 渲染結果 (通常是 180x180)</h3>
+            <canvas id="canvasApple"></canvas>
+            <div>
+                <button onclick="downloadImage('canvasApple', 'apple-touch-icon-filtered.png')">下載處理後的 apple-touch-icon.png</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const filterStr = "saturate(0.5) sepia(0.3) contrast(0.85) opacity(0.9)";
+
+        function drawToCanvas(canvasId, imgSrc) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            const img = new Image();
+            img.src = imgSrc;
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.filter = filterStr;
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+
+        // 初始化畫布
+        drawToCanvas('canvas192', '/pwa-192x192.png');
+        drawToCanvas('canvas512', '/pwa-512x512.png');
+        drawToCanvas('canvasApple', '/apple-touch-icon.png');
+
+        // 共用下載函數
+        function downloadImage(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+    </script>
+</body>
+</html>
