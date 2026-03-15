@@ -31,7 +31,7 @@ export const ASSET_CHART_COLORS: Record<AssetType | 'AVAILABLE', string> = {
     TAIWAN_STOCK: '#7a8266',  // moss
     US_STOCK: '#b46b4d',      // rust
     FUNDS: '#a89e94',         // clay
-    CRYPTO: '#ec5b13',        // primary
+    CRYPTO: '#8e725c',        // primary (earth tone)
     AVAILABLE: '#e5e1dc',     // stoneSoft
 };
 

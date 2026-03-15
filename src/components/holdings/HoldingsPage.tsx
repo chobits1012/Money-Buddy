@@ -559,16 +559,17 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                     })}
                 </div>
             )}
+            {/* 底部間距，防止 FAB 遮擋最後一筆紀錄 */}
+            <div className="h-20" />
 
-            {/* 新增按鈕 */}
-            <Button
+            {/* 浮動記錄交易按鈕 (FAB) */}
+            <button
                 onClick={() => setIsBuyOpen(true)}
-                className="w-full group"
-                size="lg"
+                className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white/90 shadow-lg shadow-primary/20 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95 z-30"
+                title="記錄交易"
             >
-                <span className="material-symbols-outlined text-xl mr-2 transition-transform group-hover:rotate-90">add</span>
-                {isSimpleMode ? '記錄交易' : '記錄交易'} 
-            </Button>
+                <span className="material-symbols-outlined text-2xl">add</span>
+            </button>
 
             {/* 買入 / 編輯表單抽屜 */}
             <BuyStockDrawer

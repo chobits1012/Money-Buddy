@@ -15,8 +15,9 @@
   --color-textPrimary: #334155;
   --color-textSecondary: #a89e94;
 
-  /* 🔥 主色調 (暖橙) */
-  --color-primary: #ec5b13;
+  /* 🔥 主色調 (大地色) */
+  --color-primary: #8e725c;
+  --color-orangeDetail: #ec5b13; /* 用於細框裝飾的橘色 */
 
   /* 🍃 功能色 */
   --color-moss: #7a8266;
@@ -26,7 +27,7 @@
   --color-stoneSoft: #e5e1dc;
 
   /* ✅ 語意色 */
-  --color-accentPrimary: #ec5b13;
+  --color-accentPrimary: #8e725c;
   --color-accentSuccess: #7a8266;
   --color-accentDanger: #b46b4d;
 
