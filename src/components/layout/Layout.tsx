@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useSupabaseSync } from '../../hooks/useSupabaseSync';
+import { SyncIndicator } from '../sync/SyncIndicator';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { usePortfolioStore } from '../../store/portfolioStore';
 
 export default function Layout() {
-    const { user, loginWithGoogle } = useSupabaseSync();
+    const { user, syncStatus, loginWithGoogle } = useSupabaseSync();
     const navigate = useNavigate();
     const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
     const isConfigured = usePortfolioStore((state) => state.isConfigured);
@@ -23,7 +24,7 @@ export default function Layout() {
                             onClick={() => navigate('/backup')}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-clayDark hover:bg-clayDark/90 transition-colors text-white text-xs font-medium cursor-pointer shadow-sm"
                         >
-                            <span className="material-symbols-outlined text-sm">cloud_done</span>
+                            <SyncIndicator status={syncStatus} variant="compact" />
                             備份管理
                         </button>
                     ) : (

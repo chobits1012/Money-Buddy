@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseSync } from '../hooks/useSupabaseSync';
-import { usePortfolioStore } from '../store/portfolioStore';
+import { SyncIndicator } from '../components/sync/SyncIndicator';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 
 export const BackupPage = () => {
     const navigate = useNavigate();
-    const { user, logout, uploadData, downloadData, lastSyncTime } = useSupabaseSync();
-    const { isConfigured, totalCapitalPool } = usePortfolioStore();
+    const { user, logout, manualSync, syncStatus, lastSyncTime, isSyncing } = useSupabaseSync();
 
     const [confirmAction, setConfirmAction] = useState<{
         title: string;
@@ -22,45 +21,17 @@ export const BackupPage = () => {
         message: string;
     } | null>(null);
 
-    const handleUploadClick = () => {
-        if (!isConfigured || totalCapitalPool === 0) {
-            setConfirmAction({
-                title: '警示：空數據上傳',
-                message: '目前為空數據！確定要將空數據上傳並覆蓋雲端紀錄嗎？',
-                action: async () => {
-                    const result = await uploadData();
-                    setAlertMessage({
-                        title: result.success ? '備份成功' : '備份失敗',
-                        message: result.message
-                    });
-                }
-            });
-        } else {
-            setConfirmAction({
-                title: '上傳備份',
-                message: '確定要將目前資料備份到雲端嗎？',
-                action: async () => {
-                    const result = await uploadData();
-                    setAlertMessage({
-                        title: result.success ? '備份成功' : '備份失敗',
-                        message: result.message
-                    });
-                }
-            });
-        }
-    };
-
-    const handleDownloadClick = () => {
+    const handleManualSync = () => {
         setConfirmAction({
-            title: '下載覆蓋',
-            message: '確定要從雲端下載並覆蓋目前的本機資料嗎？此操作無法復原。',
+            title: '立即同步',
+            message: '將從雲端拉取最新資料合併後，再上傳至雲端。確定要立即同步嗎？',
             action: async () => {
-                const result = await downloadData();
+                const result = await manualSync();
                 setAlertMessage({
-                    title: result.success ? '還原成功' : '還原失敗',
-                    message: result.message
+                    title: result.success ? '同步成功' : '同步失敗',
+                    message: result.message,
                 });
-            }
+            },
         });
     };
 
@@ -81,40 +52,40 @@ export const BackupPage = () => {
                         返回
                     </button>
                     <h1 className="text-xl font-light tracking-widest uppercase text-clay">
-                        備份管理
+                        同步設定
                     </h1>
                 </header>
 
                 <Card className="flex flex-col gap-6">
+                    {/* 帳號資訊 */}
                     <div className="flex flex-col items-center justify-center p-4 border-b border-stoneSoft/50 text-center">
                         <span className="material-symbols-outlined text-4xl mb-2 text-primary/80">account_circle</span>
                         <p className="text-sm text-textSecondary uppercase tracking-wider mb-1">目前登入帳號</p>
                         <p className="text-slate-800 font-medium">{user?.email || '未登入'}</p>
+                    </div>
+
+                    {/* 同步狀態 (大版) */}
+                    <div className="px-2">
+                        <SyncIndicator status={syncStatus} variant="full" />
                         {lastSyncTime && (
-                            <p className="text-xs text-clay mt-2">上次同步: {new Date(lastSyncTime).toLocaleString('zh-TW')}</p>
+                            <p className="text-xs text-clay mt-2 text-center">
+                                上次同步：{new Date(lastSyncTime).toLocaleString('zh-TW')}
+                            </p>
                         )}
                     </div>
 
+                    {/* 操作按鈕 */}
                     <div className="flex flex-col gap-3">
                         <Button
-                            onClick={handleUploadClick}
+                            onClick={handleManualSync}
+                            disabled={isSyncing}
                             className="w-full flex justify-center items-center gap-2 !bg-clayDark hover:!bg-clayDark/90 hover:shadow-lg !text-white transition-all shadow-clayDark/20"
                             size="lg"
                         >
-                            <span className="material-symbols-outlined text-lg">cloud_upload</span>
-                            數據上傳
+                            <span className={`material-symbols-outlined text-lg${isSyncing ? ' sync-spin' : ''}`}>sync</span>
+                            {isSyncing ? '同步中…' : '立即同步'}
                         </Button>
 
-                        <Button
-                            onClick={handleDownloadClick}
-                            variant="secondary"
-                            className="w-full flex justify-center items-center gap-2"
-                            size="lg"
-                        >
-                            <span className="material-symbols-outlined text-lg">cloud_download</span>
-                            下載覆蓋
-                        </Button>
-                        
                         <Button
                             onClick={handleLogout}
                             variant="ghost"
