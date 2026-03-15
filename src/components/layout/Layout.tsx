@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useSupabaseSync } from '../../hooks/useSupabaseSync';
 import { ConfirmModal } from '../ui/ConfirmModal';
+import { usePortfolioStore } from '../../store/portfolioStore';
 
 export default function Layout() {
     const { user, loginWithGoogle } = useSupabaseSync();
     const navigate = useNavigate();
     const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
+    const isConfigured = usePortfolioStore((state) => state.isConfigured);
 
     return (
         <div className="min-h-screen bg-background text-textPrimary flex flex-col items-center concrete-bg">
@@ -16,7 +18,7 @@ export default function Layout() {
                     <h1 className="text-xl font-light tracking-widest uppercase text-clay">
                         資產控管中心
                     </h1>
-                    {user ? (
+                    {isConfigured && (user ? (
                         <button 
                             onClick={() => navigate('/backup')}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-clayDark hover:bg-clayDark/90 transition-colors text-white text-xs font-medium cursor-pointer shadow-sm"
@@ -37,7 +39,7 @@ export default function Layout() {
                             <span className="material-symbols-outlined text-sm">cloud_sync</span>
                             登入
                         </button>
-                    )}
+                    ))}
                 </header>
 
                 {/* React Router 渲染區 */}

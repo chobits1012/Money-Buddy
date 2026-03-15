@@ -90,8 +90,8 @@ export const WelcomeSetup = () => {
             </Card>
 
             {/* 新增登入提示與卡片 */}
-            <div className="mt-8 flex flex-col items-center gap-3">
-                <p className="text-sm text-textSecondary">或者「登入」取回你的雲端數據</p>
+            <div className="mt-8 flex flex-wrap justify-center items-center gap-2 text-sm text-textSecondary px-4 text-center">
+                或者
                 <button
                     onClick={async () => {
                         const res = await loginWithGoogle();
@@ -100,11 +100,12 @@ export const WelcomeSetup = () => {
                         }
                     }}
                     type="button"
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-clayDark hover:bg-clayDark/90 transition-colors text-white text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-clayDark hover:bg-clayDark/90 transition-colors text-white text-xs font-medium shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap"
                 >
-                    <span className="material-symbols-outlined text-base">cloud_sync</span>
+                    <span className="material-symbols-outlined text-[16px]">cloud_sync</span>
                     登入
                 </button>
+                取回你的雲端數據
             </div>
 
             <p className="mt-8 text-xs text-clay/60 text-center">
