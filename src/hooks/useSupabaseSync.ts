@@ -1,23 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { usePortfolioStore } from '../store/portfolioStore';
+import { syncMerge } from '../utils/syncMerge';
+import type { PortfolioState } from '../types';
 import type { User } from '@supabase/supabase-js';
+
+// Debounce 延遲（毫秒）
+const DEBOUNCE_DELAY = 2000;
 
 export function useSupabaseSync() {
   const [user, setUser] = useState<User | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const overwriteState = usePortfolioStore((state) => state.overwriteState);
 
-  // 1. 初始化與監聽登入狀態
+  // 用 ref 追蹤 debounce timer 與是否正在初始拉取
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPullingRef = useRef(false);
+  const userRef = useRef<User | null>(null);
+
+  // 保持 userRef 同步
   useEffect(() => {
-    // 取得目前登入的使用者
+    userRef.current = user;
+  }, [user]);
+
+  // ═══ 1. 初始化與監聽登入狀態 ═══
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
 
-    // 監聽登入狀態改變 (登入、登出)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user ?? null);
@@ -27,12 +41,116 @@ export function useSupabaseSync() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Google 登入
+  // ═══ 2. Pull-First 邏輯：偵測到登入後自動拉取合併 ═══
+  useEffect(() => {
+    if (!user) return;
+
+    const pullAndMerge = async () => {
+      if (isPullingRef.current) return;
+      isPullingRef.current = true;
+      setIsSyncing(true);
+      setSyncError(null);
+
+      try {
+        const { data, error } = await supabase
+          .from('user_backup')
+          .select('portfolio_data, updated_at')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          // PGRST116 = 找不到資料，代表雲端沒有備份，這不算錯誤
+          if (error.code === 'PGRST116') {
+            console.log('[Auto-Sync] 雲端無備份，跳過合併');
+          } else {
+            throw error;
+          }
+        } else if (data?.portfolio_data) {
+          // 取得本地目前狀態
+          const localState = usePortfolioStore.getState() as PortfolioState;
+          const cloudState = data.portfolio_data as PortfolioState;
+
+          // 使用 syncMerge 合併
+          const merged = syncMerge(localState, cloudState);
+
+          // 寫回 Store
+          overwriteState(merged);
+          setLastSyncTime(merged.lastSyncedAt || new Date().toISOString());
+          console.log('[Auto-Sync] Pull-First 合併完成');
+        }
+      } catch (error) {
+        console.error('[Auto-Sync] Pull-First 失敗:', error);
+        setSyncError('同步拉取失敗，請檢查網路');
+      } finally {
+        setIsSyncing(false);
+        isPullingRef.current = false;
+      }
+    };
+
+    pullAndMerge();
+  }, [user, overwriteState]);
+
+  // ═══ 3. 背景 Debounce 上傳：訂閱 Store 變化 ═══
+  useEffect(() => {
+    // 訂閱 Zustand store 的變化
+    const unsubscribe = usePortfolioStore.subscribe((_state, _prevState) => {
+      // 如果正在初始拉取中，不觸發上傳（避免拉下來的資料又立刻傳上去）
+      if (isPullingRef.current) return;
+      // 如果沒登入，不自動上傳
+      if (!userRef.current) return;
+
+      // 清除前一個 timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // 設定新的 debounce timer
+      debounceTimerRef.current = setTimeout(() => {
+        autoUpload();
+      }, DEBOUNCE_DELAY);
+    });
+
+    return () => {
+      unsubscribe();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []); // 只在掛載時訂閱一次
+
+  // 自動上傳函式（背景靜默執行）
+  const autoUpload = async () => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+
+    try {
+      const currentState = usePortfolioStore.getState();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('user_backup')
+        .upsert({
+          id: currentUser.id,
+          portfolio_data: currentState,
+          updated_at: now,
+          last_synced_at: now,
+        }, {
+          onConflict: 'id',
+        });
+
+      if (error) throw error;
+      console.log('[Auto-Sync] 背景上傳完成', new Date().toLocaleTimeString('zh-TW'));
+    } catch (error) {
+      console.error('[Auto-Sync] 背景上傳失敗:', error);
+      // 不阻擋使用者操作，只在 console 記錄
+    }
+  };
+
+  // ═══ 4. Google 登入 ═══
   const loginWithGoogle = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        // 可以設定登入後導向回目前網頁
         options: {
           redirectTo: window.location.origin
         }
@@ -44,18 +162,23 @@ export function useSupabaseSync() {
     }
   };
 
-  // 3. 登出
+  // ═══ 5. 登出 ═══
   const logout = async () => {
     try {
+      // 登出前做最後一次上傳
+      if (userRef.current) {
+        await autoUpload();
+      }
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setLastSyncTime(null);
+      setSyncError(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  // 4. 上傳資料 (Backup)
+  // ═══ 6. 手動上傳（保留給 BackupPage 使用） ═══
   const uploadData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!user) {
       return { success: false, message: '請先登入才能備份資料' };
@@ -63,25 +186,23 @@ export function useSupabaseSync() {
 
     setIsSyncing(true);
     try {
-      // 取得目前最新的 Zustand 狀態
       const currentState = usePortfolioStore.getState();
-      
-      // 為了避免把不要的狀態也存上去（例如 isLoadingQuotes），我們可以選擇性挑出要存的資料
-      // 但為了簡單與完整重建，我們直接把整個 store 備份，但在 overwrite 時要注意重設 UI 狀態
-      
+      const now = new Date().toISOString();
+
       const { error } = await supabase
         .from('user_backup')
-        .upsert({ 
-          id: user.id, // 因為 RLS 需要比對這個 ID
+        .upsert({
+          id: user.id,
           portfolio_data: currentState,
-          updated_at: new Date().toISOString()
+          updated_at: now,
+          last_synced_at: now,
         }, {
-            onConflict: 'id' // 如果已經有資料就覆蓋
+          onConflict: 'id',
         });
 
       if (error) throw error;
 
-      setLastSyncTime(new Date().toISOString());
+      setLastSyncTime(now);
       return { success: true, message: '資料備份成功！' };
     } catch (error) {
       console.error('Upload Error:', error);
@@ -91,7 +212,7 @@ export function useSupabaseSync() {
     }
   }, [user]);
 
-  // 5. 下載資料 (Restore)
+  // ═══ 7. 手動下載（保留給 BackupPage 使用） ═══
   const downloadData = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!user) {
       return { success: false, message: '請先登入才能下載資料' };
@@ -108,7 +229,6 @@ export function useSupabaseSync() {
       if (error) throw error;
 
       if (data && data.portfolio_data) {
-        // 使用剛才加在 store 裡的方法覆蓋本地狀態
         overwriteState(data.portfolio_data);
         setLastSyncTime(data.updated_at);
         return { success: true, message: '雲端資料已成功還原至本機！' };
@@ -118,10 +238,9 @@ export function useSupabaseSync() {
     } catch (error: any) {
       console.error('Download Error:', error);
       if (error.code === 'PGRST116') {
-          // Supabase 找不到資料時會回傳這個錯誤碼
-          return { success: false, message: '雲端目前沒有您的備份資料。' };
+        return { success: false, message: '雲端目前沒有您的備份資料。' };
       } else {
-          return { success: false, message: '下載備份失敗，請稍後再試。' };
+        return { success: false, message: '下載備份失敗，請稍後再試。' };
       }
     } finally {
       setIsSyncing(false);
@@ -132,6 +251,7 @@ export function useSupabaseSync() {
     user,
     isSyncing,
     lastSyncTime,
+    syncError,
     loginWithGoogle,
     logout,
     uploadData,
