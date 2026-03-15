@@ -248,15 +248,44 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     date: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 };
-                set((state) => ({
-                    transactions: [newTransaction, ...state.transactions],
-                }));
+                set((state) => {
+                    const updates: Partial<PortfolioStore> = {
+                        transactions: [newTransaction, ...state.transactions],
+                    };
+
+                    // 如果是美股的資金劃撥，同步更新美股資金池
+                    if (payload.type === 'US_STOCK') {
+                        if (payload.action === 'DEPOSIT') {
+                            updates.usStockFundPool = state.usStockFundPool + (payload.amountUSD || 0);
+                        } else if (payload.action === 'WITHDRAWAL') {
+                            updates.usStockFundPool = state.usStockFundPool - (payload.amountUSD || 0);
+                        }
+                    }
+
+                    return updates;
+                });
             },
 
             removeTransaction: (id: string) => {
-                set((state) => ({
-                    transactions: state.transactions.filter((t) => t.id !== id),
-                }));
+                set((state) => {
+                    const tx = state.transactions.find((t) => t.id === id);
+                    if (!tx) return {};
+
+                    const updates: Partial<PortfolioStore> = {
+                        transactions: state.transactions.filter((t) => t.id !== id),
+                    };
+
+                    // 如果刪除的是美股資金劃撥，還原資金池數額
+                    if (tx.type === 'US_STOCK') {
+                        if (tx.action === 'DEPOSIT') {
+                            updates.usStockFundPool = state.usStockFundPool - (tx.amountUSD || 0);
+                        } else if (tx.action === 'WITHDRAWAL') {
+                            updates.usStockFundPool = state.usStockFundPool + (tx.amountUSD || 0);
+                        }
+                    }
+
+                    return updates;
+                });
             },
 
             getAssetTotals: () => {

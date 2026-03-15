@@ -15,30 +15,76 @@ interface HoldingsPageProps {
     onBack: () => void;
 }
 
-// ═══ 美股帳戶入金 Drawer ═══
-const FundDepositDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-    const { setUsStockFundPool, usStockFundPool, getAvailableCapital } = usePortfolioStore();
-    const availableCapital = getAvailableCapital();
+// ═══ 美股帳戶資金劃撥 Drawer (入金/出金) ═══
+const FundTransferDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+    const { addTransaction, getUsStockAvailableCapital, getAvailableCapital, exchangeRateUSD } = usePortfolioStore();
+    const availableTotal = getAvailableCapital();
+    const availableInUS = getUsStockAvailableCapital();
 
-    const [amount, setAmount] = useState('');
+    const [mode, setMode] = useState<'IN' | 'OUT'>('IN');
+    const [amountTWD, setAmountTWD] = useState('');
+    const [amountUSD, setAmountUSD] = useState('');
     const [error, setError] = useState('');
 
-    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleTWDChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/,/g, '').replace(/[^\d]/g, '');
-        if (!val) { setAmount(''); setError(''); return; }
-        setAmount(Number(val).toLocaleString('en-US'));
+        if (!val) {
+            setAmountTWD('');
+            setAmountUSD('');
+            setError('');
+            return;
+        }
+        const numTWD = Number(val);
+        setAmountTWD(numTWD.toLocaleString('en-US'));
+        setAmountUSD((numTWD / exchangeRateUSD).toFixed(2));
+        setError('');
+    };
+
+    const handleUSDChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+        if (!val) {
+            setAmountUSD('');
+            setAmountTWD('');
+            setError('');
+            return;
+        }
+        const numUSD = Number(val);
+        if (!isNaN(numUSD)) {
+            setAmountUSD(val);
+            setAmountTWD(Math.round(numUSD * exchangeRateUSD).toLocaleString('en-US'));
+        }
         setError('');
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const numAmount = Number(amount.replace(/,/g, ''));
-        if (isNaN(numAmount) || numAmount <= 0) { setError('請輸入有效的金額'); return; }
-        if (numAmount > availableCapital) {
-            setError(`金額不可大於目前總資產剩餘可動用資金 (NT$ ${availableCapital.toLocaleString()})`);
+        const numTWD = Number(amountTWD.replace(/,/g, ''));
+        const numUSD = Number(amountUSD);
+
+        if (isNaN(numTWD) || numTWD <= 0) {
+            setError('請輸入有效的金額');
             return;
         }
-        setUsStockFundPool(usStockFundPool + numAmount);
+
+        if (mode === 'IN' && numTWD > availableTotal) {
+            setError(`金額不可大於目前總資產剩餘可動用資金 (NT$ ${availableTotal.toLocaleString()})`);
+            return;
+        }
+
+        if (mode === 'OUT' && numTWD > availableInUS) {
+            setError(`金額不可大於美股帳戶目前可用餘額 (NT$ ${availableInUS.toLocaleString()})`);
+            return;
+        }
+
+        addTransaction({
+            type: 'US_STOCK',
+            amount: numTWD,
+            amountUSD: numUSD,
+            exchangeRate: exchangeRateUSD,
+            action: mode === 'IN' ? 'DEPOSIT' : 'WITHDRAWAL',
+            note: mode === 'IN' ? '撥入美股帳戶' : '由美股帳戶撥回'
+        });
+
         onClose();
     };
 
@@ -64,27 +110,62 @@ const FundDepositDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                         <div className={cn("px-3 py-1 text-xs font-semibold rounded-full", ASSET_COLORS.US_STOCK)}>
                             美股帳戶
                         </div>
-                        <h3 className="text-xl font-light text-slate-800">入金</h3>
+                        <h3 className="text-xl font-light text-slate-800">資金劃撥</h3>
                     </div>
                     <button onClick={onClose} className="p-2 -mr-2 text-clay hover:text-slate-800 transition-colors">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
 
+                {/* 模式切換 */}
+                <div className="flex p-1 bg-stoneSoft/30 rounded-xl mb-6">
+                    <button
+                        onClick={() => { setMode('IN'); setError(''); }}
+                        className={cn(
+                            "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+                            mode === 'IN' ? "bg-white text-rust shadow-sm" : "text-clay hover:text-slate-600"
+                        )}
+                    >
+                        入金 (至美股)
+                    </button>
+                    <button
+                        onClick={() => { setMode('OUT'); setError(''); }}
+                        className={cn(
+                            "flex-1 py-2 text-sm font-medium rounded-lg transition-all",
+                            mode === 'OUT' ? "bg-white text-moss shadow-sm" : "text-clay hover:text-slate-600"
+                        )}
+                    >
+                        出金 (回總資產)
+                    </button>
+                </div>
+
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     <div className="p-3 rounded-xl bg-stoneSoft/20 border border-stoneSoft">
-                        <p className="text-xs text-clay mb-1">目前總資產可用資金</p>
-                        <p className="text-lg font-light text-slate-800">{FORMAT_TWD.format(availableCapital)}</p>
+                        <p className="text-xs text-clay mb-1">
+                            {mode === 'IN' ? '總資產可用資金' : '美股帳戶可用餘額'}
+                        </p>
+                        <p className="text-lg font-light text-slate-800">
+                            {FORMAT_TWD.format(mode === 'IN' ? availableTotal : availableInUS)}
+                        </p>
                     </div>
 
-                    <Input
-                        label="入金金額 (TWD)"
-                        placeholder="例如: 100,000"
-                        value={amount}
-                        onChange={handleAmountChange}
-                        icon={<span className="font-semibold px-2 text-xs">NT$</span>}
-                        autoFocus
-                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="金額 (USD)"
+                            placeholder="0.00"
+                            value={amountUSD}
+                            onChange={handleUSDChange}
+                            icon={<span className="font-semibold px-1">$</span>}
+                            autoFocus
+                        />
+                        <Input
+                            label={`換算台幣 (匯率 ${exchangeRateUSD})`}
+                            placeholder="0"
+                            value={amountTWD}
+                            onChange={handleTWDChange}
+                            icon={<span className="font-semibold px-1 text-xs">NT$</span>}
+                        />
+                    </div>
 
                     {error && (
                         <div className="p-3 bg-rust/10 border border-rust/20 rounded-xl text-rust text-sm">
@@ -93,7 +174,7 @@ const FundDepositDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                     )}
 
                     <Button type="submit" size="lg" className="w-full mt-2">
-                        確認入金
+                        確認{mode === 'IN' ? '入金' : '出金'}
                     </Button>
                 </form>
             </div>
@@ -190,10 +271,10 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                 variant="secondary"
                                 size="sm"
                                 onClick={() => setIsDepositOpen(true)}
-                                className="shrink-0"
+                                className="shrink-0 text-clay"
                             >
-                                <span className="material-symbols-outlined text-base mr-1">add</span>
-                                入金
+                                <span className="material-symbols-outlined text-base mr-1">sync_alt</span>
+                                資金劃撥
                             </Button>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -499,9 +580,9 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                 editingHoldingName={editingHoldingName}
             />
 
-            {/* 美股入金抽屜 */}
+            {/* 美股資金劃撥抽屜 */}
             {isUSStock && (
-                <FundDepositDrawer
+                <FundTransferDrawer
                     isOpen={isDepositOpen}
                     onClose={() => { setIsDepositOpen(false); }}
                 />
