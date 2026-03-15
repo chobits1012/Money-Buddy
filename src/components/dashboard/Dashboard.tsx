@@ -10,6 +10,7 @@ import { TransactionHistory } from '../history/TransactionHistory';
 import { HoldingsPage } from '../holdings/HoldingsPage';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { cn } from '../../utils/cn';
+import { CloudSyncPanel } from '../sync/CloudSyncPanel';
 
 // ═══ 自訂欄位新增/編輯 Drawer ═══
 interface CustomCategoryDrawerProps {
@@ -483,6 +484,8 @@ export const Dashboard = () => {
             {/* 歷史紀錄模塊 */}
             <TransactionHistory />
 
+            {/* 雲端同步模塊 */}
+            <CloudSyncPanel />
 
             {/* 自訂欄位新增/編輯 Drawer */}
             <CustomCategoryDrawer

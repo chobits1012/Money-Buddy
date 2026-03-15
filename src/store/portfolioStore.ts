@@ -133,6 +133,9 @@ interface PortfolioStore extends PortfolioState {
     updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
     removeCustomCategory: (id: string) => void;
     getCustomCategoriesTotal: () => number;
+
+    // ═══ 雲端同步 ═══
+    overwriteState: (newState: PortfolioState) => void;
 }
 
 const initialState: PortfolioState = {
@@ -550,6 +553,10 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     console.error('Failed to update quotes:', error);
                     set({ isLoadingQuotes: false });
                 }
+            },
+
+            overwriteState: (newState) => {
+                set({ ...newState, isConfigured: true });
             },
         }),
         {
