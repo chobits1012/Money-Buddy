@@ -15,20 +15,25 @@ interface BuyStockDrawerProps {
     editingPurchase?: PurchaseRecord;
     editingHoldingId?: string;
     editingHoldingName?: string;
+    poolId?: string;
 }
 
 export const BuyStockDrawer = ({
     isOpen, onClose, type,
     editingPurchase, editingHoldingId, editingHoldingName,
+    poolId,
 }: BuyStockDrawerProps) => {
-    const { buyStock, updatePurchase, exchangeRateUSD, getAvailableCapital, getUsStockAvailableCapital, holdings } = usePortfolioStore();
+    const { buyStock, updatePurchase, exchangeRateUSD, getAvailableCapital, getUsStockAvailableCapital, holdings, pools } = usePortfolioStore();
 
     const isUSStock = type === 'US_STOCK';
     const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type);
     const isEditMode = !!editingPurchase;
 
     // 美股買入時使用美股帳戶餘額，其他使用總資產餘額
-    const availableCapital = isUSStock ? getUsStockAvailableCapital() : getAvailableCapital();
+    // 取得當前可用資金：如果是軍團則用軍團現金，否則依據類型選擇全局或美股池
+    const availableCapital = poolId 
+        ? (pools.find(p => p.id === poolId)?.currentCash || 0)
+        : (isUSStock ? getUsStockAvailableCapital() : getAvailableCapital());
 
     const [name, setName] = useState('');
     const [symbol, setSymbol] = useState('');
@@ -40,7 +45,12 @@ export const BuyStockDrawer = ({
     const [error, setError] = useState('');
 
     // 取得當前輸入的標的以做防呆
-    const currentHolding = holdings.find((h) => h.type === type && h.name.toLowerCase() === name.trim().toLowerCase());
+    // 取得當前輸入的標的以做防呆：必須比對 poolId 以確保隔離
+    const currentHolding = holdings.find((h) => 
+        h.type === type && 
+        h.name.toLowerCase() === name.trim().toLowerCase() &&
+        h.poolId === poolId
+    );
     const availableShares = currentHolding ? currentHolding.shares : 0;
     const availableAmount = currentHolding ? currentHolding.totalAmount : 0;
 
@@ -132,7 +142,7 @@ export const BuyStockDrawer = ({
                     return;
                 }
                 buyStock({
-                    type,
+                    type: type as any,
                     name: trimmedName,
                     symbol: symbol || undefined,
                     action,
@@ -140,6 +150,7 @@ export const BuyStockDrawer = ({
                     pricePerShare: numAmount,
                     totalCost: numAmount,
                     note: note || undefined,
+                    poolId,
                 });
             }
         } else {
@@ -183,7 +194,7 @@ export const BuyStockDrawer = ({
                     }
                 }
                 buyStock({
-                    type,
+                    type: type as any,
                     name: trimmedName,
                     symbol: symbol || undefined,
                     action,
@@ -193,6 +204,7 @@ export const BuyStockDrawer = ({
                     totalCostUSD: isUSStock ? calcTotal : undefined,
                     exchangeRate: isUSStock ? exchangeRateUSD : undefined,
                     note: note || undefined,
+                    poolId,
                 });
             }
         }

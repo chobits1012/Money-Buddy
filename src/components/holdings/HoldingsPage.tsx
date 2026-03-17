@@ -10,13 +10,18 @@ import { BuyStockDrawer } from './HoldingFormDrawer';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { cn } from '../../utils/cn';
 
+import { CapitalPools } from "../dashboard/CapitalPools";
+
 interface HoldingsPageProps {
     type: StockAssetType;
     onBack: () => void;
 }
+interface FundTransferDrawerProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
 
-// ═══ 美股帳戶資金劃撥 Drawer (入金/出金) ═══
-const FundTransferDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const FundTransferDrawer = ({ isOpen, onClose }: FundTransferDrawerProps) => {
     const { addTransaction, getUsStockAvailableCapital, getAvailableCapital, exchangeRateUSD } = usePortfolioStore();
     const availableTotal = getAvailableCapital();
     const availableInUS = getUsStockAvailableCapital();
@@ -117,7 +122,6 @@ const FundTransferDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                     </button>
                 </div>
 
-                {/* 模式切換 */}
                 <div className="flex p-1 bg-stoneSoft/30 rounded-xl mb-6">
                     <button
                         onClick={() => { setMode('IN'); setError(''); }}
@@ -182,12 +186,11 @@ const FundTransferDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
     );
 };
 
-
 export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
-        getHoldingsByType, getHoldingsTotalByType, removeHolding, removePurchase,
-        usStockFundPool,
-        isLoadingQuotes, fetchQuotesForHoldings, exchangeRateUSD
+        getHoldingsByType, removeHolding, removePurchase,
+        usStockFundPool, getAvailableCapital, addPool, pools,
+        fetchQuotesForHoldings, exchangeRateUSD, updateHoldingPool
     } = usePortfolioStore();
 
     useEffect(() => {
@@ -199,7 +202,20 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [isBuyOpen, setIsBuyOpen] = useState(false);
     const [isDepositOpen, setIsDepositOpen] = useState(false);
     const [expandedHoldingId, setExpandedHoldingId] = useState<string | null>(null);
-
+    const [activePoolId, setActivePoolId] = useState<string | null>(null);
+    const [isAddPoolOpen, setIsAddPoolOpen] = useState(false);
+    
+    // 資金池表單狀態
+    const [poolName, setPoolName] = useState('');
+    const [poolAmount, setPoolAmount] = useState('');
+    const [poolError, setPoolError] = useState('');
+ 
+    // 取得當前可用餘額：若是進入軍團視圖，則顯示軍團內的現金
+    const currentPool = pools.find(p => p.id === activePoolId);
+    const availableTotal = activePoolId && currentPool 
+        ? currentPool.currentCash 
+        : getAvailableCapital();
+ 
     // ConfirmModal 狀態
     const [confirmAction, setConfirmAction] = useState<{
         title: string;
@@ -215,10 +231,14 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const isUSStock = type === 'US_STOCK';
     const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type);
     
-    const holdings = getHoldingsByType(type);
-    const totalInvested = getHoldingsTotalByType(type);
+    // 根據當前軍團過濾持倉與計算總投入 (若是 null 則代表全局)
+    const allHoldingsOfType = getHoldingsByType(type);
+    const filteredHoldings = allHoldingsOfType.filter(h => h.poolId === (activePoolId || undefined));
+    const unassignedHoldings = allHoldingsOfType.filter(h => !h.poolId);
+    
+    const totalInvested = filteredHoldings.reduce((sum, h) => sum + h.totalAmount, 0);
     const totalInvestedUSD = isUSStock
-        ? holdings.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0)
+        ? filteredHoldings.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0)
         : 0;
 
     const usStockAvailable = isUSStock ? usStockFundPool - totalInvestedUSD : 0;
@@ -241,6 +261,18 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
         setEditingHoldingName(undefined);
     };
 
+    const handleAddPool = () => {
+        const amount = Number(poolAmount.replace(/,/g, ''));
+        if (!poolName) { setPoolError('請輸入軍團名稱'); return; }
+        if (isNaN(amount) || amount <= 0) { setPoolError('請輸入有效金額'); return; }
+        if (amount > availableTotal) { setPoolError('金額不可大於可用資產'); return; }
+        
+        addPool(poolName, amount);
+        setIsAddPoolOpen(false);
+        setPoolName('');
+        setPoolAmount('');
+        setPoolError('');
+    };
     return (
         <div className="flex flex-col gap-5 animate-in fade-in duration-300">
             {/* 頂部導航列 */}
@@ -288,8 +320,8 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div className="p-2.5 rounded-lg bg-stoneSoft/20">
-                                <p className="text-[10px] text-clay uppercase tracking-wider">已投入標的 (USD)</p>
-                                <p className="text-sm font-medium text-textPrimary mt-0.5">
+                                <p className="text-[10px] text-clay uppercase tracking-wider">已投入資金 (USD)</p>
+                                <p className="text-sm font-medium text-slate-800 mt-0.5">
                                     ${totalInvestedUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </p>
                             </div>
@@ -304,8 +336,8 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                 </Card>
             )}
 
-            {/* 投入總額摘要 (台股用，或美股的持倉總額) */}
-            {!isUSStock && (
+            {/* 投入總額摘要 (若進入軍團後顯示) */}
+            {activePoolId && !isUSStock && (
                 <Card className="relative overflow-hidden">
                     <div className="absolute -top-16 -right-16 w-32 h-32 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
                     <div className="flex justify-between items-center z-10 relative">
@@ -317,271 +349,327 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                         </div>
                         <div className="flex items-center gap-2 text-clay">
                             <span className="material-symbols-outlined text-xl">bar_chart</span>
-                            <span className="text-sm font-medium">{holdings.length} 檔</span>
+                            <span className="text-sm font-medium">{filteredHoldings.length} 檔</span>
                         </div>
                     </div>
                 </Card>
             )}
 
-            {/* 持倉清單 */}
-            {holdings.length === 0 ? (
-                <Card className="flex flex-col items-center justify-center p-10 text-center bg-white/20 border-dashed border-stoneSoft">
-                    <div className="w-12 h-12 bg-stoneSoft/30 rounded-full flex items-center justify-center mb-4">
-                        <span className="material-symbols-outlined text-clay text-2xl">add</span>
-                    </div>
-                    <p className="text-clay text-sm mb-1">尚無持倉紀錄</p>
-                    <p className="text-clay/60 text-xs">點擊下方按鈕記錄第一筆交易</p>
-                </Card>
+            {/* 戰備池子管理區 */}
+            {!activePoolId ? (
+                <div className="flex flex-col gap-4">
+                    <CapitalPools type={type} onSelectPool={setActivePoolId} />
+                    <Button 
+                        variant="secondary" 
+                        className="w-full py-6 border-dashed border-2 bg-stoneSoft/10 hover:bg-stoneSoft/20"
+                        onClick={() => setIsAddPoolOpen(true)}
+                    >
+                        <span className="material-symbols-outlined mr-2">add_circle</span>
+                        新增戰備軍團
+                    </Button>
+
+                    {/* 未歸屬標的 (舊資料) */}
+                    {unassignedHoldings.length > 0 && (
+                        <div className="mt-4">
+                            <h3 className="text-sm font-medium text-clay uppercase tracking-wider mb-3 px-1">未歸屬標的 (舊資料)</h3>
+                            <div className="flex flex-col gap-3">
+                                {unassignedHoldings.map(h => (
+                                    <Card key={h.id} className="p-4 bg-rust/5 border-rust/10">
+                                        <div className="flex justify-between items-center gap-4">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-slate-800 truncate">{h.name}</p>
+                                                <p className="text-[10px] text-clay mt-0.5">總投入: {FORMAT_TWD.format(h.totalAmount)}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <select 
+                                                    className="text-[10px] bg-white border border-stoneSoft rounded px-2 py-1.5 outline-none font-medium text-slate-700"
+                                                    onChange={(e) => {
+                                                        if (e.target.value) {
+                                                            updateHoldingPool(h.id, e.target.value);
+                                                        }
+                                                    }}
+                                                    defaultValue=""
+                                                >
+                                                    <option value="" disabled>移至軍團...</option>
+                                                    {pools.filter(p => p.type === type).map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                                <button 
+                                                    onClick={() => setConfirmAction({
+                                                        title: '刪除未歸屬標的',
+                                                        message: `確定要刪除「${h.name}」的所有紀錄嗎？`,
+                                                        action: () => removeHolding(h.id)
+                                                    })}
+                                                    className="p-1.5 text-clay/40 hover:text-rust transition-colors"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             ) : (
                 <div className="flex flex-col gap-3">
-                    {holdings.map((holding) => {
-                        const isExpanded = expandedHoldingId === holding.id;
+                    <div className="flex items-center justify-between mb-2">
+                        <button 
+                            onClick={() => setActivePoolId(null)} 
+                            className="text-xs text-clay flex items-center hover:text-slate-800 transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-sm mr-1">arrow_back_ios</span>
+                            返回軍團列表
+                        </button>
+                    </div>
 
-                        return (
-                            <Card key={holding.id} noPadding className="overflow-hidden">
-                                {/* 持倉摘要（可點擊展開） */}
-                                <button
-                                    onClick={() => toggleExpand(holding.id)}
-                                    className="w-full p-4 flex items-center justify-between text-left hover:bg-stoneSoft/10 transition-colors"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1.5">
-                                            <h4 className="font-semibold text-slate-800 text-sm truncate">
-                                                {holding.name}
-                                            </h4>
-                                            <span className="text-[10px] text-clay bg-stoneSoft/40 px-1.5 py-0.5 rounded shrink-0">
-                                                {holding.purchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
-                                            </span>
-                                        </div>
-                                        {isSimpleMode ? (
-                                            /* ═══ 簡易模式 (基金)：只顯示總投入金額 ═══ */
-                                            <div>
-                                                <p className="text-[10px] text-clay uppercase tracking-wider">總投入金額</p>
-                                                <p className="text-sm font-bold text-slate-800 mt-0.5">
-                                                    {FORMAT_TWD.format(holding.totalAmount)}
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-3 gap-y-4 gap-x-2 mt-2">
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">總股數</p>
-                                                    <p className="text-sm font-medium text-textPrimary mt-0.5">
-                                                        {holding.shares.toLocaleString('en-US')}
-                                                    </p>
+                    {/* 持倉清單 (僅在進入軍團後顯示) */}
+                    {filteredHoldings.length === 0 ? (
+                        <Card className="flex flex-col items-center justify-center p-10 text-center bg-white/20 border-dashed border-stoneSoft">
+                            <div className="w-12 h-12 bg-stoneSoft/30 rounded-full flex items-center justify-center mb-4">
+                                <span className="material-symbols-outlined text-clay text-2xl">add</span>
+                            </div>
+                            <p className="text-clay text-sm mb-1">尚無持倉紀錄</p>
+                            <p className="text-clay/60 text-xs">點擊下方按鈕記錄第一筆交易</p>
+                        </Card>
+                    ) : (
+                        <div className="flex flex-col gap-3">
+                            {filteredHoldings.map((holding) => {
+                                const isExpanded = expandedHoldingId === holding.id;
+                                const totalPnL = (holding.unrealizedPnL || 0) + (holding.realizedPnL || 0);
+                                const pnlPercent = holding.totalAmount > 0 
+                                    ? (totalPnL / holding.totalAmount) * 100 
+                                    : 0;
+
+                                return (
+                                    <Card key={holding.id} noPadding className="overflow-hidden">
+                                        {/* 持倉摘要（可點擊展開） */}
+                                        <button
+                                            onClick={() => toggleExpand(holding.id)}
+                                            className="w-full p-4 flex items-center justify-between text-left hover:bg-stoneSoft/10 transition-colors"
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <h4 className="font-semibold text-slate-800 text-sm truncate">
+                                                        {holding.name}
+                                                    </h4>
+                                                    <span className="text-[10px] text-clay bg-stoneSoft/40 px-1.5 py-0.5 rounded shrink-0">
+                                                        {holding.purchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">均價</p>
-                                                    <p className="text-sm font-medium text-textPrimary mt-0.5">
-                                                        {isUSStock
-                                                            ? `$${holding.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                            : `$${holding.avgPrice.toLocaleString('en-US', { maximumFractionDigits: 1 })}`
-                                                        }
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">現價</p>
-                                                    <p className="text-sm font-medium text-textPrimary mt-0.5">
-                                                        {holding.currentPrice !== undefined
-                                                            ? (isUSStock
-                                                                ? `$${holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                : `$${holding.currentPrice.toLocaleString('en-US', { maximumFractionDigits: 1 })}`)
-                                                            : '-'
-                                                        }
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">總成本</p>
-                                                    <p className="text-sm font-medium text-textPrimary mt-0.5">
-                                                        {isUSStock && holding.totalAmountUSD ? `$${holding.totalAmountUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : FORMAT_TWD.format(holding.totalAmount)}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider">市值</p>
-                                                    <p className="text-sm font-bold text-slate-800 mt-0.5">
-                                                        {holding.currentPrice !== undefined && holding.shares > 0
-                                                            ? (isUSStock 
-                                                                ? `$${(holding.currentPrice * holding.shares).toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
-                                                                : FORMAT_TWD.format(holding.currentPrice * holding.shares))
-                                                            : '-'
-                                                        }
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider flex items-center gap-1">
-                                                        未實現損益
-                                                        {isLoadingQuotes && <span className="material-symbols-outlined text-[10px] animate-spin">sync</span>}
-                                                    </p>
-                                                    <div className="flex flex-col mt-0.5">
-                                                        <p className={cn(
-                                                            "text-sm font-bold",
-                                                            holding.unrealizedPnL && holding.unrealizedPnL > 0 ? "text-rust" : holding.unrealizedPnL && holding.unrealizedPnL < 0 ? "text-moss" : "text-clay"
-                                                        )}>
-                                                            {holding.unrealizedPnL !== undefined
-                                                                ? (isUSStock
-                                                                    ? `${holding.unrealizedPnL > 0 ? '+' : ''}$${holding.unrealizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                    : `${holding.unrealizedPnL > 0 ? '+' : ''}${FORMAT_TWD.format(holding.unrealizedPnL)}`)
-                                                                : '-'
-                                                            }
+                                                {isSimpleMode ? (
+                                                    /* ═══ 簡易模式 (基金)：只顯示總投入金額 ═══ */
+                                                    <div>
+                                                        <p className="text-[10px] text-clay uppercase tracking-wider">總投入金額</p>
+                                                        <p className="text-sm font-bold text-slate-800 mt-0.5">
+                                                            {FORMAT_TWD.format(holding.totalAmount)}
                                                         </p>
-                                                        {isUSStock && holding.unrealizedPnL !== undefined && (
-                                                            <p className="text-[10px] text-clay/60">
-                                                                ≈ {FORMAT_TWD.format(holding.unrealizedPnL * exchangeRateUSD)}
-                                                            </p>
-                                                        )}
                                                     </div>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] text-clay uppercase tracking-wider flex items-center gap-1 cursor-help" title="已結算的實際獲利">
-                                                        已實現損益
-                                                    </p>
-                                                    <div className="flex flex-col mt-0.5">
-                                                        <p className={cn(
-                                                            "text-sm font-bold",
-                                                            holding.realizedPnL && holding.realizedPnL > 0 ? "text-rust" : holding.realizedPnL && holding.realizedPnL < 0 ? "text-moss" : "text-clay"
-                                                        )}>
-                                                            {holding.realizedPnL !== undefined && holding.realizedPnL !== 0
-                                                                ? (isUSStock
-                                                                    ? `${holding.realizedPnL > 0 ? '+' : ''}$${holding.realizedPnL.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                    : `${holding.realizedPnL > 0 ? '+' : ''}${FORMAT_TWD.format(holding.realizedPnL)}`)
-                                                                : '-'
-                                                            }
-                                                        </p>
-                                                        {isUSStock && holding.realizedPnL !== undefined && holding.realizedPnL !== 0 && (
-                                                            <p className="text-[10px] text-clay/60">
-                                                                ≈ {FORMAT_TWD.format(holding.realizedPnL * exchangeRateUSD)}
+                                                ) : (
+                                                    <div className="grid grid-cols-3 gap-y-4 gap-x-2 mt-2">
+                                                        <div>
+                                                            <p className="text-[10px] text-clay uppercase tracking-wider">總股數</p>
+                                                            <p className="text-sm font-medium text-textPrimary mt-0.5">
+                                                                {holding.shares.toLocaleString('en-US')}
                                                             </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="ml-3 shrink-0 text-clay">
-                                        <span className="material-symbols-outlined text-xl">
-                                            {isExpanded ? 'expand_less' : 'expand_more'}
-                                        </span>
-                                    </div>
-                                </button>
-
-                                {/* 展開區：購買紀錄明細 */}
-                                {isExpanded && (
-                                    <div className="border-t border-stoneSoft/60 bg-stoneSoft/10">
-                                        <div className="px-4 py-2 flex justify-between items-center">
-                                            <p className="text-[10px] text-clay uppercase tracking-wider font-medium">{isSimpleMode ? '投入與取回紀錄' : '交易紀錄'}</p>
-                                            <button
-                                                onClick={() => setConfirmAction({
-                                                    title: '刪除標的',
-                                                    message: `確定要刪除「${holding.name}」所有資料嗎？此動作無法復原。`,
-                                                    action: () => removeHolding(holding.id)
-                                                })}
-                                                className="text-[10px] text-rust/60 hover:text-rust transition-colors px-2 py-1 rounded"
-                                            >
-                                                刪除此標的
-                                            </button>
-                                        </div>
-
-                                        {holding.purchases.map((purchase, idx) => {
-                                            const dateStr = new Date(purchase.date).toLocaleDateString('zh-TW', {
-                                                month: 'short', day: 'numeric',
-                                            });
-
-                                            return (
-                                                <div
-                                                    key={purchase.id}
-                                                    className={cn(
-                                                        "px-4 py-3 flex items-center justify-between hover:bg-stoneSoft/20 transition-colors",
-                                                        idx < holding.purchases.length - 1 && "border-b border-stoneSoft/30"
-                                                    )}
-                                                >
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 text-[10px]">
-                                                            <span className={cn(
-                                                                "px-1.5 py-0.5 rounded font-medium tracking-wider uppercase",
-                                                                purchase.action === 'SELL' ? "bg-moss/10 text-moss" : "bg-rust/10 text-rust"
-                                                            )}>
-                                                                {purchase.action === 'SELL' ? 'SELL' : 'BUY'}
-                                                            </span>
-                                                            <span className="text-clay">{dateStr}</span>
-                                                            {purchase.note && (
-                                                                <span className="text-clay/60 bg-stoneSoft/30 px-1.5 py-0.5 rounded">
-                                                                    {purchase.note}
-                                                                </span>
-                                                            )}
                                                         </div>
-                                                        {isSimpleMode ? (
-                                                            /* ═══ 簡易模式：只顯示金額 ═══ */
-                                                            <div className="mt-1 text-sm">
-                                                                <span className="text-moss font-medium">
-                                                                    {FORMAT_TWD.format(purchase.totalCost)}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            /* ═══ 股數模式：股數 + 價格 + 總額 ═══ */
-                                                            <div className="flex items-center gap-4 mt-1 text-sm">
-                                                                <span className="text-textPrimary">
-                                                                    {purchase.shares.toLocaleString('en-US')} 股
-                                                                </span>
-                                                                <span className="text-clay">
-                                                                    @{isUSStock
-                                                                        ? `$${purchase.pricePerShare.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                        : `$${purchase.pricePerShare.toLocaleString('en-US')}`
+                                                        <div>
+                                                            <p className="text-[10px] text-clay uppercase tracking-wider">均價</p>
+                                                            <p className="text-sm font-medium text-textPrimary mt-0.5">
+                                                                {isUSStock
+                                                                    ? `$${holding.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                    : `$${holding.avgPrice.toLocaleString('en-US', { maximumFractionDigits: 1 })}`
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-clay uppercase tracking-wider">現價</p>
+                                                            <p className="text-sm font-medium text-textPrimary mt-0.5">
+                                                                {holding.currentPrice !== undefined
+                                                                    ? (isUSStock
+                                                                        ? `$${holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                                        : `$${holding.currentPrice.toLocaleString('en-US', { maximumFractionDigits: 1 })}`)
+                                                                    : '-'
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] text-clay uppercase tracking-wider">總成本</p>
+                                                            <p className="text-sm font-bold text-slate-800 mt-0.5">
+                                                                {isUSStock
+                                                                    ? `$${(holding.totalAmountUSD || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                                                                    : FORMAT_TWD.format(holding.totalAmount)
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <p className="text-[10px] text-clay uppercase tracking-wider">累積損益</p>
+                                                            <div className="flex items-baseline gap-2 mt-0.5">
+                                                                <p className={cn(
+                                                                    "text-sm font-bold",
+                                                                    totalPnL >= 0 ? "text-rust" : "text-green-600"
+                                                                )}>
+                                                                    {isUSStock
+                                                                        ? `${totalPnL >= 0 ? '+' : ''}$${totalPnL.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                                                                        : `${totalPnL >= 0 ? '+' : ''}${FORMAT_TWD.format(totalPnL)}`
                                                                     }
-                                                                </span>
-                                                                <span className={cn("font-medium", purchase.action === 'SELL' ? "text-moss" : "text-rust")}>
-                                                                    {isUSStock && purchase.totalCostUSD
-                                                                        ? `${purchase.action === 'BUY' ? '-' : '+'}$${purchase.totalCostUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                                                        : `${purchase.action === 'BUY' ? '-' : '+'}${FORMAT_TWD.format(purchase.totalCost)}`
-                                                                    }
-                                                                </span>
+                                                                </p>
+                                                                <p className={cn(
+                                                                    "text-[10px] font-medium",
+                                                                    pnlPercent >= 0 ? "text-rust" : "text-green-600"
+                                                                )}>
+                                                                    ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
+                                                                </p>
                                                             </div>
-                                                        )}
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1 shrink-0">
-                                                        {/* 編輯按鈕 */}
-                                                        <button
-                                                            onClick={() => handleEdit(holding.id, holding.name, purchase)}
-                                                            className="p-2 rounded-lg text-clay/40 hover:text-primary hover:bg-primary/10 transition-all"
-                                                            title="編輯此筆買入"
-                                                        >
-                                                            <span className="material-symbols-outlined text-lg">edit</span>
-                                                        </button>
-                                                        {/* 刪除按鈕 */}
-                                                        <button
-                                                            onClick={() => setConfirmAction({
-                                                                title: '刪除紀錄',
-                                                                message: '確定要刪除這筆買入紀錄嗎？',
-                                                                action: () => removePurchase(holding.id, purchase.id)
-                                                            })}
-                                                            className="p-2 rounded-lg text-clay/40 hover:text-rust hover:bg-rust/10 transition-all"
-                                                            title="刪除此筆買入"
-                                                        >
-                                                            <span className="material-symbols-outlined text-lg">delete</span>
-                                                        </button>
+                                                )}
+                                            </div>
+                                            <div className="ml-4 text-clay/40">
+                                                <span className={cn(
+                                                    "material-symbols-outlined transition-transform duration-300",
+                                                    isExpanded ? "rotate-180" : ""
+                                                )}>
+                                                    expand_more
+                                                </span>
+                                            </div>
+                                        </button>
+
+                                        {/* 展開詳情：最後 5 筆交易紀錄 */}
+                                        <div className={cn(
+                                            "grid transition-all duration-300 ease-in-out bg-stoneSoft/5",
+                                            isExpanded ? "grid-rows-[1fr] border-t border-stoneSoft/50" : "grid-rows-[0fr]"
+                                        )}>
+                                            <div className="overflow-hidden">
+                                                <div className="p-4 flex flex-col gap-3">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <p className="text-[10px] font-bold text-clay uppercase tracking-widest">交易紀錄 (最近 5 筆)</p>
+                                                        <Button variant="ghost" size="sm" className="h-7 text-[10px] px-2" onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setConfirmAction({
+                                                                title: '刪除持倉',
+                                                                message: `確定要刪除 ${holding.name} 的所有紀錄嗎？此動作不可逆。`,
+                                                                action: () => removeHolding(holding.id)
+                                                            });
+                                                        }}>
+                                                            全部刪除
+                                                        </Button>
                                                     </div>
+                                                    {(holding.purchases || []).slice(-5).reverse().map((purchase) => (
+                                                        <div key={purchase.id} className="flex flex-col gap-2 p-3 bg-white/50 rounded-xl border border-stoneSoft/30 group relative">
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={cn(
+                                                                            "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                                                                            purchase.action === 'BUY' ? "bg-rust/10 text-rust" : "bg-green-100 text-green-700"
+                                                                        )}>
+                                                                            {purchase.action === 'BUY' ? (isSimpleMode ? '投入' : '買入') : (isSimpleMode ? '減少' : '賣出')}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-clay font-medium">
+                                                                            {new Date(purchase.date).toLocaleDateString('zh-TW')}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-xs font-semibold text-slate-800 mt-1">
+                                                                        {purchase.shares.toLocaleString()} 股 @ {isUSStock ? `$${purchase.pricePerShare}` : `$${purchase.pricePerShare}`}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button
+                                                                        onClick={() => handleEdit(holding.id, holding.name, purchase)}
+                                                                        className="p-1.5 text-clay hover:text-primary transition-colors"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setConfirmAction({
+                                                                            title: '刪除紀錄',
+                                                                            message: '確定要刪除這筆交易紀錄嗎？',
+                                                                            action: () => removePurchase(holding.id, purchase.id)
+                                                                        })}
+                                                                        className="p-1.5 text-clay hover:text-rust transition-colors"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex justify-between items-end border-t border-stoneSoft/20 pt-2 mt-1">
+                                                                <p className="text-[10px] text-clay italic truncate max-w-[60%]">
+                                                                    {purchase.note || '無備註'}
+                                                                </p>
+                                                                <p className="text-xs font-bold text-slate-700">
+                                                                    {isUSStock ? `$${purchase.totalCostUSD?.toLocaleString()}` : FORMAT_TWD.format(purchase.totalCost)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </Card>
-                        );
-                    })}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
             {/* 底部間距，防止 FAB 遮擋最後一筆紀錄 */}
             <div className="h-20" />
 
-            {/* 浮動記錄交易按鈕 (FAB) */}
-            <button
-                onClick={() => setIsBuyOpen(true)}
-                className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white/90 shadow-lg shadow-primary/20 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95 z-30"
-                title="記錄交易"
-            >
-                <span className="material-symbols-outlined text-2xl">add</span>
-            </button>
+            {/* 浮動記錄交易按鈕 (FAB) - 僅在進入軍團視圖後顯示 */}
+            {activePoolId && (
+                <button
+                    onClick={() => setIsBuyOpen(true)}
+                    className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white/90 shadow-lg shadow-primary/20 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:shadow-xl hover:shadow-primary/30 active:scale-95 z-30"
+                    title="記錄交易"
+                >
+                    <span className="material-symbols-outlined text-2xl">add</span>
+                </button>
+            )}
+
+            {/* 新增軍團彈窗 (AddPoolModal) */}
+            {isAddPoolOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setIsAddPoolOpen(false)} />
+                    <Card className="w-full max-w-sm z-[101] flex flex-col gap-5 animate-in zoom-in-95 duration-200 shadow-2xl">
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-xl font-light text-slate-800">新增戰備軍團</h3>
+                            <p className="text-xs text-clay">建立獨立入金池，隔離資產損益</p>
+                        </div>
+                        <div className="flex flex-col gap-4">
+                            <Input 
+                                label="軍團名稱" 
+                                placeholder="例如：防禦大軍" 
+                                value={poolName} 
+                                onChange={(e) => { setPoolName(e.target.value); setPoolError(''); }}
+                                error={poolError && !poolName ? poolError : ''}
+                                autoFocus
+                            />
+                            <Input 
+                                label="撥款金額 (TWD)" 
+                                placeholder="0"
+                                value={poolAmount}
+                                onChange={(e) => { 
+                                    const val = e.target.value.replace(/,/g, '').replace(/[^\d]/g, '');
+                                    setPoolAmount(Number(val).toLocaleString('en-US'));
+                                    setPoolError('');
+                                }}
+                                icon={<span className="font-semibold px-1 text-xs">NT$</span>}
+                                error={poolError && poolName ? poolError : ''}
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3 mt-2">
+                            <Button variant="ghost" onClick={() => setIsAddPoolOpen(false)}>取消</Button>
+                            <Button variant="primary" onClick={handleAddPool}>確認建立</Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
 
             {/* 買入 / 編輯表單抽屜 */}
-            <BuyStockDrawer
+            <BuyStockDrawer poolId={activePoolId || undefined}
                 isOpen={isBuyOpen}
                 onClose={handleCloseDrawer}
                 type={type}

@@ -95,6 +95,11 @@ interface PortfolioStore extends PortfolioState {
     getAssetTotals: () => Record<AssetType, number>;
     resetAll: () => void;
 
+    // ═══ 入金池管理 ═══
+    addPool: (name: string, initialAmount?: number) => void;
+    removePool: (id: string) => void;
+    allocateToPool: (poolId: string, amount: number) => void;
+    withdrawFromPool: (poolId: string, amount: number) => void;
     // ═══ 美股資金池管理 ═══
     setUsStockFundPool: (amount: number) => void;
     getUsStockAvailableCapital: () => number;
@@ -111,10 +116,12 @@ interface PortfolioStore extends PortfolioState {
         totalCostUSD?: number;
         exchangeRate?: number;
         note?: string;
+        poolId?: string;
     }) => void;
     removePurchase: (holdingId: string, purchaseId: string) => void;
     updateHoldingName: (id: string, name: string) => void;
     updateHoldingQuote: (id: string, currentPrice: number) => void;
+    updateHoldingPool: (id: string, poolId: string) => void;
     removeHolding: (id: string) => void;
     getHoldingsByType: (type: StockAssetType) => StockHolding[];
     getHoldingsTotalByType: (type: StockAssetType) => number;
@@ -141,6 +148,7 @@ interface PortfolioStore extends PortfolioState {
 }
 
 const initialState: PortfolioState = {
+    pools: [],
     totalCapitalPool: 0,
     capitalDeposits: [],
     usStockFundPool: 0,
@@ -222,6 +230,66 @@ export const usePortfolioStore = create<PortfolioStore>()(
                 });
             },
 
+            addPool: (name: string, initialAmount: number = 0) => {
+                const now = new Date().toISOString();
+                const newPool = {
+                    id: crypto.randomUUID(),
+                    name,
+                    allocatedBudget: initialAmount,
+                    currentCash: initialAmount,
+                    type: 'TAIWAN_STOCK' as AssetType,
+                    createdAt: now,
+                    updatedAt: now,
+                };
+                set((state) => ({
+                    totalCapitalPool: state.totalCapitalPool - initialAmount,
+                    pools: [...(state.pools || []), newPool],
+                }));
+            },
+
+            removePool: (id: string) => {
+                set((state) => {
+                    const poolToRemove = state.pools.find(p => p.id === id);
+                    if (!poolToRemove) return {};
+                    
+                    return {
+                        totalCapitalPool: state.totalCapitalPool + poolToRemove.allocatedBudget,
+                        pools: state.pools.filter((p) => p.id !== id),
+                        // 將原本屬於該軍團的持倉「釋放」回全局
+                        holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h)
+                    };
+                });
+            },
+
+            allocateToPool: (poolId: string, amount: number) => {
+                set((state) => {
+                    if (state.totalCapitalPool < amount) return {};
+                    return {
+                        totalCapitalPool: state.totalCapitalPool - amount,
+                        pools: (state.pools || []).map((p) =>
+                            p.id === poolId
+                                ? { ...p, allocatedBudget: p.allocatedBudget + amount, currentCash: p.currentCash + amount, updatedAt: new Date().toISOString() }
+                                : p
+                        ),
+                    };
+                });
+            },
+
+            withdrawFromPool: (poolId: string, amount: number) => {
+                set((state) => {
+                    const pool = (state.pools || []).find((p) => p.id === poolId);
+                    if (!pool || pool.currentCash < amount) return {};
+                    return {
+                        totalCapitalPool: state.totalCapitalPool + amount,
+                        pools: (state.pools || []).map((p) =>
+                            p.id === poolId
+                                ? { ...p, allocatedBudget: p.allocatedBudget - amount, currentCash: p.currentCash - amount, updatedAt: new Date().toISOString() }
+                                : p
+                        ),
+                    };
+                });
+            },
+
             setExchangeRate: (rate: number) => {
                 if (rate <= 0 || isNaN(rate)) return;
                 set({ exchangeRateUSD: rate });
@@ -236,7 +304,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
             getUsStockAvailableCapital: () => {
                 const state = get();
                 const usHoldingsTotalUSD = state.holdings
-                    .filter((h) => h.type === 'US_STOCK')
+                    .filter((h) => h.type === 'US_STOCK' && !h.poolId)
                     .reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0);
                 const available = state.usStockFundPool - usHoldingsTotalUSD;
                 return available > 0 ? available : 0;
@@ -317,10 +385,12 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
             getAvailableCapital: () => {
                 const state = get();
-                const totals = state.getAssetTotals();
-                const totalInvested = Object.values(totals).reduce((sum, val) => sum + val, 0);
-                const customTotal = state.customCategories.reduce((sum, c) => sum + c.amount, 0);
-                const available = state.totalCapitalPool - totalInvested - customTotal;
+                // 只計算「不屬於任何軍團」且「非美股」的持倉投入 (美股有獨立的 usStockFundPool)
+                const holdingsInGlobal = state.holdings.filter(h => !h.poolId && h.type !== 'US_STOCK');
+                const totalInvestedGlobal = holdingsInGlobal.reduce((sum, h) => sum + h.totalAmount, 0);
+                
+                const customTotal = state.getCustomCategoriesTotal();
+                const available = state.totalCapitalPool - totalInvestedGlobal - customTotal;
                 return available > 0 ? available : 0;
             },
 
@@ -373,7 +443,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                 set((state) => {
                     const existingIndex = state.holdings.findIndex(
-                        (h) => h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase()
+                        (h) => h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase() && h.poolId === params.poolId
                     );
 
                     let updatedHoldings = [...state.holdings];
@@ -405,6 +475,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                             name: params.name.trim(),
                             symbol: params.symbol,
                             purchases: [newPurchase],
+                            poolId: params.poolId,
                             shares: 0,
                             avgPrice: 0,
                             totalAmount: 0,
@@ -421,15 +492,21 @@ export const usePortfolioStore = create<PortfolioStore>()(
                         }
                     }
 
-                    // 如果是賣出，代表有現金收回。
-                    // 目前架構下：
-                    // 台股/基金/虛擬幣：占用 totalCapitalPool 裡面的「可用資金」。賣出後，不需要特別去改 CapitalPool，因為 totalInvested 會變少。
-                    // 但是！如果你「虧損」或「獲益」，這部分資金是真正的增減，需要反映回總資金池。
-                    // 因此我們將 Delta(RealizedPnL) 加回到資金池中。
+                    const cashDeltaTWD = (params.action === 'SELL' ? 1 : -1) * params.totalCost;
+
                     return { 
                         holdings: updatedHoldings,
-                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
-                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                        // 總預算池：僅非軍團、非美股交易時，將已實現損益（獲利/虧損）反映回預算上限
+                        totalCapitalPool: (params.poolId || params.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
+                        // 美股預算池：反映美股交易造成的損益（美金）
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                        // 軍團池：同時更新分配預算(反映損益帶來的上限變化)與當前可用現金(實際現金流)
+                        pools: params.poolId ? state.pools.map(p => p.id === params.poolId ? { 
+                            ...p, 
+                            allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
+                            currentCash: p.currentCash + cashDeltaTWD,
+                            updatedAt: now
+                        } : p) : state.pools,
                     };
                 });
             },
@@ -452,10 +529,20 @@ export const usePortfolioStore = create<PortfolioStore>()(
                         if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
                         else pnlDeltaTWD = diff;
 
+                        const purchaseToRemove = state.holdings[holdingIndex].purchases.find(p => p.id === purchaseId);
+                        const oldAction = purchaseToRemove?.action || 'BUY';
+                        const oldCashFlow = (oldAction === 'SELL' ? 1 : -1) * (purchaseToRemove?.totalCost || 0);
+
                         return { 
                             holdings: state.holdings.filter((h) => h.id !== holdingId),
-                            totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
-                            usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                            totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
+                            usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                            pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
+                                ...p, 
+                                allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
+                                currentCash: p.currentCash - oldCashFlow, // 撤銷該筆交易：現金流反向更新
+                                updatedAt: new Date().toISOString()
+                            } : p) : state.pools,
                         };
                     }
 
@@ -467,10 +554,20 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
                     else pnlDeltaTWD = diff;
 
+                    const purchaseToRemove = state.holdings[holdingIndex].purchases.find(p => p.id === purchaseId);
+                    const oldAction = purchaseToRemove?.action || 'BUY';
+                    const oldCashFlow = (oldAction === 'SELL' ? 1 : -1) * (purchaseToRemove?.totalCost || 0);
+
                     return { 
                         holdings: updated,
-                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
-                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                        totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                        pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
+                            ...p, 
+                            allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
+                            currentCash: p.currentCash - oldCashFlow,
+                            updatedAt: new Date().toISOString()
+                        } : p) : state.pools,
                     };
                 });
             },
@@ -496,6 +593,14 @@ export const usePortfolioStore = create<PortfolioStore>()(
                 });
             },
 
+            updateHoldingPool: (id, poolId) => {
+                set((state) => ({
+                    holdings: state.holdings.map((h) =>
+                        h.id === id ? { ...h, poolId, updatedAt: new Date().toISOString() } : h
+                    ),
+                }));
+            },
+
             removeHolding: (id) => {
                 set((state) => {
                     const holding = state.holdings.find((h) => h.id === id);
@@ -511,8 +616,14 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                     return {
                         holdings: state.holdings.filter((h) => h.id !== id),
-                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
-                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                        totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                        pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
+                            ...p, 
+                            allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
+                            currentCash: p.currentCash + holding.totalAmount + pnlDeltaTWD, // 刪除持倉：將剩餘成本 + 已實現損益 全數退回現金
+                            updatedAt: new Date().toISOString()
+                        } : p) : state.pools,
                     };
                 });
             },
@@ -535,10 +646,21 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     const updatedHoldings = [...state.holdings];
                     const holding = { ...updatedHoldings[holdingIndex] };
                     const oldPnL = holding.realizedPnL || 0;
+                    const oldPurchase = holding.purchases.find(p => p.id === purchaseId);
+                    if (!oldPurchase) return {};
+                    
+                    const oldActionRaw = oldPurchase.action || 'BUY';
+                    const oldCashFlow = (oldActionRaw === 'SELL' ? 1 : -1) * oldPurchase.totalCost;
+
                     holding.purchases = holding.purchases.map((p) => {
                         if (p.id !== purchaseId) return p;
                         return { ...p, ...updates };
                     });
+
+                    const newPurchase = holding.purchases.find(p => p.id === purchaseId)!;
+                    const newActionRaw = newPurchase.action || 'BUY';
+                    const newCashFlow = (newActionRaw === 'SELL' ? 1 : -1) * newPurchase.totalCost;
+                    const cashDeltaTWD = newCashFlow - oldCashFlow;
 
                     const recalculated = recalcHolding(holding);
                     updatedHoldings[holdingIndex] = recalculated;
@@ -553,8 +675,14 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                     return { 
                         holdings: updatedHoldings,
-                        totalCapitalPool: state.totalCapitalPool + pnlDeltaTWD,
-                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD
+                        totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
+                        usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                        pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
+                            ...p, 
+                            allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
+                            currentCash: p.currentCash + cashDeltaTWD,
+                            updatedAt: new Date().toISOString()
+                        } : p) : state.pools,
                     };
                 });
             },

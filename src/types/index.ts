@@ -18,6 +18,7 @@ export interface Transaction {
     note: string;
     action: 'DEPOSIT' | 'WITHDRAWAL';
     holdingId?: string;
+    poolId?: string; // 關聯入金池
     updatedAt?: string;
 }
 
@@ -49,6 +50,7 @@ export interface StockHolding {
     currentPrice?: number;
     unrealizedPnL?: number;
     realizedPnL?: number; // 已實現損益
+    poolId?: string; // 關聯入金池
     createdAt: string;
     updatedAt: string;
 }
@@ -72,9 +74,22 @@ export interface CapitalDeposit {
     updatedAt?: string;
 }
 
+// 入金池 (隔離資金管理)
+export interface AssetPool {
+    id: string;
+    name: string;
+    allocatedBudget: number; // 分配預算
+    currentCash: number;
+    type: AssetType;         // 所屬市場分類 (e.g. TAIWAN_STOCK)
+    note?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface PortfolioState {
     totalCapitalPool: number;
     capitalDeposits: CapitalDeposit[];
+    pools: AssetPool[]; // 新增：多入金池管理
     usStockFundPool: number;
     exchangeRateUSD: number;
     transactions: Transaction[];

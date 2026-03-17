@@ -108,7 +108,7 @@
     background-repeat: repeat;
     /* 若隱若現的紙張纖維感，與玻璃毛玻璃效果混合 */
     mix-blend-mode: soft-light;
-    opacity: 0.8;
+    opacity: 0.3;
   }
 
   .card-hover {
