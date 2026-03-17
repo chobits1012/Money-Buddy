@@ -86,18 +86,95 @@ export interface AssetPool {
     updatedAt: string;
 }
 
-export interface PortfolioState {
+// 資金管理狀態
+export interface CapitalState {
     totalCapitalPool: number;
     capitalDeposits: CapitalDeposit[];
-    pools: AssetPool[]; // 新增：多入金池管理
+    pools: AssetPool[];
     usStockFundPool: number;
     exchangeRateUSD: number;
+}
+
+// 持倉與交易狀態
+export interface HoldingState {
     transactions: Transaction[];
     holdings: StockHolding[];
     customCategories: CustomCategory[];
     isConfigured: boolean;
+}
+
+// 同步狀態
+export interface SyncState {
     lastSyncedAt?: string;
 }
+
+export interface PortfolioState extends CapitalState, HoldingState, SyncState {}
+
+export interface CapitalActions {
+    setCapitalPool: (amount: number) => void;
+    addCapitalDeposit: (params: { amount: number; note: string }) => void;
+    removeCapitalDeposit: (id: string) => void;
+    setExchangeRate: (rate: number) => void;
+    addPool: (name: string, type: StockAssetType, initialAmount?: number) => void;
+    removePool: (id: string) => void;
+    allocateToPool: (poolId: string, amount: number) => void;
+    withdrawFromPool: (poolId: string, amount: number) => void;
+    setUsStockFundPool: (amount: number) => void;
+    getUsStockAvailableCapital: () => number;
+}
+
+export interface HoldingActions {
+    addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
+    removeTransaction: (id: string) => void;
+    getAvailableCapital: () => number;
+    getAssetTotals: () => Record<AssetType, number>;
+    buyStock: (params: {
+        type: StockAssetType;
+        name: string;
+        symbol?: string;
+        action?: 'BUY' | 'SELL';
+        shares: number;
+        pricePerShare: number;
+        totalCost: number;
+        totalCostUSD?: number;
+        exchangeRate?: number;
+        note?: string;
+        poolId?: string;
+    }) => void;
+    removePurchase: (holdingId: string, purchaseId: string) => void;
+    updateHoldingName: (id: string, name: string) => void;
+    updateHoldingQuote: (id: string, currentPrice: number) => void;
+    updateHoldingPool: (id: string, poolId: string) => void;
+    removeHolding: (id: string) => void;
+    getHoldingsByType: (type: StockAssetType) => StockHolding[];
+    getHoldingsTotalByType: (type: StockAssetType) => number;
+    updatePurchase: (holdingId: string, purchaseId: string, updates: {
+        action?: 'BUY' | 'SELL';
+        shares?: number;
+        pricePerShare?: number;
+        totalCost?: number;
+        totalCostUSD?: number;
+        exchangeRate?: number;
+        note?: string;
+    }) => void;
+    fetchQuotesForHoldings: () => Promise<void>;
+    addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
+    updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
+    removeCustomCategory: (id: string) => void;
+    getCustomCategoriesTotal: () => number;
+}
+
+export interface SyncActions {
+    overwriteState: (newState: PortfolioState) => void;
+    restoreFromSnapshot: () => boolean;
+}
+
+export interface PortfolioActions extends CapitalActions, HoldingActions, SyncActions {
+    isLoadingQuotes: boolean;
+    resetAll: () => void;
+}
+
+export type PortfolioStore = PortfolioState & PortfolioActions;
 
 export interface AssetSummary {
     type: AssetType;

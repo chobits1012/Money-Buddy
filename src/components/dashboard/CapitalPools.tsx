@@ -57,14 +57,18 @@ const THEME_CONFIG = {
 };
 
 export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string) => void, type: AssetType }) => {
-    const { pools, totalCapitalPool, allocateToPool, withdrawFromPool } = usePortfolioStore();
+    const { pools, allocateToPool, withdrawFromPool, getUsStockAvailableCapital, getAvailableCapital } = usePortfolioStore();
+    const isUSStock = type === 'US_STOCK';
+    
+    const availableBalance = isUSStock ? getUsStockAvailableCapital() : getAvailableCapital();
+    const balanceLabel = isUSStock ? `可用餘額: $${availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : `可用餘額: ${FORMAT_TWD.format(availableBalance)}`;
 
     return (
         <Card>
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">入金池管理 (戰備軍團)</h2>
-                <div className="text-right text-sm text-slate-500">
-                    總可用餘額: {FORMAT_TWD.format(totalCapitalPool)}
+                <div className="text-right text-sm text-clay font-medium">
+                    {balanceLabel}
                 </div>
             </div>
 
@@ -92,9 +96,9 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                                 {pool.name}
                             </div>
                             
-                            <div className="mt-2">
+                             <div className="mt-2">
                                 <div className="text-2xl font-light text-slate-700 tracking-tight">
-                                    {FORMAT_TWD.format(pool.currentCash)}
+                                    {isUSStock ? `$${pool.currentCash.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : FORMAT_TWD.format(pool.currentCash)}
                                 </div>
                                 <div className="text-[10px] text-clayDark uppercase tracking-widest mt-0.5">
                                     目前可用資金
@@ -106,7 +110,7 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                                     <div>
                                         <p className="text-[10px] text-clayDark uppercase tracking-wider">分配預算</p>
                                         <p className="text-xs font-medium text-slate-500 mt-0.5">
-                                            {FORMAT_TWD.format(pool.allocatedBudget)}
+                                            {isUSStock ? `$${pool.allocatedBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : FORMAT_TWD.format(pool.allocatedBudget)}
                                         </p>
                                     </div>
                                     <div className="flex gap-1.5">
@@ -116,7 +120,8 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                                             className={cn("h-8 px-3 text-[10px] border-none shadow-none", theme.accentBg, theme.accentText, theme.accentHoverBg)}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                const amount = window.prompt(`請輸入撥款至「${pool.name}」的金額:`);
+                                                const unit = isUSStock ? 'USD' : 'TWD';
+                                                const amount = window.prompt(`請輸入撥款至「${pool.name}」的金額 (${unit}):`);
                                                 if (amount && !isNaN(Number(amount))) {
                                                     allocateToPool(pool.id, Number(amount));
                                                 }
@@ -130,7 +135,8 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                                             className="h-8 px-3 text-[10px] text-clay hover:text-rust hover:bg-rust/5"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                const amount = window.prompt(`請從「${pool.name}」撤資的金額:`);
+                                                const unit = isUSStock ? 'USD' : 'TWD';
+                                                const amount = window.prompt(`請從「${pool.name}」撤資的金額 (${unit}):`);
                                                 if (amount && !isNaN(Number(amount))) {
                                                     withdrawFromPool(pool.id, Number(amount));
                                                 }
