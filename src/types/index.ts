@@ -74,6 +74,15 @@ export interface CapitalDeposit {
     updatedAt?: string;
 }
 
+// 總資產提領紀錄 (新增)
+export interface CapitalWithdrawal {
+    id: string;
+    amount: number;
+    note: string;
+    date: string;
+    updatedAt?: string;
+}
+
 // 入金池 (隔離資金管理)
 export interface AssetPool {
     id: string;
@@ -90,6 +99,7 @@ export interface AssetPool {
 export interface CapitalState {
     totalCapitalPool: number;
     capitalDeposits: CapitalDeposit[];
+    capitalWithdrawals: CapitalWithdrawal[]; // 新增：提領紀錄
     pools: AssetPool[];
     usStockFundPool: number;
     exchangeRateUSD: number;
@@ -114,6 +124,7 @@ export interface CapitalActions {
     setCapitalPool: (amount: number) => void;
     addCapitalDeposit: (params: { amount: number; note: string }) => void;
     removeCapitalDeposit: (id: string) => void;
+    addCapitalWithdrawal: (params: { amount: number; note: string }) => void; // 新增：提領動作
     setExchangeRate: (rate: number) => void;
     addPool: (name: string, type: StockAssetType, initialAmount?: number) => void;
     removePool: (id: string) => void;

@@ -6,16 +6,21 @@ import { HoldingsPage } from '../holdings/HoldingsPage';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { CustomCategoryDrawer } from './CustomCategoryDrawer';
 import { CapitalOverview } from './CapitalOverview';
-import { DepositDrawer } from './DepositDrawer';
+// import { DepositDrawer } from './DepositDrawer'; // DepositDrawer 已移至 App.tsx
 import { AssetAllocationSection } from './AssetAllocationSection';
 import { CustomCategorySection } from './CustomCategorySection';
 import { Button } from '../ui/Button';
 
-export const Dashboard = () => {
+interface DashboardProps {
+    onOpenDeposit: () => void; // 從 App.tsx 接收
+    onOpenWithdrawal: () => void; // 從 App.tsx 接收
+}
+
+export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) => {
     const {
         holdings, exchangeRateUSD,
         totalCapitalPool, resetAll, customCategories, removeCustomCategory,
-        capitalDeposits, addCapitalDeposit, removeCapitalDeposit,
+        capitalDeposits, removeCapitalDeposit, // addCapitalDeposit 已移至 App.tsx
         fetchQuotesForHoldings, isLoadingQuotes, restoreFromSnapshot
     } = usePortfolioStore();
     const getAvailableCapital = usePortfolioStore((state) => state.getAvailableCapital);
@@ -45,8 +50,8 @@ export const Dashboard = () => {
     const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<CustomCategory | undefined>(undefined);
 
-    // 入金 Drawer 狀態
-    const [isDepositDrawerOpen, setIsDepositDrawerOpen] = useState(false);
+    // 入金 Drawer 狀態 (已移至 App.tsx 管理)
+    // const [isDepositDrawerOpen, setIsDepositDrawerOpen] = useState(false);
 
     // ConfirmModal 狀態
     const [confirmAction, setConfirmAction] = useState<{
@@ -132,7 +137,8 @@ export const Dashboard = () => {
                 totalRealizedPnL={totalRealizedPnL}
                 isLoadingQuotes={isLoadingQuotes}
                 capitalDeposits={capitalDeposits}
-                onOpenDeposit={() => setIsDepositDrawerOpen(true)}
+                onOpenDeposit={onOpenDeposit} // 傳遞從 App.tsx 接收的 prop
+                onOpenWithdrawal={onOpenWithdrawal} // 傳遞從 App.tsx 接收的 prop
                 onReset={handleResetClick}
                 onRemoveDeposit={removeCapitalDeposit}
             />
@@ -162,12 +168,12 @@ export const Dashboard = () => {
                 editingCategory={editingCategory}
             />
 
-            {/* ═══ 入金 Drawer ═══ */}
-            <DepositDrawer 
+            {/* ═══ 入金 Drawer ═══ (已移至 App.tsx 管理) */}
+            {/* <DepositDrawer 
                 isOpen={isDepositDrawerOpen}
                 onClose={() => setIsDepositDrawerOpen(false)}
                 onSubmit={(amount, note) => addCapitalDeposit({ amount, note })}
-            />
+            /> */}
 
             {/* Confirm Modal */}
             <ConfirmModal

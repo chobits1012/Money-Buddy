@@ -1,10 +1,11 @@
 import type { StateCreator } from 'zustand';
-import type { CapitalState, StockAssetType, CapitalDeposit, AssetPool, PortfolioStore } from '../../types';
+import type { CapitalState, StockAssetType, CapitalDeposit, CapitalWithdrawal, AssetPool, PortfolioStore } from '../../types';
 
 export interface CapitalActions {
     setCapitalPool: (amount: number) => void;
     addCapitalDeposit: (params: { amount: number; note: string }) => void;
     removeCapitalDeposit: (id: string) => void;
+    addCapitalWithdrawal: (params: { amount: number; note: string }) => void; // 新增：提領動作
     setExchangeRate: (rate: number) => void;
     addPool: (name: string, type: StockAssetType, initialAmount?: number) => void;
     removePool: (id: string) => void;
@@ -24,6 +25,7 @@ export const createCapitalSlice: StateCreator<
 > = (set, get) => ({
     totalCapitalPool: 0,
     capitalDeposits: [],
+    capitalWithdrawals: [], // 新增：初始化提領紀錄
     pools: [],
     usStockFundPool: 0,
     exchangeRateUSD: 31, // Default or imported constant
@@ -66,6 +68,30 @@ export const createCapitalSlice: StateCreator<
                 capitalDeposits: state.capitalDeposits.filter((d) => d.id !== id),
             };
         });
+    },
+
+    addCapitalWithdrawal: (params) => { // 新增：提領動作的實現
+        if (params.amount <= 0 || isNaN(params.amount)) return;
+        const now = new Date().toISOString();
+        const state = get();
+
+        // 檢查是否有足夠的總資金可供提領
+        if (state.totalCapitalPool < params.amount) {
+            console.warn('提領失敗：總資金不足。');
+            return;
+        }
+
+        const withdrawal: CapitalWithdrawal = {
+            id: crypto.randomUUID(),
+            amount: params.amount,
+            note: params.note || '提領',
+            date: now,
+            updatedAt: now,
+        };
+        set((state) => ({
+            totalCapitalPool: state.totalCapitalPool - params.amount,
+            capitalWithdrawals: [...state.capitalWithdrawals, withdrawal],
+        }));
     },
 
     addPool: (name: string, type: StockAssetType, initialAmount: number = 0) => {
