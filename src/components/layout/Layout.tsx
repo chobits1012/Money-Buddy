@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { useSupabaseSync } from '../../hooks/useSupabaseSync';
+import { useSupabaseSync } from '../../contexts/SyncContext';
 import { SyncIndicator } from '../sync/SyncIndicator';
+import { AccountSwitchDialog } from '../sync/AccountSwitchDialog';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { usePortfolioStore } from '../../store/portfolioStore';
 
 export default function Layout() {
-    const { user, syncStatus, loginWithGoogle } = useSupabaseSync();
+    const {
+        user,
+        syncStatus,
+        loginWithGoogle,
+        syncGate,
+        isSyncing,
+        resolveAccountSwitchUseCloud,
+        resolveAccountSwitchMerge,
+        resolveAccountSwitchCancel,
+    } = useSupabaseSync();
     const navigate = useNavigate();
     const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
     const isConfigured = usePortfolioStore((state) => state.isConfigured);
@@ -54,6 +64,15 @@ export default function Layout() {
                 confirmText="確定"
                 onConfirm={() => setAlertMessage(null)}
                 isAlert
+            />
+
+            <AccountSwitchDialog
+                open={syncGate === 'blocked_account_mismatch' || syncGate === 'resolving'}
+                email={user?.email ?? null}
+                isBusy={isSyncing || syncGate === 'resolving'}
+                onUseCloud={() => void resolveAccountSwitchUseCloud()}
+                onMerge={() => void resolveAccountSwitchMerge()}
+                onCancel={() => void resolveAccountSwitchCancel()}
             />
         </div>
     );

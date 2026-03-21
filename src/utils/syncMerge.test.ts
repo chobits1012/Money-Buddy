@@ -16,6 +16,8 @@ const baseState = (overrides: Partial<PortfolioState>): PortfolioState => ({
     customCategories: [],
     isConfigured: true,
     lastSyncedAt: '2026-01-01T00:00:00.000Z',
+    localDataOwnerId: null,
+    pendingUpload: false,
     ...overrides,
 });
 
@@ -55,5 +57,92 @@ describe('syncMerge', () => {
         const merged = syncMerge(local, cloud);
         expect(merged.usdAccountCash).toBe(500);
         expect(merged.usStockFundPool).toBe(500);
+    });
+
+    it('reconciles totalCapitalPool when deposits and holdings come from different devices', () => {
+        const deposit = {
+            id: 'd1',
+            amount: 10_000,
+            note: '',
+            date: '2026-01-01',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        const local = baseState({
+            lastSyncedAt: '2026-01-01T00:00:00.000Z',
+            capitalDeposits: [deposit, {
+                id: 'd2',
+                amount: 2000,
+                note: '',
+                date: '2026-01-02',
+                updatedAt: '2026-01-02T00:00:00.000Z',
+            }],
+            capitalWithdrawals: [],
+            totalCapitalPool: 12_000,
+            holdings: [],
+        });
+        const cloud = baseState({
+            lastSyncedAt: '2026-01-03T00:00:00.000Z',
+            capitalDeposits: [deposit],
+            capitalWithdrawals: [],
+            totalCapitalPool: 7000,
+            holdings: [
+                {
+                    id: 'h1',
+                    type: 'TAIWAN_STOCK',
+                    name: 'TEST',
+                    purchases: [],
+                    shares: 0,
+                    avgPrice: 0,
+                    totalAmount: 3000,
+                    createdAt: '2026-01-01',
+                    updatedAt: '2026-01-03T00:00:00.000Z',
+                },
+            ],
+        });
+
+        const merged = syncMerge(local, cloud);
+        expect(merged.masterTwdTotal).toBe(12_000);
+        // 12000 - 0 pools - 3000 global TW - 0 custom = 9000
+        expect(merged.totalCapitalPool).toBe(9000);
+    });
+
+    it('keeps a new local pool even when local lastSyncedAt is newer than pool.updatedAt (no false tombstone)', () => {
+        const local = baseState({
+            lastSyncedAt: '2026-03-21T10:00:00.000Z',
+            masterTwdTotal: 200_000_000,
+            totalCapitalPool: 150_000_000,
+            capitalDeposits: [
+                {
+                    id: 'd1',
+                    amount: 200_000_000,
+                    note: '',
+                    date: '2026-01-01',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                },
+            ],
+            capitalWithdrawals: [],
+            pools: [
+                {
+                    id: 'p-new',
+                    name: '測試軍團',
+                    type: 'TAIWAN_STOCK',
+                    allocatedBudget: 50_000_000,
+                    currentCash: 50_000_000,
+                    createdAt: '2026-03-21T08:00:00.000Z',
+                    updatedAt: '2026-03-21T08:00:00.000Z',
+                },
+            ],
+        });
+        const cloud = baseState({
+            lastSyncedAt: '2026-03-21T07:00:00.000Z',
+            pools: [],
+            capitalDeposits: local.capitalDeposits,
+            capitalWithdrawals: [],
+        });
+
+        const merged = syncMerge(local, cloud);
+        expect(merged.pools).toHaveLength(1);
+        expect(merged.pools[0].id).toBe('p-new');
+        expect(merged.totalCapitalPool).toBe(150_000_000);
     });
 });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePortfolioStore } from '../../store/portfolioStore';
-import { useSupabaseSync } from '../../hooks/useSupabaseSync';
+import { useSupabaseSync } from '../../contexts/SyncContext';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';

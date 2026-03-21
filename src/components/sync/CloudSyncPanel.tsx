@@ -1,4 +1,4 @@
-import { useSupabaseSync } from '../../hooks/useSupabaseSync';
+import { useSupabaseSync } from '../../contexts/SyncContext';
 import { LogIn, LogOut, UploadCloud, DownloadCloud, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/Button';
 

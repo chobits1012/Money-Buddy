@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSupabaseSync } from '../hooks/useSupabaseSync';
+import { useSupabaseSync } from '../contexts/SyncContext';
+import { usePortfolioStore } from '../store/portfolioStore';
 import { SyncIndicator } from '../components/sync/SyncIndicator';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -40,6 +41,21 @@ export const BackupPage = () => {
         navigate('/');
     };
 
+    const exportLocalSnapshotJson = () => {
+        const state = usePortfolioStore.getState();
+        const serializable = Object.fromEntries(
+            Object.entries(state).filter(([, v]) => typeof v !== 'function'),
+        );
+        const data = JSON.stringify(serializable, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `portfolio-local-${new Date().toISOString().slice(0, 19)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="min-h-screen bg-background text-textPrimary flex flex-col items-center concrete-bg">
             <main className="w-full max-w-md flex-1 flex flex-col relative px-4 py-8 pb-24 sm:px-6 animate-in fade-in duration-500">
@@ -76,6 +92,16 @@ export const BackupPage = () => {
 
                     {/* 操作按鈕 */}
                     <div className="flex flex-col gap-3">
+                        <Button
+                            onClick={exportLocalSnapshotJson}
+                            variant="ghost"
+                            className="w-full flex justify-center items-center gap-2 border border-stoneSoft text-clayDark"
+                            size="md"
+                        >
+                            <span className="material-symbols-outlined text-lg">download</span>
+                            匯出本地快照 (JSON)
+                        </Button>
+
                         <Button
                             onClick={handleManualSync}
                             disabled={isSyncing}

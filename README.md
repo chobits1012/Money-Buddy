@@ -8,6 +8,7 @@
 - 🇺🇸 **美股特別處理：** 支援 USD 輸入與即時匯率換算為 TWD。
 - 📱 **PWA 原生體驗：** 加到手機主畫面後即可如原生 App 般全視窗流暢運作。
 - 🔒 **隱私優先儲存：** 資料透過 LocalStorage 只存在使用者的設備上。
+- ☁️ **多帳號與安全同步：** 依帳號分槽儲存；換帳號時阻擋未確認的雲端寫入；背景同步為 pull-merge-push（見 `CHANGELOG.md`、`docs/MANUAL_ACCEPTANCE.md`）。
 
 ## 開發架構 (Tech Stack)
 - React 18

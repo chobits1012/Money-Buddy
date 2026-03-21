@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import CryptoJS from 'crypto-js';
 import type { PortfolioState } from '../types';
 import { createCapitalSlice } from './slices/capitalSlice';
 import type { CapitalActions } from './slices/capitalSlice';
@@ -8,6 +7,8 @@ import { createHoldingSlice } from './slices/holdingSlice';
 import type { HoldingActions } from './slices/holdingSlice';
 import { createSyncSlice } from './slices/syncSlice';
 import type { SyncActions } from './slices/syncSlice';
+import { encryptedLocalStorage } from '../utils/storageEncryption';
+import { getPersistStorageKey } from '../utils/persistUserStorage';
 
 // Combined Store Interface
 interface PortfolioStore extends PortfolioState, CapitalActions, HoldingActions, SyncActions {
@@ -15,29 +16,12 @@ interface PortfolioStore extends PortfolioState, CapitalActions, HoldingActions,
     resetAll: () => void;
 }
 
-const ENCRYPTION_KEY = import.meta.env.VITE_STORAGE_ENCRYPTION_KEY || 'default_secret_key_DO_NOT_USE_IN_PROD';
-
-const encryptedStorage = {
-    getItem: (name: string) => {
-        const encrypted = localStorage.getItem(name);
-        if (!encrypted) return null;
-        try {
-            const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-            return decrypted ? decrypted : null;
-        } catch (e) {
-            console.error('解密本地資料失敗', e);
-            return null;
-        }
-    },
-    setItem: (name: string, value: string) => {
-        const encrypted = CryptoJS.AES.encrypt(value, ENCRYPTION_KEY).toString();
-        localStorage.setItem(name, encrypted);
-    },
-    removeItem: (name: string) => {
-        localStorage.removeItem(name);
-    },
-};
+const persistScopedStorage = createJSONStorage(() => ({
+    getItem: (_name: string) => encryptedLocalStorage.getItem(getPersistStorageKey()),
+    setItem: (_name: string, value: string) =>
+        encryptedLocalStorage.setItem(getPersistStorageKey(), value),
+    removeItem: (_name: string) => encryptedLocalStorage.removeItem(getPersistStorageKey()),
+}));
 
 export const usePortfolioStore = create<PortfolioStore>()(
     persist(
@@ -58,7 +42,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     Object.entries(currentState).filter(([_, v]) => typeof v !== 'function')
                 );
 
-                encryptedStorage.setItem('portfolio-tracker-snapshot', JSON.stringify({
+                encryptedLocalStorage.setItem('portfolio-tracker-snapshot', JSON.stringify({
                     ...stateData,
                     snapshotTime: now
                 }));
@@ -77,14 +61,17 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     customCategories: [],
                     isConfigured: true,
                     lastSyncedAt: now,
-                    isLoadingQuotes: false
+                    isLoadingQuotes: false,
+                    localDataOwnerId: null,
+                    pendingUpload: false,
                 });
             },
         }),
         {
             name: 'portfolio-tracker-storage',
-            version: 1,
-            storage: createJSONStorage(() => encryptedStorage),
+            version: 2,
+            skipHydration: true,
+            storage: persistScopedStorage,
             migrate: (persistedState: unknown, version: number) => {
                 const state = persistedState as Record<string, any>;
 
@@ -147,6 +134,15 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                 // 舊欄位維持同步，避免既有畫面與流程異常
                 state.usStockFundPool = state.usdAccountCash;
+
+                if (version < 2) {
+                    if (!('localDataOwnerId' in state)) {
+                        state.localDataOwnerId = undefined;
+                    }
+                    if (!('pendingUpload' in state)) {
+                        state.pendingUpload = false;
+                    }
+                }
 
                 return state as any;
             },

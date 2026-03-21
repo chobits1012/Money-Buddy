@@ -118,6 +118,10 @@ export interface HoldingState {
 // 同步狀態
 export interface SyncState {
     lastSyncedAt?: string;
+    /** 本地資料意圖綁定的帳號；null 表示從未與帳號綁定；undefined 表示舊版尚未標記 */
+    localDataOwnerId?: string | null;
+    /** 離線期間有待上傳變更（由 sync 層更新） */
+    pendingUpload?: boolean;
 }
 
 export interface PortfolioState extends CapitalState, HoldingState, SyncState {}
@@ -179,6 +183,8 @@ export interface HoldingActions {
 
 export interface SyncActions {
     overwriteState: (newState: PortfolioState) => void;
+    setLocalDataOwnerId: (id: string | null) => void;
+    setPendingUpload: (pending: boolean) => void;
     restoreFromSnapshot: () => boolean;
 }
 
