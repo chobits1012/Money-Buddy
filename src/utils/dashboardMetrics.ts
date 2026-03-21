@@ -99,7 +99,6 @@ export const calculateFundingMetrics = ({
     masterTwdTotal: masterTwdTotalFromState,
     capitalDeposits,
     capitalWithdrawals,
-    totalCapitalPool,
     pools,
     usdAccountCash,
     usStockFundPool,
