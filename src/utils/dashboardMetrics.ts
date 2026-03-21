@@ -122,15 +122,16 @@ export const calculateFundingMetrics = ({
     const masterCapitalTotal = typeof masterTwdTotalFromState === 'number'
         ? clampNonNegative(Math.round(masterTwdTotalFromState))
         : calculateMasterCapitalTotal(capitalDeposits, capitalWithdrawals);
-    const idleCapital = calculateGlobalIdleCapital(totalCapitalPool, holdings, customCategories);
-
-    // 以主帳戶口徑計算已分配（主帳戶總資產 - 主帳戶未分配）
-    // 並用池視角做一次下限保護，避免異常資料造成負值或過小值。
-    const allocatedFromMaster = clampNonNegative(masterCapitalTotal - idleCapital);
     const { twdAllocatedTotal } = selectPoolBuckets(pools);
+    const directGlobalTwdInvested = holdings
+        .filter((h) => !h.poolId && h.type !== 'US_STOCK')
+        .reduce((sum, h) => sum + h.totalAmount, 0);
+    const customTotal = customCategories.reduce((sum, c) => sum + c.amount, 0);
     const usdAccountTwd = Math.round(pickUsdBase(usdAccountCash, usStockFundPool) * exchangeRateUSD);
-    const allocatedLowerBound = clampNonNegative(Math.round(twdAllocatedTotal + usdAccountTwd));
-    const allocatedCapital = Math.max(allocatedFromMaster, allocatedLowerBound);
+    const allocatedCapital = clampNonNegative(
+        Math.round(twdAllocatedTotal + directGlobalTwdInvested + customTotal + usdAccountTwd),
+    );
+    const idleCapital = clampNonNegative(masterCapitalTotal - allocatedCapital);
     const allocatedPercentage = masterCapitalTotal > 0
         ? (allocatedCapital / masterCapitalTotal) * 100
         : 0;

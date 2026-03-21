@@ -51,6 +51,37 @@ describe('dashboardMetrics', () => {
         expect(metrics.allocatedPercentage).toBeCloseTo(30, 4);
     });
 
+    it('subtracts USD account allocation from idle capital', () => {
+        const pools: AssetPool[] = [
+            {
+                id: 'p-tw',
+                name: '台股池',
+                allocatedBudget: 4_000_000,
+                currentCash: 4_000_000,
+                type: 'TAIWAN_STOCK',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ];
+
+        const metrics = calculateFundingMetrics({
+            masterTwdTotal: 5_678_660,
+            capitalDeposits: [],
+            capitalWithdrawals: [],
+            totalCapitalPool: 1_678_660,
+            pools,
+            usdAccountCash: 15_676.41,
+            usStockFundPool: 15_676.41,
+            exchangeRateUSD: 31.5,
+            holdings: [],
+            customCategories: emptyCustom,
+        });
+
+        // 5,678,660 - 4,000,000 - round(15,676.41 * 31.5 = 493,807)
+        expect(metrics.idleCapital).toBe(1_184_853);
+        expect(metrics.allocatedCapital).toBe(4_493_807);
+    });
+
     it('builds allocation buckets with USD account in TWD', () => {
         const pools: AssetPool[] = [
             {
