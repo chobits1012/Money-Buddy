@@ -6,6 +6,7 @@ import { syncMerge } from '../utils/syncMerge';
 import { shouldBlockAccountSwitch } from '../utils/accountSyncGate';
 import { createEmptyPortfolioStateForUser } from '../utils/emptyPortfolioState';
 import { setPersistSuffix } from '../utils/persistUserStorage';
+import { reconcilePortfolioState } from '../utils/reconcilePortfolioState';
 import type { PortfolioState } from '../types';
 import type { User } from '@supabase/supabase-js';
 
@@ -64,9 +65,14 @@ export function useSupabaseSyncInternal() {
             const localState = usePortfolioStore.getState() as PortfolioState;
             const cloudRow = await fetchCloudBackup(currentUser.id);
 
-            let merged: PortfolioState = localState;
+            let merged: PortfolioState;
             if (cloudRow?.portfolio_data) {
                 merged = syncMerge(localState, cloudRow.portfolio_data);
+            } else {
+                merged = {
+                    ...localState,
+                    ...reconcilePortfolioState(localState),
+                };
             }
 
             overwriteState({

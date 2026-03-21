@@ -9,6 +9,7 @@ import { createSyncSlice } from './slices/syncSlice';
 import type { SyncActions } from './slices/syncSlice';
 import { encryptedLocalStorage } from '../utils/storageEncryption';
 import { getPersistStorageKey } from '../utils/persistUserStorage';
+import { reconcilePortfolioState } from '../utils/reconcilePortfolioState';
 
 // Combined Store Interface
 interface PortfolioStore extends PortfolioState, CapitalActions, HoldingActions, SyncActions {
@@ -69,7 +70,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
         }),
         {
             name: 'portfolio-tracker-storage',
-            version: 2,
+            version: 3,
             skipHydration: true,
             storage: persistScopedStorage,
             migrate: (persistedState: unknown, version: number) => {
@@ -142,6 +143,10 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     if (!('pendingUpload' in state)) {
                         state.pendingUpload = false;
                     }
+                }
+
+                if (version < 3) {
+                    Object.assign(state, reconcilePortfolioState(state as PortfolioState));
                 }
 
                 return state as any;

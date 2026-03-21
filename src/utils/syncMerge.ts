@@ -13,6 +13,7 @@ import type {
     CapitalWithdrawal,
     AssetPool,
 } from '../types';
+import { reconcilePortfolioState } from './reconcilePortfolioState';
 
 // ═══ 通用型別 ═══
 interface HasIdAndUpdatedAt {
@@ -137,85 +138,44 @@ export function syncMerge(
         currentCash: toSafeNonNegativeNumber(pool.currentCash),
     }));
 
-    // ═══ 2. 純量值處理 ═══
-
-    const totalDeposited = mergedCapitalDeposits.reduce(
-        (sum, d) => sum + d.amount,
-        0,
-    );
-    const totalWithdrawn = mergedCapitalWithdrawals.reduce(
-        (sum, w) => sum + w.amount,
-        0,
-    );
-    const mergedMasterTwdTotal = Math.max(0, totalDeposited - totalWithdrawn);
-
     const cloudOverallNewer =
         getTimestamp(cloud.lastSyncedAt) > getTimestamp(local.lastSyncedAt);
 
-    // 台幣主帳戶：合併後必須滿足
-    // masterTwdTotal ≈ totalCapitalPool + 非美股池 allocated + 非美股全域持倉成本 + 自訂欄位
-    // （見 holdingSlice.getGlobalFreeCapital / capitalSlice 入金與池邏輯）
-    // 不可再用「整包 lastSyncedAt 較新的一方」帶入 totalCapitalPool，否則跨裝置各改一類實體時可用餘額會錯。
-    const twdPoolAllocated = mergedPools
-        .filter((p) => p.type !== 'US_STOCK')
-        .reduce((sum, p) => sum + toSafeNonNegativeNumber(p.allocatedBudget), 0);
-    const globalTwdInvested = mergedHoldings
-        .filter((h) => !h.poolId && h.type !== 'US_STOCK')
-        .reduce((sum, h) => sum + toSafeNonNegativeNumber(h.totalAmount), 0);
-    const customCategoriesTotal = mergedCustomCategories.reduce(
-        (sum, c) => sum + toSafeNonNegativeNumber(c.amount),
-        0,
-    );
-    let mergedTotalCapitalPool =
-        mergedMasterTwdTotal -
-        twdPoolAllocated -
-        globalTwdInvested -
-        customCategoriesTotal;
-    mergedTotalCapitalPool = Math.round(mergedTotalCapitalPool);
-    mergedTotalCapitalPool = Math.max(
-        0,
-        Math.min(mergedMasterTwdTotal, mergedTotalCapitalPool),
-    );
-
-    // 美金帳戶：取較新的一側為主，但不得低於「全域美股持倉 + 美股池已分配」所需下限，避免可用餘額為負的不一致
     const mergedUsdAccountCashPick = cloudOverallNewer
         ? (cloud.usdAccountCash ?? cloud.usStockFundPool)
         : (local.usdAccountCash ?? local.usStockFundPool);
-    const usGlobalInvestedUsd = mergedHoldings
-        .filter((h) => !h.poolId && h.type === 'US_STOCK')
-        .reduce((sum, h) => sum + toSafeNonNegativeNumber(h.totalAmountUSD ?? 0), 0);
-    const usPoolAllocatedUsd = mergedPools
-        .filter((p) => p.type === 'US_STOCK')
-        .reduce((sum, p) => sum + toSafeNonNegativeNumber(p.allocatedBudget), 0);
-    const minUsdBase = usGlobalInvestedUsd + usPoolAllocatedUsd;
-    const safeUsdAccountCash = Math.max(
-        toSafeNonNegativeNumber(mergedUsdAccountCashPick),
-        minUsdBase,
-        toSafeNonNegativeNumber(cloud.usStockFundPool),
-        toSafeNonNegativeNumber(local.usStockFundPool),
-    );
 
-    // exchangeRateUSD：同上邏輯
     const mergedExchangeRateUSD = cloudOverallNewer
         ? cloud.exchangeRateUSD
         : local.exchangeRateUSD;
 
-    // ═══ 3. 組合最終結果 ═══
-    return {
-        masterTwdTotal: mergedMasterTwdTotal,
-        totalCapitalPool: mergedTotalCapitalPool,
+    const mergedForReconcile: PortfolioState = {
+        ...local,
         capitalDeposits: mergedCapitalDeposits,
         capitalWithdrawals: mergedCapitalWithdrawals,
         pools: mergedPools,
-        usdAccountCash: safeUsdAccountCash,
-        usStockFundPool: safeUsdAccountCash,
-        exchangeRateUSD: mergedExchangeRateUSD,
-        transactions: mergedTransactions,
         holdings: mergedHoldings,
         customCategories: mergedCustomCategories,
+        transactions: mergedTransactions,
+        exchangeRateUSD: mergedExchangeRateUSD,
         isConfigured: local.isConfigured || cloud.isConfigured,
-        lastSyncedAt: new Date().toISOString(), // 合併完成即視為一次同步
         localDataOwnerId: local.localDataOwnerId ?? cloud.localDataOwnerId ?? null,
         pendingUpload: local.pendingUpload ?? cloud.pendingUpload ?? false,
+    };
+
+    const reconciled = reconcilePortfolioState(mergedForReconcile, {
+        usdBaseHint: toSafeNonNegativeNumber(mergedUsdAccountCashPick),
+        usdExtraMax: Math.max(
+            toSafeNonNegativeNumber(local.usdAccountCash),
+            toSafeNonNegativeNumber(local.usStockFundPool),
+            toSafeNonNegativeNumber(cloud.usdAccountCash),
+            toSafeNonNegativeNumber(cloud.usStockFundPool),
+        ),
+    });
+
+    return {
+        ...mergedForReconcile,
+        ...reconciled,
+        lastSyncedAt: new Date().toISOString(),
     };
 }
