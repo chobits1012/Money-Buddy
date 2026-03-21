@@ -145,4 +145,48 @@ describe('syncMerge', () => {
         expect(merged.pools[0].id).toBe('p-new');
         expect(merged.totalCapitalPool).toBe(150_000_000);
     });
+
+    it('reconciles US base downward to newer side while keeping minimum required by holdings+pools', () => {
+        const local = baseState({
+            lastSyncedAt: '2026-03-20T10:00:00.000Z',
+            usdAccountCash: 10_000,
+            usStockFundPool: 10_000,
+            holdings: [
+                {
+                    id: 'us-g',
+                    type: 'US_STOCK',
+                    name: 'USG',
+                    purchases: [],
+                    shares: 0,
+                    avgPrice: 0,
+                    totalAmount: 0,
+                    totalAmountUSD: 1000,
+                    createdAt: '2026-03-20',
+                    updatedAt: '2026-03-20',
+                },
+            ],
+            pools: [
+                {
+                    id: 'usp',
+                    name: 'US Pool',
+                    type: 'US_STOCK',
+                    allocatedBudget: 500,
+                    currentCash: 500,
+                    createdAt: '2026-03-20',
+                    updatedAt: '2026-03-20',
+                },
+            ],
+        });
+        const cloud = baseState({
+            lastSyncedAt: '2026-03-21T10:00:00.000Z',
+            usdAccountCash: 4000,
+            usStockFundPool: 4000,
+            holdings: local.holdings,
+            pools: local.pools,
+        });
+
+        const merged = syncMerge(local, cloud);
+        expect(merged.usdAccountCash).toBe(4000);
+        expect(merged.usStockFundPool).toBe(4000);
+    });
 });

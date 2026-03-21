@@ -141,9 +141,15 @@ export function syncMerge(
     const cloudOverallNewer =
         getTimestamp(cloud.lastSyncedAt) > getTimestamp(local.lastSyncedAt);
 
-    const mergedUsdAccountCashPick = cloudOverallNewer
-        ? (cloud.usdAccountCash ?? cloud.usStockFundPool)
-        : (local.usdAccountCash ?? local.usStockFundPool);
+    const localUsdBase = Math.max(
+        toSafeNonNegativeNumber(local.usdAccountCash),
+        toSafeNonNegativeNumber(local.usStockFundPool),
+    );
+    const cloudUsdBase = Math.max(
+        toSafeNonNegativeNumber(cloud.usdAccountCash),
+        toSafeNonNegativeNumber(cloud.usStockFundPool),
+    );
+    const mergedUsdAccountCashPick = cloudOverallNewer ? cloudUsdBase : localUsdBase;
 
     const mergedExchangeRateUSD = cloudOverallNewer
         ? cloud.exchangeRateUSD
@@ -165,12 +171,6 @@ export function syncMerge(
 
     const reconciled = reconcilePortfolioState(mergedForReconcile, {
         usdBaseHint: toSafeNonNegativeNumber(mergedUsdAccountCashPick),
-        usdExtraMax: Math.max(
-            toSafeNonNegativeNumber(local.usdAccountCash),
-            toSafeNonNegativeNumber(local.usStockFundPool),
-            toSafeNonNegativeNumber(cloud.usdAccountCash),
-            toSafeNonNegativeNumber(cloud.usStockFundPool),
-        ),
     });
 
     return {

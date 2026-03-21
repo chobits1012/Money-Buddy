@@ -12,10 +12,6 @@ export type ReconcilePortfolioOptions = {
      * 未傳則用 state 內兩欄較大者。
      */
     usdBaseHint?: number;
-    /**
-     * 合併前 local／cloud 的美元欄位一併取 max，避免舊邏輯遺漏。
-     */
-    usdExtraMax?: number;
 };
 
 /**
@@ -70,8 +66,11 @@ export function reconcilePortfolioState(
         options?.usdBaseHint !== undefined
             ? toSafeNonNegativeNumber(options.usdBaseHint)
             : fromState;
-    const extra = toSafeNonNegativeNumber(options?.usdExtraMax);
-    const safeUsd = Math.max(hint, minUsdBase, fromState, extra);
+    const baseUsd =
+        options?.usdBaseHint !== undefined
+            ? hint
+            : fromState;
+    const safeUsd = Math.max(baseUsd, minUsdBase);
 
     return {
         masterTwdTotal,
