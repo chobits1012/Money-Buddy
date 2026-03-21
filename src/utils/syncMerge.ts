@@ -10,6 +10,8 @@ import type {
     CustomCategory,
     Transaction,
     CapitalDeposit,
+    CapitalWithdrawal,
+    AssetPool,
 } from '../types';
 
 // ═══ 通用型別 ═══
@@ -26,6 +28,12 @@ interface HasIdAndUpdatedAt {
 function getTimestamp(dateStr?: string): number {
     if (!dateStr) return 0;
     return new Date(dateStr).getTime();
+}
+
+function toSafeNonNegativeNumber(value: unknown): number {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0) return 0;
+    return num;
 }
 
 /**
@@ -148,22 +156,57 @@ export function syncMerge(
         lastSyncedAt,
     );
 
+    // CapitalWithdrawals（提領紀錄）
+    const mergedCapitalWithdrawals = mergeArrayById<CapitalWithdrawal>(
+        local.capitalWithdrawals || [],
+        cloud.capitalWithdrawals || [],
+        lastSyncedAt,
+    );
+
+    // Pools（資產池）
+    const mergedPools = mergeArrayById<AssetPool>(
+        local.pools || [],
+        cloud.pools || [],
+        lastSyncedAt,
+    ).map((pool) => ({
+        ...pool,
+        allocatedBudget: toSafeNonNegativeNumber(pool.allocatedBudget),
+        currentCash: toSafeNonNegativeNumber(pool.currentCash),
+    }));
+
     // ═══ 2. 純量值處理 ═══
 
-    // totalCapitalPool：由合併後的 capitalDeposits 重新加總
-    const mergedTotalCapitalPool = mergedCapitalDeposits.reduce(
+    const totalDeposited = mergedCapitalDeposits.reduce(
         (sum, d) => sum + d.amount,
         0,
     );
+    const totalWithdrawn = mergedCapitalWithdrawals.reduce(
+        (sum, w) => sum + w.amount,
+        0,
+    );
+    const mergedMasterTwdTotal = Math.max(0, totalDeposited - totalWithdrawn);
 
-    // usStockFundPool：取較新修改時間的那一方
-    // 由於純量值沒有獨立的 updatedAt，我們使用 lastSyncedAt 來輔助判斷：
-    // 如果雲端有更新（cloud 的整體較新），就用雲端的值
     const cloudOverallNewer =
         getTimestamp(cloud.lastSyncedAt) > getTimestamp(local.lastSyncedAt);
-    const mergedUsStockFundPool = cloudOverallNewer
-        ? cloud.usStockFundPool
-        : local.usStockFundPool;
+    const mergedTotalCapitalPoolRaw = cloudOverallNewer
+        ? cloud.totalCapitalPool
+        : local.totalCapitalPool;
+    const mergedTotalCapitalPool = Math.min(
+        mergedMasterTwdTotal,
+        toSafeNonNegativeNumber(mergedTotalCapitalPoolRaw)
+    );
+
+    // usdAccountCash / usStockFundPool：取較新修改時間的那一方
+    // 由於純量值沒有獨立的 updatedAt，我們使用 lastSyncedAt 來輔助判斷：
+    // 如果雲端有更新（cloud 的整體較新），就用雲端的值
+    const mergedUsdAccountCash = cloudOverallNewer
+        ? (cloud.usdAccountCash ?? cloud.usStockFundPool)
+        : (local.usdAccountCash ?? local.usStockFundPool);
+    const safeUsdAccountCash = Math.max(
+        toSafeNonNegativeNumber(mergedUsdAccountCash),
+        toSafeNonNegativeNumber(cloud.usStockFundPool),
+        toSafeNonNegativeNumber(local.usStockFundPool)
+    );
 
     // exchangeRateUSD：同上邏輯
     const mergedExchangeRateUSD = cloudOverallNewer
@@ -172,9 +215,13 @@ export function syncMerge(
 
     // ═══ 3. 組合最終結果 ═══
     return {
+        masterTwdTotal: mergedMasterTwdTotal,
         totalCapitalPool: mergedTotalCapitalPool,
         capitalDeposits: mergedCapitalDeposits,
-        usStockFundPool: mergedUsStockFundPool,
+        capitalWithdrawals: mergedCapitalWithdrawals,
+        pools: mergedPools,
+        usdAccountCash: safeUsdAccountCash,
+        usStockFundPool: safeUsdAccountCash,
         exchangeRateUSD: mergedExchangeRateUSD,
         transactions: mergedTransactions,
         holdings: mergedHoldings,

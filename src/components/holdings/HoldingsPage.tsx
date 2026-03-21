@@ -22,8 +22,8 @@ interface HoldingsPageProps {
 export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, removeHolding, removePurchase,
-        usStockFundPool, getAvailableCapital, addPool, pools,
-        fetchQuotesForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD
+        usdAccountCash, usStockFundPool, addPool, pools,
+        fetchQuotesForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getGlobalFreeCapital
     } = usePortfolioStore();
 
     useEffect(() => {
@@ -42,7 +42,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const currentPool = pools.find(p => p.id === activePoolId);
     const availableTotal = activePoolId && currentPool 
         ? currentPool.currentCash 
-        : getAvailableCapital();
+        : getGlobalFreeCapital();
  
     // ConfirmModal 狀態
     const [confirmAction, setConfirmAction] = useState<{
@@ -63,10 +63,16 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const allHoldingsOfType = getHoldingsByType(type);
     const filteredHoldings = allHoldingsOfType.filter(h => h.poolId === (activePoolId || undefined));
     const unassignedHoldings = allHoldingsOfType.filter(h => !h.poolId);
+    const usSummaryHoldings = isUSStock && !activePoolId ? allHoldingsOfType : filteredHoldings;
     
     const totalInvestedUSD = isUSStock
-        ? filteredHoldings.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0)
+        ? usSummaryHoldings.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0)
         : 0;
+
+    const totalUnrealizedPnLUSD = isUSStock
+        ? usSummaryHoldings.reduce((sum, h) => sum + (h.unrealizedPnL || 0), 0)
+        : 0;
+    const usAccountTotalUSD = Math.max(usdAccountCash || 0, usStockFundPool || 0);
 
     const usStockAvailable = getUsStockAvailableCapital();
 
@@ -98,12 +104,43 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                     <div className={cn("px-3 py-1 text-xs font-semibold rounded-full", ASSET_COLORS[type])}>
                         {ASSET_LABELS[type]}
                     </div>
-                    <h2 className="text-lg font-light text-slate-800">持倉總覽</h2>
+                    <h2 className="text-lg font-light text-slate-800">
+                        {activePoolId && currentPool ? `${currentPool.name}（軍團）` : '持倉總覽'}
+                    </h2>
                 </div>
             </div>
 
-            {/* ═══ 美股帳戶資金卡片 (僅美股顯示) ═══ */}
-            {isUSStock && (
+            {/* ═══ 目前所在軍團提示（僅進入軍團後顯示） ═══ */}
+            {activePoolId && currentPool && (
+                <Card className="py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className={cn("px-3 py-1 text-[10px] font-semibold rounded-full shrink-0", ASSET_COLORS[type])}>
+                                入金池
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-800 truncate">
+                                    {currentPool.name}
+                                </p>
+                                <p className="text-[10px] text-clay">
+                                    你目前正在此軍團內操作
+                                </p>
+                            </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                            <p className="text-[10px] text-clay uppercase tracking-wider">軍團現金</p>
+                            <p className="text-sm font-medium text-slate-800 mt-0.5">
+                                {isUSStock
+                                    ? `$${currentPool.currentCash.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`
+                                    : `${FORMAT_TWD.format(currentPool.currentCash)} `}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+            )}
+
+            {/* ═══ 美股帳戶資金卡片 (僅美股 & 尚未進入軍團時顯示) ═══ */}
+            {isUSStock && !activePoolId && (
                 <Card className="relative overflow-hidden border-rust/20">
                     <div className="absolute -top-16 -right-16 w-32 h-32 bg-rust/8 rounded-full blur-3xl pointer-events-none" />
                     <div className="z-10 relative">
@@ -112,10 +149,12 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                 <p className="text-clay text-xs font-medium tracking-wide uppercase">美股帳戶總資產</p>
                                 <div className="flex flex-col">
                                     <p className="text-2xl font-light text-slate-800 mt-0.5">
-                                        ${usStockFundPool.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        ${usAccountTotalUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                        <span className="text-[10px] text-clay ml-1 align-middle">USD</span>
                                     </p>
                                     <p className="text-xs text-clay/70">
-                                        ≈ {FORMAT_TWD.format(Math.round(usStockFundPool * exchangeRateUSD))}
+                                        ≈ {FORMAT_TWD.format(Math.round(usAccountTotalUSD * exchangeRateUSD))}
+                                        <span className="text-[10px] text-clay ml-1 align-middle">NT</span>
                                     </p>
                                 </div>
                             </div>
@@ -143,24 +182,64 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                 </p>
                             </div>
                         </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div className="p-2.5 rounded-lg bg-stoneSoft/20">
+                                <p className="text-[10px] text-clay uppercase tracking-wider">美股未實現損益</p>
+                                <p className={cn(
+                                    "text-sm font-medium mt-0.5",
+                                    totalUnrealizedPnLUSD > 0 ? "text-rust" : totalUnrealizedPnLUSD < 0 ? "text-moss" : "text-clay"
+                                )}>
+                                    {/* 以 TWD 為主，括號顯示 USD */}
+                                    {totalUnrealizedPnLUSD * exchangeRateUSD > 0 ? '+' : ''}
+                                    {FORMAT_TWD.format(Math.round(totalUnrealizedPnLUSD * exchangeRateUSD))}
+                                    <span className="text-[10px] text-clay ml-1">
+                                        ({totalUnrealizedPnLUSD > 0 ? '+' : ''}
+                                        {totalUnrealizedPnLUSD.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                        })}{' '}
+                                        USD)
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </Card>
             )}
 
-            {/* 投入總額摘要 (若進入軍團後顯示) */}
+            {/* 台股／其他市場摘要（僅進入軍團後顯示） */}
             {activePoolId && !isUSStock && (
                 <Card className="relative overflow-hidden">
                     <div className="absolute -top-16 -right-16 w-32 h-32 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
                     <div className="flex justify-between items-center z-10 relative">
                         <div>
-                            <p className="text-clay text-xs font-medium tracking-wide uppercase">總投入金額</p>
+                            <p className="text-clay text-xs font-medium tracking-wide uppercase">總投入金額 (NT)</p>
                             <p className="text-2xl font-light text-slate-800 mt-0.5">
                                 {FORMAT_TWD.format(filteredHoldings.reduce((sum, h) => sum + h.totalAmount, 0))}
                             </p>
                         </div>
-                        <div className="flex items-center gap-2 text-clay">
-                            <span className="material-symbols-outlined text-xl">bar_chart</span>
-                            <span className="text-sm font-medium">{filteredHoldings.length} 檔</span>
+                        <div className="flex flex-col items-end gap-1 text-clay">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-xl">bar_chart</span>
+                                <span className="text-sm font-medium">{filteredHoldings.length} 檔</span>
+                            </div>
+                            <p className="text-[11px]">
+                                未實現損益:{' '}
+                                {(() => {
+                                    const totalU = filteredHoldings.reduce(
+                                        (sum, h) => sum + (h.unrealizedPnL || 0),
+                                        0
+                                    );
+                                    const cls =
+                                        totalU > 0 ? 'text-rust' : totalU < 0 ? 'text-moss' : 'text-clay';
+                                    return (
+                                        <span className={cn('font-semibold', cls)}>
+                                            {totalU > 0 ? '+' : ''}
+                                            {FORMAT_TWD.format(totalU)}
+                                        </span>
+                                    );
+                                })()}
+                            </p>
                         </div>
                     </div>
                 </Card>

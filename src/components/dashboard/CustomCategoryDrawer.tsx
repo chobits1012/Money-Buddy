@@ -12,8 +12,8 @@ interface CustomCategoryDrawerProps {
 }
 
 export const CustomCategoryDrawer = ({ isOpen, onClose, editingCategory }: CustomCategoryDrawerProps) => {
-    const { addCustomCategory, updateCustomCategory, getAvailableCapital } = usePortfolioStore();
-    const availableCapital = getAvailableCapital();
+    const { addCustomCategory, updateCustomCategory, getGlobalFreeCapital } = usePortfolioStore();
+    const availableCapital = getGlobalFreeCapital();
 
     const isEditMode = !!editingCategory;
 

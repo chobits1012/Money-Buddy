@@ -4,11 +4,20 @@ import type {
     AssetType, PortfolioStore
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
+import { 
+    calculateTransactionImpact, 
+    calculateNewHoldingImpact, 
+    calculateRemovalImpact,
+    calculateHoldingRemovalImpact,
+    calculateUpdateImpact,
+    type AccountingImpact 
+} from '../../utils/accounting';
 
 export interface HoldingActions {
     addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
     removeTransaction: (id: string) => void;
     getAvailableCapital: () => number;
+    getGlobalFreeCapital: () => number;
     getAssetTotals: () => Record<AssetType, number>;
     
     buyStock: (params: {
@@ -74,10 +83,24 @@ export const createHoldingSlice: StateCreator<
             };
 
             if (payload.type === 'US_STOCK') {
+                const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+                const twdAmount = payload.amount || 0;
                 if (payload.action === 'DEPOSIT') {
-                    updates.usStockFundPool = state.usStockFundPool + (payload.amountUSD || 0);
+                    // 保護主帳戶：美股入金視為台幣主帳戶轉出，不可超過可分配餘額
+                    if (state.totalCapitalPool < twdAmount) return {};
+                    updates.usdAccountCash = usdBase + (payload.amountUSD || 0);
+                    updates.usStockFundPool = usdBase + (payload.amountUSD || 0);
+                    // 主帳戶可分配資金（totalCapitalPool）扣除轉出
+                    updates.totalCapitalPool = Math.max(0, state.totalCapitalPool - twdAmount);
                 } else if (payload.action === 'WITHDRAWAL') {
-                    updates.usStockFundPool = state.usStockFundPool - (payload.amountUSD || 0);
+                    if (usdBase < (payload.amountUSD || 0)) return {};
+                    // 美股提領回台幣，主帳戶可分配資金增加，但不可超過主資產上限
+                    updates.usdAccountCash = usdBase - (payload.amountUSD || 0);
+                    updates.usStockFundPool = usdBase - (payload.amountUSD || 0);
+                    updates.totalCapitalPool = Math.min(
+                        state.masterTwdTotal,
+                        state.totalCapitalPool + twdAmount
+                    );
                 }
             }
 
@@ -95,10 +118,19 @@ export const createHoldingSlice: StateCreator<
             };
 
             if (tx.type === 'US_STOCK') {
+                const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+                const twdAmount = tx.amount || 0;
                 if (tx.action === 'DEPOSIT') {
-                    updates.usStockFundPool = state.usStockFundPool - (tx.amountUSD || 0);
+                    updates.usdAccountCash = usdBase - (tx.amountUSD || 0);
+                    updates.usStockFundPool = usdBase - (tx.amountUSD || 0);
+                    updates.totalCapitalPool = Math.min(
+                        state.masterTwdTotal,
+                        state.totalCapitalPool + twdAmount
+                    );
                 } else if (tx.action === 'WITHDRAWAL') {
-                    updates.usStockFundPool = state.usStockFundPool + (tx.amountUSD || 0);
+                    updates.usdAccountCash = usdBase + (tx.amountUSD || 0);
+                    updates.usStockFundPool = usdBase + (tx.amountUSD || 0);
+                    updates.totalCapitalPool = Math.max(0, state.totalCapitalPool - twdAmount);
                 }
             }
 
@@ -121,7 +153,8 @@ export const createHoldingSlice: StateCreator<
             }
         });
 
-        totals.US_STOCK = Math.round(state.usStockFundPool * state.exchangeRateUSD);
+        const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+        totals.US_STOCK = Math.round(usdBase * state.exchangeRateUSD);
 
         (Object.keys(totals) as AssetType[]).forEach(k => {
             if (totals[k] < 0) totals[k] = 0;
@@ -132,90 +165,84 @@ export const createHoldingSlice: StateCreator<
 
     getAvailableCapital: () => {
         const state = get();
+        // 1. 計算全域(未分配)的閒置資金 (台幣)
         const holdingsInGlobal = state.holdings.filter(h => !h.poolId && h.type !== 'US_STOCK');
         const totalInvestedGlobal = holdingsInGlobal.reduce((sum, h) => sum + h.totalAmount, 0);
-        
         const customTotal = state.getCustomCategoriesTotal();
-        const available = state.totalCapitalPool - totalInvestedGlobal - customTotal;
-        return available > 0 ? available : 0;
+        const globalFree = state.totalCapitalPool - totalInvestedGlobal - customTotal;
+        
+        // 2. 計算美股帳戶中未分配且未投資的閒置資金 (換算回台幣)
+        const usFreeTWD = state.getUsStockAvailableCapital() * state.exchangeRateUSD;
+
+        // 3. 計算所有入金池內的現金總和 (台幣)
+        const poolCash = state.pools.reduce((sum, p) => sum + (p.type === 'US_STOCK' ? p.currentCash * state.exchangeRateUSD : p.currentCash), 0);
+        
+        // 4. 總可用資金 = 全域閒置 + 美股閒置 + 池內現金
+        const available = globalFree + usFreeTWD + poolCash;
+        return available > 0 ? Math.round(available) : 0;
+    },
+
+    getGlobalFreeCapital: () => {
+        const state = get();
+        const holdingsInGlobal = state.holdings.filter(h => !h.poolId && h.type !== 'US_STOCK');
+        const totalInvestedGlobal = holdingsInGlobal.reduce((sum, h) => sum + h.totalAmount, 0);
+        const customTotal = state.getCustomCategoriesTotal();
+        const globalFree = state.totalCapitalPool - totalInvestedGlobal - customTotal;
+        return globalFree > 0 ? Math.round(globalFree) : 0;
     },
 
     buyStock: (params) => {
-        const now = new Date().toISOString();
-        const newPurchase = {
-            id: crypto.randomUUID(),
-            date: now,
-            action: params.action || 'BUY',
-            shares: params.shares,
-            pricePerShare: params.pricePerShare,
-            totalCost: params.totalCost,
-            totalCostUSD: params.totalCostUSD,
-            exchangeRate: params.exchangeRate,
-            note: params.note,
-            updatedAt: now,
-        };
-
         set((state) => {
             const existingIndex = state.holdings.findIndex(
                 (h) => h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase() && h.poolId === params.poolId
             );
 
+            let impact: AccountingImpact;
             let updatedHoldings = [...state.holdings];
-            let pnlDeltaTWD = 0;
-            let pnlDeltaUSD = 0;
 
             if (existingIndex >= 0) {
-                const existing = { ...updatedHoldings[existingIndex] };
-                const oldPnL = existing.realizedPnL || 0;
-                
-                existing.purchases = [...existing.purchases, newPurchase];
-                const recalculated = recalcHolding(existing);
-                updatedHoldings[existingIndex] = recalculated;
-                
-                const newPnL = recalculated.realizedPnL || 0;
-                const diff = newPnL - oldPnL;
-                
-                if (existing.type === 'US_STOCK') {
-                    pnlDeltaUSD = diff; 
-                } else {
-                    pnlDeltaTWD = diff;
-                }
+                // 1. 既有持倉：計算交易影響
+                impact = calculateTransactionImpact(state.holdings[existingIndex], {
+                    action: params.action || 'BUY',
+                    shares: params.shares,
+                    pricePerShare: params.pricePerShare,
+                    totalCost: params.totalCost,
+                    totalCostUSD: params.totalCostUSD,
+                    exchangeRate: params.exchangeRate,
+                    note: params.note,
+                });
+                updatedHoldings[existingIndex] = impact.updatedHolding;
             } else {
-                const newHolding = {
-                    id: crypto.randomUUID(),
-                    type: params.type,
-                    name: params.name.trim(),
-                    symbol: params.symbol,
-                    purchases: [newPurchase],
-                    poolId: params.poolId,
-                    shares: 0,
-                    avgPrice: 0,
-                    totalAmount: 0,
-                    createdAt: now,
-                    updatedAt: now,
-                };
-                const recalculated = recalcHolding(newHolding as any);
-                updatedHoldings = [...updatedHoldings, recalculated];
-                
-                if (recalculated.type === 'US_STOCK') {
-                    pnlDeltaUSD = recalculated.realizedPnL || 0;
-                } else {
-                    pnlDeltaTWD = recalculated.realizedPnL || 0;
-                }
+                // 2. 全新持倉：初始化並計算影響
+                impact = calculateNewHoldingImpact({
+                    ...params,
+                    action: params.action || 'BUY',
+                });
+                updatedHoldings.push(impact.updatedHolding);
             }
 
-            const cashDeltaTWD = (params.action === 'SELL' ? 1 : -1) * params.totalCost;
-            const cashDeltaUSD = (params.action === 'SELL' ? 1 : -1) * (params.totalCostUSD || 0);
+            const { cashDeltaTWD, cashDeltaUSD, pnlDeltaTWD, pnlDeltaUSD } = impact;
 
             return { 
                 holdings: updatedHoldings,
-                totalCapitalPool: (params.poolId || params.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
-                usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                // 如果指定了 Pool，或是美股（美股有獨立的 usStockFundPool），則不影響全域本金池
+                // 否則，將損益變動 (pnlDelta) 回流至全域資產池
+                totalCapitalPool: (params.poolId || params.type === 'US_STOCK') 
+                    ? state.totalCapitalPool 
+                    : state.totalCapitalPool + pnlDeltaTWD,
+                
+                // 美股資金池：增加/減少現金變動 (cashDelta) 以及 損益變動 (pnlDelta)
+                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                
+                // 入金池連動
                 pools: params.poolId ? state.pools.map(p => p.id === params.poolId ? { 
                     ...p, 
+                    // 分配預算 (allocatedBudget) 應隨損益變動 (pnlDelta) 增減 (複利效應)
                     allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
+                    // 剩餘現金 (currentCash) 隨實際交易金額 (cashDelta) 增減
                     currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
-                    updatedAt: now
+                    updatedAt: new Date().toISOString()
                 } : p) : state.pools,
             };
         });
@@ -223,61 +250,40 @@ export const createHoldingSlice: StateCreator<
 
     removePurchase: (holdingId, purchaseId) => {
         set((state) => {
-            const holdingIndex = state.holdings.findIndex((h) => h.id === holdingId);
-            if (holdingIndex < 0) return {};
+            const holding = state.holdings.find((h) => h.id === holdingId);
+            if (!holding) return {};
 
-            const updated = [...state.holdings];
-            const holding = { ...updated[holdingIndex] };
-            const oldPnL = holding.realizedPnL || 0;
-            holding.purchases = holding.purchases.filter((p) => p.id !== purchaseId);
+            const { 
+                updatedHolding, 
+                cashDeltaTWD, 
+                cashDeltaUSD, 
+                pnlDeltaTWD, 
+                pnlDeltaUSD, 
+                isHoldingEmpty 
+            } = calculateRemovalImpact(holding, purchaseId);
 
-            let pnlDeltaTWD = 0;
-            let pnlDeltaUSD = 0;
+            let updatedHoldings = [...state.holdings];
+            const holdingIndex = state.holdings.findIndex(h => h.id === holdingId);
 
-            if (holding.purchases.length === 0) {
-                const diff = 0 - oldPnL;
-                if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
-                else pnlDeltaTWD = diff;
-
-                const purchaseToRemove = state.holdings[holdingIndex].purchases.find(p => p.id === purchaseId);
-                const oldAction = purchaseToRemove?.action || 'BUY';
-                const oldCashFlow = (oldAction === 'SELL' ? 1 : -1) * (purchaseToRemove?.totalCost || 0);
-                const oldCashFlowUSD = (oldAction === 'SELL' ? 1 : -1) * (purchaseToRemove?.totalCostUSD || 0);
-
-                return { 
-                    holdings: state.holdings.filter((h) => h.id !== holdingId),
-                    totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
-                    usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
-                    pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
-                        ...p, 
-                        allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
-                        currentCash: p.currentCash - (p.type === 'US_STOCK' ? oldCashFlowUSD : oldCashFlow),
-                        updatedAt: new Date().toISOString()
-                    } : p) : state.pools,
-                };
+            if (isHoldingEmpty) {
+                updatedHoldings = state.holdings.filter((h) => h.id !== holdingId);
+            } else {
+                updatedHoldings[holdingIndex] = updatedHolding;
             }
 
-            const recalculated = recalcHolding(holding as any);
-            updated[holdingIndex] = recalculated;
-            
-            const newPnL = recalculated.realizedPnL || 0;
-            const diff = newPnL - oldPnL;
-            if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
-            else pnlDeltaTWD = diff;
-
-            const purchaseToRemove = state.holdings[holdingIndex].purchases.find(p => p.id === purchaseId);
-            const oldAction = purchaseToRemove?.action || 'BUY';
-            const oldCashFlow = (oldAction === 'SELL' ? 1 : -1) * (purchaseToRemove?.totalCost || 0);
-            const oldCashFlowUSD = (oldAction === 'SELL' ? 1 : -1) * (purchaseToRemove?.totalCostUSD || 0);
-
             return { 
-                holdings: updated,
-                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
-                usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                holdings: updatedHoldings,
+                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
+                    ? state.totalCapitalPool 
+                    : state.totalCapitalPool + pnlDeltaTWD,
+                
+                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                
                 pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
                     ...p, 
                     allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
-                    currentCash: p.currentCash - (p.type === 'US_STOCK' ? oldCashFlowUSD : oldCashFlow),
+                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
                     updatedAt: new Date().toISOString()
                 } : p) : state.pools,
             };
@@ -318,22 +324,26 @@ export const createHoldingSlice: StateCreator<
             const holding = state.holdings.find((h) => h.id === id);
             if (!holding) return {};
             
-            let pnlDeltaTWD = 0;
-            let pnlDeltaUSD = 0;
-            const oldPnL = holding.realizedPnL || 0;
-            const diff = 0 - oldPnL;
-
-            if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
-            else pnlDeltaTWD = diff;
+            const { 
+                cashDeltaTWD, 
+                cashDeltaUSD, 
+                pnlDeltaTWD, 
+                pnlDeltaUSD 
+            } = calculateHoldingRemovalImpact(holding);
 
             return {
                 holdings: state.holdings.filter((h) => h.id !== id),
-                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
-                usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
+                    ? state.totalCapitalPool 
+                    : state.totalCapitalPool + pnlDeltaTWD,
+                
+                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                
                 pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
                     ...p, 
-                    allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
-                    currentCash: p.currentCash + holding.totalAmount + pnlDeltaTWD,
+                    allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
+                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
                     updatedAt: new Date().toISOString()
                 } : p) : state.pools,
             };
@@ -352,47 +362,32 @@ export const createHoldingSlice: StateCreator<
 
     updatePurchase: (holdingId, purchaseId, updates) => {
         set((state) => {
-            const holdingIndex = state.holdings.findIndex((h) => h.id === holdingId);
-            if (holdingIndex < 0) return {};
+            const holding = state.holdings.find((h) => h.id === holdingId);
+            if (!holding) return {};
 
-            const updatedHoldings = [...state.holdings];
-            const holding = { ...updatedHoldings[holdingIndex] };
-            const oldPnL = holding.realizedPnL || 0;
-            const oldPurchase = holding.purchases.find(p => p.id === purchaseId);
-            if (!oldPurchase) return {};
-            
-            const oldActionRaw = oldPurchase.action || 'BUY';
-            const oldCashFlow = (oldActionRaw === 'SELL' ? 1 : -1) * oldPurchase.totalCost;
+            const { 
+                updatedHolding, 
+                cashDeltaTWD, 
+                cashDeltaUSD, 
+                pnlDeltaTWD, 
+                pnlDeltaUSD 
+            } = calculateUpdateImpact(holding, purchaseId, updates);
 
-            holding.purchases = holding.purchases.map((p) => {
-                if (p.id !== purchaseId) return p;
-                return { ...p, ...updates };
-            });
-
-            const newPurchase = holding.purchases.find(p => p.id === purchaseId)!;
-            const newActionRaw = newPurchase.action || 'BUY';
-            const newCashFlow = (newActionRaw === 'SELL' ? 1 : -1) * newPurchase.totalCost;
-            const cashDeltaTWD = newCashFlow - oldCashFlow;
-
-            const recalculated = recalcHolding(holding as any);
-            updatedHoldings[holdingIndex] = recalculated;
-
-            const newPnL = recalculated.realizedPnL || 0;
-            const diff = newPnL - oldPnL;
-
-            let pnlDeltaTWD = 0;
-            let pnlDeltaUSD = 0;
-            if (holding.type === 'US_STOCK') pnlDeltaUSD = diff;
-            else pnlDeltaTWD = diff;
+            const updatedHoldings = state.holdings.map(h => h.id === holdingId ? updatedHolding : h);
 
             return { 
                 holdings: updatedHoldings,
-                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') ? state.totalCapitalPool : state.totalCapitalPool + pnlDeltaTWD,
-                usStockFundPool: state.usStockFundPool + pnlDeltaUSD,
+                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
+                    ? state.totalCapitalPool 
+                    : state.totalCapitalPool + pnlDeltaTWD,
+                
+                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
+                
                 pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
                     ...p, 
-                    allocatedBudget: p.allocatedBudget + pnlDeltaTWD,
-                    currentCash: p.currentCash + cashDeltaTWD,
+                    allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
+                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
                     updatedAt: new Date().toISOString()
                 } : p) : state.pools,
             };

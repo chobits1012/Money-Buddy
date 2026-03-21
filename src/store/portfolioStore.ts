@@ -65,9 +65,12 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                 // 2. Clear data (reset manually to defaults)
                 set({ 
+                    masterTwdTotal: 0,
                     totalCapitalPool: 0,
                     capitalDeposits: [],
+                    capitalWithdrawals: [],
                     pools: [],
+                    usdAccountCash: 0,
                     usStockFundPool: 0,
                     transactions: [],
                     holdings: [],
@@ -115,6 +118,35 @@ export const usePortfolioStore = create<PortfolioStore>()(
                         }));
                     }
                 }
+
+                if (typeof state.masterTwdTotal !== 'number') {
+                    const deposits = Array.isArray(state.capitalDeposits) ? state.capitalDeposits : [];
+                    const withdrawals = Array.isArray(state.capitalWithdrawals) ? state.capitalWithdrawals : [];
+                    const deposited = deposits.reduce((sum: number, d: any) => sum + (Number(d?.amount) || 0), 0);
+                    const withdrawn = withdrawals.reduce((sum: number, w: any) => sum + (Number(w?.amount) || 0), 0);
+                    state.masterTwdTotal = Math.max(0, deposited - withdrawn);
+                }
+
+                if (!Array.isArray(state.capitalWithdrawals)) {
+                    state.capitalWithdrawals = [];
+                }
+                if (!Array.isArray(state.pools)) {
+                    state.pools = [];
+                }
+
+                if (typeof state.usdAccountCash !== 'number') {
+                    state.usdAccountCash = Number(state.usStockFundPool) || 0;
+                }
+
+                const totalCapitalPool = Number(state.totalCapitalPool);
+                if (!Number.isFinite(totalCapitalPool)) {
+                    state.totalCapitalPool = state.masterTwdTotal;
+                } else {
+                    state.totalCapitalPool = Math.max(0, Math.min(totalCapitalPool, state.masterTwdTotal));
+                }
+
+                // 舊欄位維持同步，避免既有畫面與流程異常
+                state.usStockFundPool = state.usdAccountCash;
 
                 return state as any;
             },

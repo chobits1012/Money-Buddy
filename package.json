@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -44,6 +45,7 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0",
     "vite-plugin-api-routes": "^1.2.6",
-    "vite-plugin-vercel": "^9.1.1"
+    "vite-plugin-vercel": "^9.1.1",
+    "vitest": "^4.1.0"
   }
 }

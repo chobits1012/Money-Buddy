@@ -63,7 +63,9 @@ export const HoldingCard = ({
                                 </p>
                             </div>
                             <div>
-                                <p className="text-[10px] text-clay uppercase tracking-wider">均價</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">
+                                    均價 {isUSStock ? '(USD)' : ''}
+                                </p>
                                 <p className="text-sm font-medium text-slate-800 mt-0.5">
                                     {isUSStock
                                         ? `$${holding.avgPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
@@ -72,7 +74,9 @@ export const HoldingCard = ({
                                 </p>
                             </div>
                             <div>
-                                <p className="text-[10px] text-clay uppercase tracking-wider">現價</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">
+                                    現價 {isUSStock ? '(USD)' : ''}
+                                </p>
                                 <p className="text-sm font-medium text-slate-800 mt-0.5">
                                     {holding.currentPrice !== undefined
                                         ? (isUSStock
@@ -83,7 +87,9 @@ export const HoldingCard = ({
                                 </p>
                             </div>
                             <div>
-                                <p className="text-[10px] text-clay uppercase tracking-wider">總成本</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">
+                                    總成本 {isUSStock ? '(USD)' : '(NT)'}
+                                </p>
                                 <p className="text-sm font-bold text-slate-800 mt-0.5">
                                     {isUSStock
                                         ? `$${(holding.totalAmountUSD || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`

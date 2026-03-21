@@ -1,14 +1,34 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { ASSET_LABELS, ASSET_CHART_COLORS, CUSTOM_CATEGORY_COLORS } from '../../utils/constants';
+import { calculateAllocationMetrics } from '../../utils/dashboardMetrics';
 
 export const AllocationChart = () => {
-    const getAssetTotals = usePortfolioStore((state) => state.getAssetTotals);
-    const getAvailableCapital = usePortfolioStore((state) => state.getAvailableCapital);
-    const customCategories = usePortfolioStore((state) => state.customCategories);
+    const {
+        masterTwdTotal,
+        capitalDeposits,
+        capitalWithdrawals,
+        totalCapitalPool,
+        usdAccountCash,
+        usStockFundPool,
+        exchangeRateUSD,
+        holdings,
+        pools,
+        customCategories: rawCustomCategories,
+    } = usePortfolioStore();
 
-    const assetTotals = getAssetTotals();
-    const available = getAvailableCapital();
+    const { assetTotals, idleCapital, customCategories } = calculateAllocationMetrics({
+        masterTwdTotal,
+        capitalDeposits,
+        capitalWithdrawals,
+        totalCapitalPool,
+        usdAccountCash,
+        usStockFundPool,
+        exchangeRateUSD,
+        holdings,
+        pools,
+        customCategories: rawCustomCategories,
+    });
 
     // 固定資產類別
     const data = [
@@ -29,13 +49,13 @@ export const AllocationChart = () => {
     });
 
     // 閒置資金
-    data.push({ name: '閒置可動用資金', value: available, color: ASSET_CHART_COLORS.AVAILABLE });
+    data.push({ name: '主帳戶未分配資金', value: idleCapital, color: ASSET_CHART_COLORS.AVAILABLE });
 
     // 只顯示大於 0 的區塊
     const filteredData = data.filter(item => item.value > 0);
 
     // 動畫處理：如果沒有資料，顯示一個灰色的空心圓預設圖
-    if (filteredData.length === 0 || (filteredData.length === 1 && filteredData[0].name === '閒置可動用資金' && filteredData[0].value === 0)) {
+    if (filteredData.length === 0 || (filteredData.length === 1 && filteredData[0].name === '主帳戶未分配資金' && filteredData[0].value === 0)) {
         return (
             <div className="h-48 w-full flex items-center justify-center relative">
                 <div className="absolute inset-0 rounded-full border-[16px] border-stoneSoft/50 animate-pulse" style={{ margin: '10%' }} />

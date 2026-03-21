@@ -97,10 +97,12 @@ export interface AssetPool {
 
 // 資金管理狀態
 export interface CapitalState {
+    masterTwdTotal: number;
     totalCapitalPool: number;
     capitalDeposits: CapitalDeposit[];
     capitalWithdrawals: CapitalWithdrawal[]; // 新增：提領紀錄
     pools: AssetPool[];
+    usdAccountCash: number;
     usStockFundPool: number;
     exchangeRateUSD: number;
 }

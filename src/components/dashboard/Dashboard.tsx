@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import type { StockAssetType, CustomCategory } from '../../types';
 import { TransactionHistory } from '../history/TransactionHistory';
@@ -10,6 +10,7 @@ import { CapitalOverview } from './CapitalOverview';
 import { AssetAllocationSection } from './AssetAllocationSection';
 import { CustomCategorySection } from './CustomCategorySection';
 import { Button } from '../ui/Button';
+import { calculateFundingMetrics } from '../../utils/dashboardMetrics';
 
 interface DashboardProps {
     onOpenDeposit: () => void; // 從 App.tsx 接收
@@ -18,12 +19,12 @@ interface DashboardProps {
 
 export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) => {
     const {
+        masterTwdTotal,
         holdings, exchangeRateUSD,
-        totalCapitalPool, resetAll, customCategories, removeCustomCategory,
-        capitalDeposits, removeCapitalDeposit, // addCapitalDeposit 已移至 App.tsx
+        totalCapitalPool, pools, usStockFundPool, usdAccountCash, resetAll, customCategories, removeCustomCategory,
+        capitalDeposits, capitalWithdrawals, removeCapitalDeposit, // addCapitalDeposit 已移至 App.tsx
         fetchQuotesForHoldings, isLoadingQuotes, restoreFromSnapshot
     } = usePortfolioStore();
-    const getAvailableCapital = usePortfolioStore((state) => state.getAvailableCapital);
 
     // 檢查是否有可還原的快照
     const [hasSnapshot, setHasSnapshot] = useState(false);
@@ -74,17 +75,42 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         });
     };
 
-    const availableCapital = getAvailableCapital();
+    const { idleCapital, masterCapitalTotal } = calculateFundingMetrics({
+        masterTwdTotal,
+        capitalDeposits,
+        capitalWithdrawals,
+        totalCapitalPool,
+        pools,
+        usdAccountCash,
+        usStockFundPool,
+        exchangeRateUSD,
+        holdings,
+        customCategories,
+    });
     
-    const totalUnrealizedPnL = holdings.reduce((sum, h) => {
-        const pnl = h.unrealizedPnL || 0;
-        return sum + (h.type === 'US_STOCK' ? pnl * exchangeRateUSD : pnl);
-    }, 0);
+    // 全體 + 分市場損益（統一換算成 TWD 後給 Dashboard）
+    let totalUnrealizedPnL = 0;
+    let totalRealizedPnL = 0;
+    let taiwanUnrealizedPnL = 0;
+    let usUnrealizedPnLUSD = 0;
 
-    const totalRealizedPnL = holdings.reduce((sum, h) => {
-        const pnl = h.realizedPnL || 0;
-        return sum + (h.type === 'US_STOCK' ? pnl * exchangeRateUSD : pnl);
-    }, 0);
+    holdings.forEach((h) => {
+        const u = h.unrealizedPnL || 0;
+        const r = h.realizedPnL || 0;
+
+        if (h.type === 'US_STOCK') {
+            usUnrealizedPnLUSD += u;
+            totalUnrealizedPnL += u * exchangeRateUSD;
+            totalRealizedPnL += r * exchangeRateUSD;
+        } else if (h.type === 'TAIWAN_STOCK') {
+            taiwanUnrealizedPnL += u;
+            totalUnrealizedPnL += u;
+            totalRealizedPnL += r;
+        } else {
+            totalUnrealizedPnL += u;
+            totalRealizedPnL += r;
+        }
+    });
 
     const handleEditCategory = (category: CustomCategory) => {
         setEditingCategory(category);
@@ -131,10 +157,13 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
 
             {/* ═══ 總覽卡片 ═══ */}
             <CapitalOverview 
-                availableCapital={availableCapital}
-                totalCapitalPool={totalCapitalPool}
+                availableCapital={idleCapital}
+                totalCapitalPool={masterCapitalTotal}
                 totalUnrealizedPnL={totalUnrealizedPnL}
                 totalRealizedPnL={totalRealizedPnL}
+                taiwanUnrealizedPnL={taiwanUnrealizedPnL}
+                usUnrealizedPnLUSD={usUnrealizedPnLUSD}
+                exchangeRateUSD={exchangeRateUSD}
                 isLoadingQuotes={isLoadingQuotes}
                 capitalDeposits={capitalDeposits}
                 onOpenDeposit={onOpenDeposit} // 傳遞從 App.tsx 接收的 prop

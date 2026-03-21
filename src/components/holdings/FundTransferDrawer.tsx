@@ -11,8 +11,8 @@ interface FundTransferDrawerProps {
 }
 
 export const FundTransferDrawer = ({ isOpen, onClose }: FundTransferDrawerProps) => {
-    const { addTransaction, getUsStockAvailableCapital, getAvailableCapital, exchangeRateUSD } = usePortfolioStore();
-    const availableTotal = getAvailableCapital();
+    const { addTransaction, getUsStockAvailableCapital, getGlobalFreeCapital, exchangeRateUSD } = usePortfolioStore();
+    const availableTotal = getGlobalFreeCapital();
     const availableInUS = getUsStockAvailableCapital();
 
     const [mode, setMode] = useState<'IN' | 'OUT'>('IN');
@@ -135,10 +135,12 @@ export const FundTransferDrawer = ({ isOpen, onClose }: FundTransferDrawerProps)
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     <div className="p-3 rounded-xl bg-stoneSoft/20 border border-stoneSoft">
                         <p className="text-xs text-clay mb-1">
-                            {mode === 'IN' ? '總資產可用資金' : '美股帳戶可用餘額'}
+                            {mode === 'IN' ? '總資產可用資金 (NT)' : '美股帳戶可用餘額 (USD)'}
                         </p>
                         <p className="text-lg font-light text-slate-800">
-                            {FORMAT_TWD.format(mode === 'IN' ? availableTotal : availableInUS)}
+                            {mode === 'IN'
+                                ? FORMAT_TWD.format(availableTotal)
+                                : `${availableInUS.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`}
                         </p>
                     </div>
 

@@ -23,10 +23,12 @@ export const createCapitalSlice: StateCreator<
     [],
     CapitalSlice
 > = (set, get) => ({
+    masterTwdTotal: 0,
     totalCapitalPool: 0,
     capitalDeposits: [],
     capitalWithdrawals: [], // 新增：初始化提領紀錄
     pools: [],
+    usdAccountCash: 0,
     usStockFundPool: 0,
     exchangeRateUSD: 31, // Default or imported constant
 
@@ -40,7 +42,7 @@ export const createCapitalSlice: StateCreator<
             date: now,
             updatedAt: now,
         };
-        set({ totalCapitalPool: amount, capitalDeposits: [deposit], isConfigured: true });
+        set({ masterTwdTotal: amount, totalCapitalPool: amount, capitalDeposits: [deposit], isConfigured: true });
     },
 
     addCapitalDeposit: (params) => {
@@ -54,6 +56,7 @@ export const createCapitalSlice: StateCreator<
             updatedAt: now,
         };
         set((state) => ({
+            masterTwdTotal: state.masterTwdTotal + params.amount,
             totalCapitalPool: state.totalCapitalPool + params.amount,
             capitalDeposits: [...state.capitalDeposits, deposit],
         }));
@@ -64,6 +67,7 @@ export const createCapitalSlice: StateCreator<
             const deposit = state.capitalDeposits.find((d) => d.id === id);
             if (!deposit) return {};
             return {
+                masterTwdTotal: Math.max(0, state.masterTwdTotal - deposit.amount),
                 totalCapitalPool: state.totalCapitalPool - deposit.amount,
                 capitalDeposits: state.capitalDeposits.filter((d) => d.id !== id),
             };
@@ -89,6 +93,7 @@ export const createCapitalSlice: StateCreator<
             updatedAt: now,
         };
         set((state) => ({
+            masterTwdTotal: state.masterTwdTotal - params.amount,
             totalCapitalPool: state.totalCapitalPool - params.amount,
             capitalWithdrawals: [...state.capitalWithdrawals, withdrawal],
         }));
@@ -96,11 +101,22 @@ export const createCapitalSlice: StateCreator<
 
     addPool: (name: string, type: StockAssetType, initialAmount: number = 0) => {
         const now = new Date().toISOString();
+        const state = get();
+        const normalizedInitialAmount = Number(initialAmount);
+        if (!name.trim() || isNaN(normalizedInitialAmount) || normalizedInitialAmount < 0) return;
+
+        if (type === 'US_STOCK') {
+            const usAvailable = state.getUsStockAvailableCapital();
+            if (normalizedInitialAmount > usAvailable) return;
+        } else {
+            if (normalizedInitialAmount > state.totalCapitalPool) return;
+        }
+
         const newPool: AssetPool = {
             id: crypto.randomUUID(),
-            name,
-            allocatedBudget: initialAmount,
-            currentCash: initialAmount,
+            name: name.trim(),
+            allocatedBudget: normalizedInitialAmount,
+            currentCash: normalizedInitialAmount,
             type,
             createdAt: now,
             updatedAt: now,
@@ -108,7 +124,6 @@ export const createCapitalSlice: StateCreator<
         set((state) => {
             if (type === 'US_STOCK') {
                 return {
-                    usStockFundPool: state.usStockFundPool - initialAmount,
                     pools: [...(state.pools || []), newPool],
                 };
             }
@@ -126,7 +141,6 @@ export const createCapitalSlice: StateCreator<
             
             if (poolToRemove.type === 'US_STOCK') {
                 return {
-                    usStockFundPool: state.usStockFundPool + poolToRemove.allocatedBudget,
                     pools: state.pools.filter((p) => p.id !== id),
                     holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h)
                 };
@@ -146,9 +160,9 @@ export const createCapitalSlice: StateCreator<
             if (!pool) return {};
 
             if (pool.type === 'US_STOCK') {
-                if (state.usStockFundPool < amount) return {};
+                const usAvailable = get().getUsStockAvailableCapital();
+                if (amount > usAvailable) return {};
                 return {
-                    usStockFundPool: state.usStockFundPool - amount,
                     pools: state.pools.map((p) =>
                         p.id === poolId
                             ? { ...p, allocatedBudget: p.allocatedBudget + amount, currentCash: p.currentCash + amount, updatedAt: new Date().toISOString() }
@@ -176,7 +190,6 @@ export const createCapitalSlice: StateCreator<
 
             if (pool.type === 'US_STOCK') {
                 return {
-                    usStockFundPool: state.usStockFundPool + amount,
                     pools: state.pools.map((p) =>
                         p.id === poolId
                             ? { ...p, allocatedBudget: p.allocatedBudget - amount, currentCash: p.currentCash - amount, updatedAt: new Date().toISOString() }
@@ -203,7 +216,7 @@ export const createCapitalSlice: StateCreator<
 
     setUsStockFundPool: (amount: number) => {
         if (amount < 0 || isNaN(amount)) return;
-        set({ usStockFundPool: amount });
+        set({ usdAccountCash: amount, usStockFundPool: amount });
     },
 
     getUsStockAvailableCapital: () => {
@@ -211,7 +224,8 @@ export const createCapitalSlice: StateCreator<
         const holdingsInUS = state.holdings.filter(h => !h.poolId && h.type === 'US_STOCK');
         const totalInvestedUSD = holdingsInUS.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0);
         const poolsUSD = state.pools.filter(p => p.type === 'US_STOCK').reduce((sum, p) => sum + p.allocatedBudget, 0);
-        const available = state.usStockFundPool - totalInvestedUSD - poolsUSD;
+        const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+        const available = usdBase - totalInvestedUSD - poolsUSD;
         return available > 0 ? available : 0;
     },
 });

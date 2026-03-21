@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Layout from './components/layout/Layout';
-import App from './pages/App';
+import App from './App';
 import { BackupPage } from './pages/BackupPage';
 import './index.css';
 

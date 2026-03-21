@@ -114,6 +114,11 @@ export const AddPoolModal = ({
                         )}
                     </div>
                 </div>
+                {poolError && (
+                    <div className="p-3 bg-rust/10 border border-rust/20 rounded-xl text-rust text-sm">
+                        {poolError}
+                    </div>
+                )}
                 <div className="flex justify-end gap-3 mt-2">
                     <button onClick={onClose} className="px-4 py-2 text-clay hover:text-slate-800 transition-colors">取消</button>
                     <Button variant="primary" onClick={handleAddPool}>確認建立</Button>
