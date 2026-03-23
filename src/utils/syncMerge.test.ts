@@ -8,6 +8,7 @@ const baseState = (overrides: Partial<PortfolioState>): PortfolioState => ({
     capitalDeposits: [],
     capitalWithdrawals: [],
     pools: [],
+    poolLedger: [],
     usdAccountCash: 0,
     usStockFundPool: 0,
     exchangeRateUSD: 31,

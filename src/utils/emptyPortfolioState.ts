@@ -8,6 +8,7 @@ export function createEmptyPortfolioStateForUser(userId: string): PortfolioState
         capitalDeposits: [],
         capitalWithdrawals: [],
         pools: [],
+        poolLedger: [],
         usdAccountCash: 0,
         usStockFundPool: 0,
         exchangeRateUSD: 31,

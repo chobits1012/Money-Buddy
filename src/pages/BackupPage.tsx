@@ -22,6 +22,8 @@ export const BackupPage = () => {
         message: string;
     } | null>(null);
 
+    const [exportReportBusy, setExportReportBusy] = useState(false);
+
     const handleManualSync = () => {
         setConfirmAction({
             title: '立即同步',
@@ -54,6 +56,43 @@ export const BackupPage = () => {
         a.download = `portfolio-local-${new Date().toISOString().slice(0, 19)}.json`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const handleExportExcelReport = async () => {
+        setExportReportBusy(true);
+        try {
+            const {
+                buildPortfolioReportWorkbook,
+                shareOrDownloadExcelBuffer,
+                defaultReportFilename,
+                toPortfolioExportState,
+                normalizeExcelWriteBuffer,
+            } = await import('../utils/portfolioExport');
+
+            const snapshot = toPortfolioExportState(usePortfolioStore.getState());
+            const wb = await buildPortfolioReportWorkbook(snapshot);
+            const buf = await wb.xlsx.writeBuffer();
+            const binary = normalizeExcelWriteBuffer(buf);
+
+            const name = defaultReportFilename();
+            const result = await shareOrDownloadExcelBuffer(binary, name);
+
+            if (!result.ok) {
+                setAlertMessage({ title: '匯出未完成', message: result.error });
+                return;
+            }
+            setAlertMessage({
+                title: '匯出完成',
+                message: result.usedShare
+                    ? '已開啟系統分享，可選擇 LINE 或其他 App。'
+                    : '報表已下載至您的裝置。',
+            });
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setAlertMessage({ title: '匯出失敗', message: msg });
+        } finally {
+            setExportReportBusy(false);
+        }
     };
 
     return (
@@ -92,6 +131,18 @@ export const BackupPage = () => {
 
                     {/* 操作按鈕 */}
                     <div className="flex flex-col gap-3">
+                        <Button
+                            onClick={() => void handleExportExcelReport()}
+                            disabled={exportReportBusy}
+                            className="w-full flex justify-center items-center gap-2 !bg-moss hover:!bg-moss/90 !text-white transition-all shadow-moss/20"
+                            size="lg"
+                        >
+                            <span className="material-symbols-outlined text-lg">
+                                {exportReportBusy ? 'hourglass_empty' : 'table_chart'}
+                            </span>
+                            {exportReportBusy ? '產生報表中…' : '一鍵匯出理財報表 (Excel)'}
+                        </Button>
+
                         <Button
                             onClick={exportLocalSnapshotJson}
                             variant="ghost"

@@ -95,6 +95,28 @@ export interface AssetPool {
     updatedAt: string;
 }
 
+/** 入金池建立／調撥／移除（供報表流水與同步合併） */
+export type PoolLedgerEntryAction =
+    | 'POOL_CREATE'
+    | 'POOL_ALLOCATE'
+    | 'POOL_WITHDRAW'
+    | 'POOL_REMOVE';
+
+export interface PoolLedgerEntry {
+    id: string;
+    poolId: string;
+    poolName: string;
+    marketType: StockAssetType;
+    action: PoolLedgerEntryAction;
+    date: string;
+    updatedAt: string;
+    /** 台幣池：金額為台幣 */
+    amountTWD?: number;
+    /** 美股池：金額為美元 */
+    amountUSD?: number;
+    note?: string;
+}
+
 // 資金管理狀態
 export interface CapitalState {
     masterTwdTotal: number;
@@ -102,6 +124,8 @@ export interface CapitalState {
     capitalDeposits: CapitalDeposit[];
     capitalWithdrawals: CapitalWithdrawal[]; // 新增：提領紀錄
     pools: AssetPool[];
+    /** 入金池操作流水（建立、主帳↔池調撥、移除）；舊資料可能為空陣列 */
+    poolLedger: PoolLedgerEntry[];
     usdAccountCash: number;
     usStockFundPool: number;
     exchangeRateUSD: number;
