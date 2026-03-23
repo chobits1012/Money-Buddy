@@ -45,6 +45,12 @@ export interface AllocationMetrics {
     customCategories: CustomCategory[];
 }
 
+/** 儀表板大卡片 + 圓餅圖共用的單一資料包（閒置與 funding 一致） */
+export interface DashboardAllocationView extends FundingMetrics {
+    assetTotals: Record<AssetType, number>;
+    customCategories: CustomCategory[];
+}
+
 const clampNonNegative = (value: number): number => (value > 0 ? value : 0);
 const pickUsdBase = (usdAccountCash: number | undefined, usStockFundPool: number): number =>
     Math.max(usdAccountCash || 0, usStockFundPool || 0);
@@ -143,6 +149,11 @@ export const calculateFundingMetrics = ({
     };
 };
 
+/**
+ * 僅供內部與測試使用；儀表板 UI 請用 {@link buildDashboardAllocationView}。
+ * 回傳的 `idleCapital` 與大卡片／funding 不一致，不應單獨用於顯示閒置。
+ * @deprecated
+ */
 export const calculateAllocationMetrics = ({
     masterTwdTotal: masterTwdTotalFromState,
     capitalDeposits,
@@ -206,3 +217,30 @@ export const calculateAllocationMetrics = ({
         customCategories,
     };
 };
+
+/**
+ * 組裝儀表板「資金配置」視圖：funding 指標 + 圓餅圖用的 assetTotals／自訂欄位。
+ * 閒置一律來自 calculateFundingMetrics，與 calculateAllocationMetrics 內的 idle 無關。
+ */
+export function buildDashboardAllocationView(
+    input: DashboardMetricsInput,
+): DashboardAllocationView {
+    const funding = calculateFundingMetrics({
+        masterTwdTotal: input.masterTwdTotal,
+        capitalDeposits: input.capitalDeposits,
+        capitalWithdrawals: input.capitalWithdrawals,
+        totalCapitalPool: input.totalCapitalPool,
+        pools: input.pools,
+        usdAccountCash: input.usdAccountCash,
+        usStockFundPool: input.usStockFundPool,
+        exchangeRateUSD: input.exchangeRateUSD,
+        holdings: input.holdings,
+        customCategories: input.customCategories,
+    });
+    const { assetTotals, customCategories } = calculateAllocationMetrics(input);
+    return {
+        ...funding,
+        assetTotals,
+        customCategories,
+    };
+}

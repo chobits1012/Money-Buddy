@@ -1,7 +1,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { ASSET_LABELS, ASSET_CHART_COLORS, CUSTOM_CATEGORY_COLORS } from '../../utils/constants';
-import { calculateAllocationMetrics, calculateFundingMetrics } from '../../utils/dashboardMetrics';
+import { buildDashboardAllocationView } from '../../utils/dashboardMetrics';
 
 export const AllocationChart = () => {
     const {
@@ -17,7 +17,7 @@ export const AllocationChart = () => {
         customCategories: rawCustomCategories,
     } = usePortfolioStore();
 
-    const { assetTotals, customCategories } = calculateAllocationMetrics({
+    const { assetTotals, customCategories, idleCapital } = buildDashboardAllocationView({
         masterTwdTotal,
         capitalDeposits,
         capitalWithdrawals,
@@ -27,20 +27,6 @@ export const AllocationChart = () => {
         exchangeRateUSD,
         holdings,
         pools,
-        customCategories: rawCustomCategories,
-    });
-
-    // 閒置須與大卡片一致：使用 calculateFundingMetrics（見 docs/IMPLEMENTATION_PLAN_PIE_AND_IDLE_ALIGNMENT.md 階段 A）
-    const { idleCapital } = calculateFundingMetrics({
-        masterTwdTotal,
-        capitalDeposits,
-        capitalWithdrawals,
-        totalCapitalPool,
-        pools,
-        usdAccountCash,
-        usStockFundPool,
-        exchangeRateUSD,
-        holdings,
         customCategories: rawCustomCategories,
     });
 

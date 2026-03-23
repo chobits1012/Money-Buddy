@@ -10,7 +10,7 @@ import { CapitalOverview } from './CapitalOverview';
 import { AssetAllocationSection } from './AssetAllocationSection';
 import { CustomCategorySection } from './CustomCategorySection';
 import { Button } from '../ui/Button';
-import { calculateFundingMetrics } from '../../utils/dashboardMetrics';
+import { buildDashboardAllocationView } from '../../utils/dashboardMetrics';
 
 interface DashboardProps {
     onOpenDeposit: () => void; // 從 App.tsx 接收
@@ -75,7 +75,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         });
     };
 
-    const { idleCapital, masterCapitalTotal } = calculateFundingMetrics({
+    const { idleCapital, masterCapitalTotal } = buildDashboardAllocationView({
         masterTwdTotal,
         capitalDeposits,
         capitalWithdrawals,

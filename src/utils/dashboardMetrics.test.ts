@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildDashboardAllocationView,
     calculateAllocationMetrics,
     calculateFundingMetrics,
     selectPoolBuckets,
@@ -64,7 +65,7 @@ describe('dashboardMetrics', () => {
             },
         ];
 
-        const metrics = calculateFundingMetrics({
+        const input = {
             masterTwdTotal: 5_678_660,
             capitalDeposits: [],
             capitalWithdrawals: [],
@@ -73,35 +74,27 @@ describe('dashboardMetrics', () => {
             usdAccountCash: 15_676.41,
             usStockFundPool: 15_676.41,
             exchangeRateUSD: 31.5,
-            holdings: [],
+            holdings: [] as StockHolding[],
             customCategories: emptyCustom,
-        });
+        };
+
+        const metrics = calculateFundingMetrics(input);
+        const view = buildDashboardAllocationView(input);
 
         // 5,678,660 - 4,000,000 - round(15,676.41 * 31.5 = 493,807)
         expect(metrics.idleCapital).toBe(1_184_853);
         expect(metrics.allocatedCapital).toBe(4_493_807);
+        expect(view.idleCapital).toBe(metrics.idleCapital);
+        expect(view.masterCapitalTotal).toBe(metrics.masterCapitalTotal);
 
-        const alloc = calculateAllocationMetrics({
-            masterTwdTotal: 5_678_660,
-            capitalDeposits: [],
-            capitalWithdrawals: [],
-            totalCapitalPool: 1_678_660,
-            pools,
-            usdAccountCash: 15_676.41,
-            usStockFundPool: 15_676.41,
-            exchangeRateUSD: 31.5,
-            holdings: [],
-            customCategories: emptyCustom,
-        });
-
-        // 圓餅圖：扇形加總（assetTotals + 自訂）+ 閒置（應與大卡片同用 calculateFundingMetrics）= 主資本
+        // 圓餅：assetTotals + 自訂 + 閒置（來自同一包 buildDashboardAllocationView）= 主資本
         const pieAssetSum =
-            alloc.assetTotals.TAIWAN_STOCK +
-            alloc.assetTotals.US_STOCK +
-            alloc.assetTotals.FUNDS +
-            alloc.assetTotals.CRYPTO +
-            emptyCustom.reduce((s, c) => s + c.amount, 0);
-        expect(pieAssetSum + metrics.idleCapital).toBe(5_678_660);
+            view.assetTotals.TAIWAN_STOCK +
+            view.assetTotals.US_STOCK +
+            view.assetTotals.FUNDS +
+            view.assetTotals.CRYPTO +
+            view.customCategories.reduce((s, c) => s + c.amount, 0);
+        expect(pieAssetSum + view.idleCapital).toBe(5_678_660);
     });
 
     it('builds allocation buckets with USD account in TWD', () => {
