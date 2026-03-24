@@ -186,27 +186,28 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             )}
 
             {/* ═══ 匯出報表（首頁即可見；備份頁另有相同功能）═══ */}
-            <div className="rounded-2xl border border-stoneSoft/70 bg-white/35 px-4 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3 min-w-0">
-                    <span className="material-symbols-outlined text-2xl text-moss shrink-0 mt-0.5">table_chart</span>
-                    <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-800">匯出理財報表 (Excel)</p>
-                        <p className="text-xs text-clay mt-0.5 leading-relaxed">
-                            含總覽、資產配置、持倉與完整流水。手機上會優先開啟系統分享。
-                            {user ? (
-                                <> 雲端同步與 JSON 仍請點右上角「備份管理」。</>
-                            ) : (
-                                <> 尚未登入也可匯出本地資料；登入後可用右上角「備份管理」同步雲端。</>
-                            )}
-                        </p>
+            <div className="glass-panel rounded-2xl border border-stoneSoft/70 bg-white/45 px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-4 sm:gap-3.5">
+                    <div className="flex w-full items-start gap-3">
+                        <span className="material-symbols-outlined text-2xl text-moss shrink-0 mt-0.5">table_chart</span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 tracking-wide">匯出理財報表 (Excel)</p>
+                            <p className="text-xs text-clay mt-1 leading-relaxed break-words">
+                                含總覽、資產配置、持倉與完整流水。手機上會優先開啟系統分享。
+                            </p>
+                            <p className="text-[11px] text-clay/90 mt-1.5 leading-relaxed break-words">
+                                {user
+                                    ? '雲端同步與 JSON 快照仍可用右上角「備份管理」。'
+                                    : '未登入也可匯出本地資料；登入後可用右上角「備份管理」同步雲端。'}
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+                    <div className="flex flex-col sm:flex-row gap-2.5 w-full">
                     <Button
                         type="button"
                         variant="primary"
                         size="md"
-                        className="w-full sm:w-auto !bg-moss hover:!bg-moss/90"
+                        className="w-full sm:w-auto !bg-moss hover:!bg-moss/90 shadow-sm shadow-moss/15"
                         disabled={exportExcelBusy}
                         onClick={() => void handleExportExcel()}
                     >
@@ -219,11 +220,12 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                         type="button"
                         variant="ghost"
                         size="md"
-                        className="w-full sm:w-auto border border-stoneSoft/80 text-clayDark"
+                        className="w-full sm:w-auto border border-stoneSoft/80 text-clayDark bg-white/50 hover:bg-white/70"
                         onClick={() => navigate('/backup')}
                     >
                         備份管理
                     </Button>
+                </div>
                 </div>
             </div>
 
