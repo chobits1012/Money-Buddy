@@ -61,21 +61,8 @@ export const BackupPage = () => {
     const handleExportExcelReport = async () => {
         setExportReportBusy(true);
         try {
-            const {
-                buildPortfolioReportWorkbook,
-                shareOrDownloadExcelBuffer,
-                defaultReportFilename,
-                toPortfolioExportState,
-                normalizeExcelWriteBuffer,
-            } = await import('../utils/portfolioExport');
-
-            const snapshot = toPortfolioExportState(usePortfolioStore.getState());
-            const wb = await buildPortfolioReportWorkbook(snapshot);
-            const buf = await wb.xlsx.writeBuffer();
-            const binary = normalizeExcelWriteBuffer(buf);
-
-            const name = defaultReportFilename();
-            const result = await shareOrDownloadExcelBuffer(binary, name);
+            const { exportPortfolioReportExcel } = await import('../utils/portfolioExport/triggerExport');
+            const result = await exportPortfolioReportExcel();
 
             if (!result.ok) {
                 setAlertMessage({ title: '匯出未完成', message: result.error });

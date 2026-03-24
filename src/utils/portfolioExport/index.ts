@@ -5,3 +5,5 @@ export { shareOrDownloadExcelBuffer, defaultReportFilename } from './shareReport
 export type { ShareReportResult } from './shareReport';
 export { toPortfolioExportState } from './snapshot';
 export { normalizeExcelWriteBuffer } from './toArrayBuffer';
+export { exportPortfolioReportExcel } from './triggerExport';
+export type { ExcelExportResult } from './triggerExport';
