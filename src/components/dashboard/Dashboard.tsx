@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSupabaseSync } from '../../contexts/SyncContext';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import type { StockAssetType, CustomCategory } from '../../types';
 import { TransactionHistory } from '../history/TransactionHistory';
@@ -18,6 +20,8 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) => {
+    const navigate = useNavigate();
+    const { user } = useSupabaseSync();
     const {
         masterTwdTotal,
         holdings, exchangeRateUSD,
@@ -62,6 +66,9 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         requireText?: string;
     } | null>(null);
 
+    const [exportExcelBusy, setExportExcelBusy] = useState(false);
+    const [exportAlert, setExportAlert] = useState<{ title: string; message: string } | null>(null);
+
     const handleResetClick = () => {
         const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
         setConfirmAction({
@@ -73,6 +80,29 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 setHasSnapshot(true);
             }
         });
+    };
+
+    const handleExportExcel = async () => {
+        setExportExcelBusy(true);
+        try {
+            const { exportPortfolioReportExcel } = await import('../../utils/portfolioExport/triggerExport');
+            const result = await exportPortfolioReportExcel();
+            if (!result.ok) {
+                setExportAlert({ title: '匯出未完成', message: result.error });
+                return;
+            }
+            setExportAlert({
+                title: '匯出完成',
+                message: result.usedShare
+                    ? '已開啟系統分享，可選擇 LINE 或其他 App。'
+                    : '報表已下載至您的裝置。',
+            });
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setExportAlert({ title: '匯出失敗', message: msg });
+        } finally {
+            setExportExcelBusy(false);
+        }
     };
 
     const { idleCapital, masterCapitalTotal } = buildDashboardAllocationView({
@@ -155,6 +185,48 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 </div>
             )}
 
+            {/* ═══ 匯出報表（首頁即可見；備份頁另有相同功能）═══ */}
+            <div className="rounded-2xl border border-stoneSoft/70 bg-white/35 px-4 py-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3 min-w-0">
+                    <span className="material-symbols-outlined text-2xl text-moss shrink-0 mt-0.5">table_chart</span>
+                    <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800">匯出理財報表 (Excel)</p>
+                        <p className="text-xs text-clay mt-0.5 leading-relaxed">
+                            含總覽、資產配置、持倉與完整流水。手機上會優先開啟系統分享。
+                            {user ? (
+                                <> 雲端同步與 JSON 仍請點右上角「備份管理」。</>
+                            ) : (
+                                <> 尚未登入也可匯出本地資料；登入後可用右上角「備份管理」同步雲端。</>
+                            )}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+                    <Button
+                        type="button"
+                        variant="primary"
+                        size="md"
+                        className="w-full sm:w-auto !bg-moss hover:!bg-moss/90"
+                        disabled={exportExcelBusy}
+                        onClick={() => void handleExportExcel()}
+                    >
+                        <span className="material-symbols-outlined text-lg mr-1.5">
+                            {exportExcelBusy ? 'hourglass_empty' : 'download'}
+                        </span>
+                        {exportExcelBusy ? '產生中…' : '匯出 Excel'}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="md"
+                        className="w-full sm:w-auto border border-stoneSoft/80 text-clayDark"
+                        onClick={() => navigate('/backup')}
+                    >
+                        備份管理
+                    </Button>
+                </div>
+            </div>
+
             {/* ═══ 總覽卡片 ═══ */}
             <CapitalOverview 
                 availableCapital={idleCapital}
@@ -216,6 +288,15 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                     setConfirmAction(null);
                 }}
                 onCancel={() => setConfirmAction(null)}
+            />
+
+            <ConfirmModal
+                isOpen={!!exportAlert}
+                title={exportAlert?.title || ''}
+                message={exportAlert?.message || ''}
+                confirmText="確定"
+                onConfirm={() => setExportAlert(null)}
+                isAlert
             />
         </div>
     );

@@ -1,5 +1,13 @@
 import type { StateCreator } from 'zustand';
-import type { CapitalState, StockAssetType, CapitalDeposit, CapitalWithdrawal, AssetPool, PortfolioStore } from '../../types';
+import type {
+    CapitalState,
+    StockAssetType,
+    CapitalDeposit,
+    CapitalWithdrawal,
+    AssetPool,
+    PortfolioStore,
+    PoolLedgerEntry,
+} from '../../types';
 
 export interface CapitalActions {
     setCapitalPool: (amount: number) => void;
@@ -28,6 +36,7 @@ export const createCapitalSlice: StateCreator<
     capitalDeposits: [],
     capitalWithdrawals: [], // 新增：初始化提領紀錄
     pools: [],
+    poolLedger: [],
     usdAccountCash: 0,
     usStockFundPool: 0,
     exchangeRateUSD: 31, // Default or imported constant
@@ -121,15 +130,30 @@ export const createCapitalSlice: StateCreator<
             createdAt: now,
             updatedAt: now,
         };
+        const ledgerEntry: PoolLedgerEntry = {
+            id: crypto.randomUUID(),
+            poolId: newPool.id,
+            poolName: newPool.name,
+            marketType: type,
+            action: 'POOL_CREATE',
+            date: now,
+            updatedAt: now,
+            amountTWD: type === 'US_STOCK' ? undefined : normalizedInitialAmount,
+            amountUSD: type === 'US_STOCK' ? normalizedInitialAmount : undefined,
+            note: `建立入金池「${newPool.name}」`,
+        };
         set((state) => {
+            const poolLedger = [...(state.poolLedger ?? []), ledgerEntry];
             if (type === 'US_STOCK') {
                 return {
                     pools: [...(state.pools || []), newPool],
+                    poolLedger,
                 };
             }
             return {
                 totalCapitalPool: state.totalCapitalPool - initialAmount,
                 pools: [...(state.pools || []), newPool],
+                poolLedger,
             };
         });
     },
@@ -138,18 +162,35 @@ export const createCapitalSlice: StateCreator<
         set((state) => {
             const poolToRemove = state.pools.find(p => p.id === id);
             if (!poolToRemove) return {};
-            
+
+            const now = new Date().toISOString();
+            const removeEntry: PoolLedgerEntry = {
+                id: crypto.randomUUID(),
+                poolId: poolToRemove.id,
+                poolName: poolToRemove.name,
+                marketType: poolToRemove.type,
+                action: 'POOL_REMOVE',
+                date: now,
+                updatedAt: now,
+                amountTWD: poolToRemove.type === 'US_STOCK' ? undefined : poolToRemove.allocatedBudget,
+                amountUSD: poolToRemove.type === 'US_STOCK' ? poolToRemove.allocatedBudget : undefined,
+                note: `移除入金池「${poolToRemove.name}」（池內配置釋回）`,
+            };
+            const poolLedger = [...(state.poolLedger ?? []), removeEntry];
+
             if (poolToRemove.type === 'US_STOCK') {
                 return {
                     pools: state.pools.filter((p) => p.id !== id),
-                    holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h)
+                    holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h),
+                    poolLedger,
                 };
             }
 
             return {
                 totalCapitalPool: state.totalCapitalPool + poolToRemove.allocatedBudget,
                 pools: state.pools.filter((p) => p.id !== id),
-                holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h)
+                holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h),
+                poolLedger,
             };
         });
     },
@@ -162,23 +203,49 @@ export const createCapitalSlice: StateCreator<
             if (pool.type === 'US_STOCK') {
                 const usAvailable = get().getUsStockAvailableCapital();
                 if (amount > usAvailable) return {};
+                const now = new Date().toISOString();
+                const ledgerEntry: PoolLedgerEntry = {
+                    id: crypto.randomUUID(),
+                    poolId: pool.id,
+                    poolName: pool.name,
+                    marketType: pool.type,
+                    action: 'POOL_ALLOCATE',
+                    date: now,
+                    updatedAt: now,
+                    amountUSD: amount,
+                    note: `美元帳戶 → 入金池「${pool.name}」`,
+                };
                 return {
                     pools: state.pools.map((p) =>
                         p.id === poolId
-                            ? { ...p, allocatedBudget: p.allocatedBudget + amount, currentCash: p.currentCash + amount, updatedAt: new Date().toISOString() }
+                            ? { ...p, allocatedBudget: p.allocatedBudget + amount, currentCash: p.currentCash + amount, updatedAt: now }
                             : p
                     ),
+                    poolLedger: [...(state.poolLedger ?? []), ledgerEntry],
                 };
             }
 
             if (state.totalCapitalPool < amount) return {};
+            const now = new Date().toISOString();
+            const ledgerEntry: PoolLedgerEntry = {
+                id: crypto.randomUUID(),
+                poolId: pool.id,
+                poolName: pool.name,
+                marketType: pool.type,
+                action: 'POOL_ALLOCATE',
+                date: now,
+                updatedAt: now,
+                amountTWD: amount,
+                note: `主帳可分配資金 → 入金池「${pool.name}」`,
+            };
             return {
                 totalCapitalPool: state.totalCapitalPool - amount,
                 pools: state.pools.map((p) =>
                     p.id === poolId
-                        ? { ...p, allocatedBudget: p.allocatedBudget + amount, currentCash: p.currentCash + amount, updatedAt: new Date().toISOString() }
+                        ? { ...p, allocatedBudget: p.allocatedBudget + amount, currentCash: p.currentCash + amount, updatedAt: now }
                         : p
                 ),
+                poolLedger: [...(state.poolLedger ?? []), ledgerEntry],
             };
         });
     },
@@ -188,23 +255,49 @@ export const createCapitalSlice: StateCreator<
             const pool = state.pools.find((p) => p.id === poolId);
             if (!pool || pool.currentCash < amount) return {};
 
+            const now = new Date().toISOString();
+
             if (pool.type === 'US_STOCK') {
+                const ledgerEntry: PoolLedgerEntry = {
+                    id: crypto.randomUUID(),
+                    poolId: pool.id,
+                    poolName: pool.name,
+                    marketType: pool.type,
+                    action: 'POOL_WITHDRAW',
+                    date: now,
+                    updatedAt: now,
+                    amountUSD: amount,
+                    note: `入金池「${pool.name}」→ 美元帳戶`,
+                };
                 return {
                     pools: state.pools.map((p) =>
                         p.id === poolId
-                            ? { ...p, allocatedBudget: p.allocatedBudget - amount, currentCash: p.currentCash - amount, updatedAt: new Date().toISOString() }
+                            ? { ...p, allocatedBudget: p.allocatedBudget - amount, currentCash: p.currentCash - amount, updatedAt: now }
                             : p
                     ),
+                    poolLedger: [...(state.poolLedger ?? []), ledgerEntry],
                 };
             }
 
+            const ledgerEntry: PoolLedgerEntry = {
+                id: crypto.randomUUID(),
+                poolId: pool.id,
+                poolName: pool.name,
+                marketType: pool.type,
+                action: 'POOL_WITHDRAW',
+                date: now,
+                updatedAt: now,
+                amountTWD: amount,
+                note: `入金池「${pool.name}」→ 主帳可分配資金`,
+            };
             return {
                 totalCapitalPool: state.totalCapitalPool + amount,
                 pools: state.pools.map((p) =>
                     p.id === poolId
-                        ? { ...p, allocatedBudget: p.allocatedBudget - amount, currentCash: p.currentCash - amount, updatedAt: new Date().toISOString() }
+                        ? { ...p, allocatedBudget: p.allocatedBudget - amount, currentCash: p.currentCash - amount, updatedAt: now }
                         : p
                 ),
+                poolLedger: [...(state.poolLedger ?? []), ledgerEntry],
             };
         });
     },

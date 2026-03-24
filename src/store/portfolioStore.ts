@@ -55,6 +55,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
                     capitalDeposits: [],
                     capitalWithdrawals: [],
                     pools: [],
+                    poolLedger: [],
                     usdAccountCash: 0,
                     usStockFundPool: 0,
                     transactions: [],
@@ -70,7 +71,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
         }),
         {
             name: 'portfolio-tracker-storage',
-            version: 3,
+            version: 4,
             skipHydration: true,
             storage: persistScopedStorage,
             migrate: (persistedState: unknown, version: number) => {
@@ -147,6 +148,12 @@ export const usePortfolioStore = create<PortfolioStore>()(
 
                 if (version < 3) {
                     Object.assign(state, reconcilePortfolioState(state as PortfolioState));
+                }
+
+                if (version < 4) {
+                    if (!Array.isArray(state.poolLedger)) {
+                        state.poolLedger = [];
+                    }
                 }
 
                 return state as any;

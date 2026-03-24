@@ -12,6 +12,7 @@ import type {
     CapitalDeposit,
     CapitalWithdrawal,
     AssetPool,
+    PoolLedgerEntry,
 } from '../types';
 import { reconcilePortfolioState } from './reconcilePortfolioState';
 
@@ -138,6 +139,12 @@ export function syncMerge(
         currentCash: toSafeNonNegativeNumber(pool.currentCash),
     }));
 
+    const mergedPoolLedger = mergeArrayById<PoolLedgerEntry>(
+        local.poolLedger || [],
+        cloud.poolLedger || [],
+        lastSyncedAt,
+    );
+
     const cloudOverallNewer =
         getTimestamp(cloud.lastSyncedAt) > getTimestamp(local.lastSyncedAt);
 
@@ -160,6 +167,7 @@ export function syncMerge(
         capitalDeposits: mergedCapitalDeposits,
         capitalWithdrawals: mergedCapitalWithdrawals,
         pools: mergedPools,
+        poolLedger: mergedPoolLedger,
         holdings: mergedHoldings,
         customCategories: mergedCustomCategories,
         transactions: mergedTransactions,
