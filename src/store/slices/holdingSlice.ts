@@ -330,14 +330,11 @@ export const createHoldingSlice: StateCreator<
         set((state) => {
             const holdingIndex = state.holdings.findIndex((h) => h.id === id);
             if (holdingIndex < 0) return {};
+            if (!isActive(state.holdings[holdingIndex])) return {};
 
             const updated = [...state.holdings];
-            const holding = {
-                ...updated[holdingIndex],
-                currentPrice,
-                deletedAt: undefined,
-            };
-            updated[holdingIndex] = recalcHolding(holding as any);
+            const holding = { ...updated[holdingIndex], currentPrice };
+            updated[holdingIndex] = recalcHolding(holding);
             
             return { holdings: updated };
         });
@@ -515,7 +512,10 @@ export const createHoldingSlice: StateCreator<
             set((state) => {
                 const updated = state.holdings.map((h) => {
                     if (!isActive(h) || !h.symbol || !quoteMap[h.symbol]) return h;
-                    return recalcHolding({ ...h, currentPrice: quoteMap[h.symbol] } as any);
+                    return recalcHolding(
+                        { ...h, currentPrice: quoteMap[h.symbol] },
+                        { preserveUpdatedAt: true },
+                    );
                 });
                 return { holdings: updated, isLoadingQuotes: false } as any;
             });

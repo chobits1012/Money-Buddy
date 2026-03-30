@@ -12,6 +12,15 @@ import type { User } from '@supabase/supabase-js';
 
 const DEBOUNCE_DELAY = 2000;
 
+/** 從 Zustand store 的 getState() 結果中只取 data 欄位，排除 action functions */
+function extractPortfolioData(full: Record<string, unknown>): PortfolioState {
+    const data: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(full)) {
+        if (typeof v !== 'function') data[k] = v;
+    }
+    return data as PortfolioState;
+}
+
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
 
 export type SyncGateState = 'idle' | 'blocked_account_mismatch' | 'resolving';
@@ -30,6 +39,7 @@ export function useSupabaseSyncInternal() {
 
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isPullingRef = useRef(false);
+    const dirtyDuringSyncRef = useRef(false);
     const userRef = useRef<User | null>(null);
     const syncStatusRef = useRef<SyncStatus>('offline');
     const syncGateRef = useRef<SyncGateState>('idle');
@@ -59,12 +69,15 @@ export function useSupabaseSyncInternal() {
         }
 
         isPullingRef.current = true;
+        dirtyDuringSyncRef.current = false;
         setPendingUpload(false);
 
         try {
             const cloudRow = await fetchCloudBackup(currentUser.id);
+
             // 必須在 await 之後再讀本機：否則使用者在拉雲端期間做的刪除／編輯會被過期的 localState 蓋掉
-            const localState = usePortfolioStore.getState() as PortfolioState;
+            // 只取 data 欄位，排除 action functions，避免 functions 被 spread 回 overwriteState
+            const localState = extractPortfolioData(usePortfolioStore.getState());
 
             let merged: PortfolioState;
             if (cloudRow?.portfolio_data) {
@@ -82,7 +95,7 @@ export function useSupabaseSyncInternal() {
             });
 
             const now = new Date().toISOString();
-            const finalState = usePortfolioStore.getState() as PortfolioState;
+            const finalState = extractPortfolioData(usePortfolioStore.getState());
 
             const { error } = await supabase.from('user_backup').upsert(
                 {
@@ -105,6 +118,17 @@ export function useSupabaseSyncInternal() {
             throw error;
         } finally {
             isPullingRef.current = false;
+
+            if (dirtyDuringSyncRef.current) {
+                dirtyDuringSyncRef.current = false;
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = setTimeout(() => {
+                    setSyncStatus('syncing');
+                    void syncWithServerRef.current()
+                        .then(() => setSyncStatus('synced'))
+                        .catch(() => setSyncStatus('error'));
+                }, DEBOUNCE_DELAY);
+            }
         }
     }, [overwriteState, setPendingUpload]);
 
@@ -201,9 +225,14 @@ export function useSupabaseSyncInternal() {
 
     useEffect(() => {
         const unsubscribe = usePortfolioStore.subscribe(() => {
-            if (isPullingRef.current) return;
-            if (syncGateRef.current !== 'idle') return;
             if (!userRef.current) return;
+            if (syncGateRef.current !== 'idle') return;
+
+            if (isPullingRef.current) {
+                dirtyDuringSyncRef.current = true;
+                return;
+            }
+
             if (!navigator.onLine) {
                 setSyncStatus('offline');
                 setPendingUpload(true);
@@ -319,8 +348,9 @@ export function useSupabaseSyncInternal() {
                 setSyncGate('blocked_account_mismatch');
                 return;
             }
-            const localState = usePortfolioStore.getState() as PortfolioState;
             const row = await fetchCloudBackup(u.id);
+            // 先 await 雲端，再讀本機（與 syncWithServer 同理，避免 await 期間使用者操作被遺失）
+            const localState = extractPortfolioData(usePortfolioStore.getState());
             const cloud = row?.portfolio_data
                 ? (row.portfolio_data as PortfolioState)
                 : createEmptyPortfolioStateForUser(u.id);

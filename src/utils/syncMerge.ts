@@ -110,11 +110,10 @@ function mergeHoldingMeta(local: StockHolding, cloud: StockHolding): HoldingMeta
 export function mergeStockHolding(local: StockHolding, cloud: StockHolding): StockHolding {
     const mergedPurchases = mergePurchases(local.purchases ?? [], cloud.purchases ?? []);
     const meta = mergeHoldingMeta(local, cloud);
-    const recalced = recalcHolding({
-        ...meta,
-        purchases: mergedPurchases,
-    });
-    // 勿讓 recalcHolding 的「現在時間」覆蓋合併裁決的 updatedAt（否則下次同步永遠本地勝）
+    const recalced = recalcHolding(
+        { ...meta, purchases: mergedPurchases },
+        { preserveUpdatedAt: true },
+    );
     return {
         ...recalced,
         updatedAt: meta.updatedAt,

@@ -1,10 +1,15 @@
 import type { StockHolding } from '../types';
 import { filterActive } from './entityActive';
 
+export interface RecalcHoldingOptions {
+    /** true = 保留原始 updatedAt，不 bump 到 now（用於報價更新、合併等不算使用者主動修改的場景） */
+    preserveUpdatedAt?: boolean;
+}
+
 /**
  * 從購買紀錄重新計算持倉聚合值 (均價、總額、損益等)
  */
-export function recalcHolding(holding: StockHolding): StockHolding {
+export function recalcHolding(holding: StockHolding, options?: RecalcHoldingOptions): StockHolding {
     const purchases = filterActive(holding.purchases);
     if (purchases.length === 0) {
         return { ...holding, shares: 0, avgPrice: 0, totalAmount: 0, totalAmountUSD: undefined, unrealizedPnL: undefined, realizedPnL: 0 };
@@ -77,6 +82,6 @@ export function recalcHolding(holding: StockHolding): StockHolding {
         totalAmountUSD: totalCostUSD > 0 ? Number(totalCostUSD.toFixed(2)) : undefined, // 美金取兩位
         unrealizedPnL: unrealizedPnL !== undefined ? Math.round(unrealizedPnL * 100) / 100 : undefined,
         realizedPnL: Math.round(realizedPnL * 100) / 100,
-        updatedAt: new Date().toISOString(),
+        updatedAt: options?.preserveUpdatedAt ? holding.updatedAt : new Date().toISOString(),
     };
 }
