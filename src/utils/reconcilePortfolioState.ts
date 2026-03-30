@@ -1,4 +1,5 @@
 import type { PortfolioState, AssetPool, StockHolding, PoolLedgerEntry } from '../types';
+import { filterActive } from './entityActive';
 
 function toSafeNonNegativeNumber(value: unknown): number {
     const num = Number(value);
@@ -26,25 +27,28 @@ export function reconcilePortfolioState(
     state: PortfolioState,
     options?: ReconcilePortfolioOptions,
 ): Partial<PortfolioState> {
-    const deposits = state.capitalDeposits ?? [];
-    const withdrawals = state.capitalWithdrawals ?? [];
+    const deposits = filterActive(state.capitalDeposits ?? []);
+    const withdrawals = filterActive(state.capitalWithdrawals ?? []);
     const masterTwdTotal = Math.max(
         0,
         deposits.reduce((s, d) => s + d.amount, 0) -
             withdrawals.reduce((s, w) => s + w.amount, 0),
     );
 
-    const pools = state.pools ?? [];
-    const holdings = state.holdings ?? [];
-    const customCategories = state.customCategories ?? [];
-    const transactions = state.transactions ?? [];
+    const allPools = state.pools ?? [];
+    const activePools = filterActive(allPools);
+    const holdings = filterActive(state.holdings ?? []);
+    const customCategories = filterActive(state.customCategories ?? []);
+    const transactions = filterActive(state.transactions ?? []);
     const poolLedger = state.poolLedger ?? [];
 
-    // ═══ 1. Pool allocatedBudget + currentCash（封閉公式） ═══
-    const reconciledPools = reconcilePools(pools, holdings, poolLedger);
+    // ═══ 1. Pool allocatedBudget + currentCash（封閉公式，僅 active pools） ═══
+    const reconciledActivePools = reconcilePools(activePools, holdings, poolLedger);
+    const reconciledActiveMap = new Map(reconciledActivePools.map((p) => [p.id, p]));
+    const reconciledPools = allPools.map((p) => reconciledActiveMap.get(p.id) ?? p);
 
-    // ═══ 2. TWD totalCapitalPool（封閉公式，使用 reconciled pool 值） ═══
-    const twdPoolAllocated = reconciledPools
+    // ═══ 2. TWD totalCapitalPool（封閉公式，僅計算 active pools） ═══
+    const twdPoolAllocated = reconciledActivePools
         .filter((p) => p.type !== 'US_STOCK')
         .reduce((sum, p) => sum + toSafeNonNegativeNumber(p.allocatedBudget), 0);
     const globalTwdInvested = holdings
@@ -61,7 +65,7 @@ export function reconcilePortfolioState(
     totalCapitalPool = Math.max(0, Math.min(masterTwdTotal, totalCapitalPool));
 
     // ═══ 3. USD 帳戶（封閉公式，從交易紀錄重算） ═══
-    const safeUsd = reconcileUsd(transactions, holdings, pools, state, options);
+    const safeUsd = reconcileUsd(transactions, holdings, activePools, state, options);
 
     return {
         masterTwdTotal,

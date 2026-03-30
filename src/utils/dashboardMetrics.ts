@@ -6,6 +6,7 @@ import type {
     CustomCategory,
     StockHolding,
 } from '../types';
+import { filterActive } from './entityActive';
 
 interface DashboardMetricsInput {
     masterTwdTotal?: number;
@@ -103,14 +104,14 @@ export const calculateGlobalIdleCapital = (
 
 export const calculateFundingMetrics = ({
     masterTwdTotal: masterTwdTotalFromState,
-    capitalDeposits,
-    capitalWithdrawals,
-    pools,
+    capitalDeposits: rawDeposits,
+    capitalWithdrawals: rawWithdrawals,
+    pools: rawPools,
     usdAccountCash,
     usStockFundPool,
     exchangeRateUSD,
-    holdings,
-    customCategories,
+    holdings: rawHoldings,
+    customCategories: rawCustom,
 }: Pick<
     DashboardMetricsInput,
     | 'masterTwdTotal'
@@ -124,6 +125,12 @@ export const calculateFundingMetrics = ({
     | 'holdings'
     | 'customCategories'
 >): FundingMetrics => {
+    const pools = filterActive(rawPools);
+    const holdings = filterActive(rawHoldings);
+    const customCategories = filterActive(rawCustom);
+    const capitalDeposits = rawDeposits ? filterActive(rawDeposits) : undefined;
+    const capitalWithdrawals = rawWithdrawals ? filterActive(rawWithdrawals) : undefined;
+
     const masterCapitalTotal = typeof masterTwdTotalFromState === 'number'
         ? clampNonNegative(Math.round(masterTwdTotalFromState))
         : calculateMasterCapitalTotal(capitalDeposits, capitalWithdrawals);
@@ -156,16 +163,22 @@ export const calculateFundingMetrics = ({
  */
 export const calculateAllocationMetrics = ({
     masterTwdTotal: masterTwdTotalFromState,
-    capitalDeposits,
-    capitalWithdrawals,
+    capitalDeposits: rawDeposits,
+    capitalWithdrawals: rawWithdrawals,
     totalCapitalPool,
     usdAccountCash,
     usStockFundPool,
     exchangeRateUSD,
-    holdings,
-    pools,
-    customCategories,
+    holdings: rawHoldings,
+    pools: rawPools,
+    customCategories: rawCustom,
 }: DashboardMetricsInput): AllocationMetrics => {
+    const holdings = filterActive(rawHoldings);
+    const pools = filterActive(rawPools);
+    const customCategories = filterActive(rawCustom);
+    const capitalDeposits = rawDeposits ? filterActive(rawDeposits) : undefined;
+    const capitalWithdrawals = rawWithdrawals ? filterActive(rawWithdrawals) : undefined;
+
     const idleCapital = calculateGlobalIdleCapital(totalCapitalPool, holdings, customCategories);
     const { twdPools } = selectPoolBuckets(pools);
 
