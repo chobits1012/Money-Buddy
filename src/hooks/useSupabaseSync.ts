@@ -13,12 +13,12 @@ import type { User } from '@supabase/supabase-js';
 const DEBOUNCE_DELAY = 2000;
 
 /** 從 Zustand store 的 getState() 結果中只取 data 欄位，排除 action functions */
-function extractPortfolioData(full: Record<string, unknown>): PortfolioState {
+function extractPortfolioData(full: object): PortfolioState {
     const data: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(full)) {
         if (typeof v !== 'function') data[k] = v;
     }
-    return data as PortfolioState;
+    return data as unknown as PortfolioState;
 }
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline' | 'error';
