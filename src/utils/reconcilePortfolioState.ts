@@ -65,7 +65,7 @@ export function reconcilePortfolioState(
     totalCapitalPool = Math.max(0, Math.min(masterTwdTotal, totalCapitalPool));
 
     // ═══ 3. USD 帳戶（封閉公式，從交易紀錄重算） ═══
-    const safeUsd = reconcileUsd(transactions, holdings, activePools, state, options);
+    const safeUsd = reconcileUsd(transactions, holdings, state, options);
 
     return {
         masterTwdTotal,
@@ -149,7 +149,6 @@ function reconcilePoolAllocatedBudget(
 function reconcileUsd(
     transactions: PortfolioState['transactions'],
     holdings: StockHolding[],
-    pools: AssetPool[],
     state: PortfolioState,
     options?: ReconcilePortfolioOptions,
 ): number {
