@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { fetchCloudBackup } from '../lib/supabaseBackup';
 import { usePortfolioStore } from '../store/portfolioStore';
-import { syncMerge } from '../utils/syncMerge';
 import { shouldBlockAccountSwitch } from '../utils/accountSyncGate';
 import { createEmptyPortfolioStateForUser } from '../utils/emptyPortfolioState';
 import { setPersistSuffix } from '../utils/persistUserStorage';
-import { reconcilePortfolioState } from '../utils/reconcilePortfolioState';
+import { buildStateForSyncUpload, prepareStateForSyncUpload } from '../utils/syncServerPipeline';
 import type { PortfolioState } from '../types';
 import type { User } from '@supabase/supabase-js';
 
@@ -30,6 +29,8 @@ export function useSupabaseSyncInternal() {
 
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isPullingRef = useRef(false);
+    const needsResyncRef = useRef(false);
+    const isApplyingSyncMutationRef = useRef(false);
     const userRef = useRef<User | null>(null);
     const syncStatusRef = useRef<SyncStatus>('offline');
     const syncGateRef = useRef<SyncGateState>('idle');
@@ -46,6 +47,15 @@ export function useSupabaseSyncInternal() {
         syncGateRef.current = syncGate;
     }, [syncGate]);
 
+    const runInternalSyncMutation = useCallback(<T,>(mutate: () => T): T => {
+        isApplyingSyncMutationRef.current = true;
+        try {
+            return mutate();
+        } finally {
+            isApplyingSyncMutationRef.current = false;
+        }
+    }, []);
+
     const syncWithServer = useCallback(async (options?: { bypassGate?: boolean }) => {
         const currentUser = userRef.current;
         if (!currentUser) return;
@@ -59,25 +69,20 @@ export function useSupabaseSyncInternal() {
         }
 
         isPullingRef.current = true;
-        setPendingUpload(false);
+        needsResyncRef.current = false;
+        runInternalSyncMutation(() => {
+            setPendingUpload(false);
+        });
 
         try {
-            const localState = usePortfolioStore.getState() as PortfolioState;
-            const cloudRow = await fetchCloudBackup(currentUser.id);
+            const merged = await buildStateForSyncUpload(
+                () => usePortfolioStore.getState() as PortfolioState,
+                async () => (await fetchCloudBackup(currentUser.id))?.portfolio_data ?? null,
+                currentUser.id,
+            );
 
-            let merged: PortfolioState;
-            if (cloudRow?.portfolio_data) {
-                merged = syncMerge(localState, cloudRow.portfolio_data);
-            } else {
-                merged = {
-                    ...localState,
-                    ...reconcilePortfolioState(localState),
-                };
-            }
-
-            overwriteState({
-                ...merged,
-                localDataOwnerId: currentUser.id,
+            runInternalSyncMutation(() => {
+                overwriteState(merged);
             });
 
             const now = new Date().toISOString();
@@ -95,7 +100,9 @@ export function useSupabaseSyncInternal() {
 
             if (error) throw error;
 
-            usePortfolioStore.setState({ lastSyncedAt: now, pendingUpload: false });
+            runInternalSyncMutation(() => {
+                usePortfolioStore.setState({ lastSyncedAt: now, pendingUpload: false });
+            });
             setLastSyncTime(now);
             setSyncError(null);
         } catch (error) {
@@ -104,8 +111,33 @@ export function useSupabaseSyncInternal() {
             throw error;
         } finally {
             isPullingRef.current = false;
+
+            const shouldRunFollowUpSync =
+                needsResyncRef.current &&
+                !!userRef.current &&
+                navigator.onLine &&
+                (options?.bypassGate || syncGateRef.current === 'idle');
+
+            if (shouldRunFollowUpSync) {
+                needsResyncRef.current = false;
+                setSyncStatus('syncing');
+                void syncWithServerRef.current(options)
+                    .then(() => {
+                        setSyncStatus('synced');
+                    })
+                    .catch(() => {
+                        setSyncStatus('error');
+                    });
+            } else if (needsResyncRef.current) {
+                runInternalSyncMutation(() => {
+                    setPendingUpload(true);
+                });
+                if (!navigator.onLine) {
+                    setSyncStatus('offline');
+                }
+            }
         }
-    }, [overwriteState, setPendingUpload]);
+    }, [overwriteState, runInternalSyncMutation, setPendingUpload]);
 
     const syncWithServerRef = useRef(syncWithServer);
     syncWithServerRef.current = syncWithServer;
@@ -200,7 +232,12 @@ export function useSupabaseSyncInternal() {
 
     useEffect(() => {
         const unsubscribe = usePortfolioStore.subscribe(() => {
-            if (isPullingRef.current) return;
+            if (isPullingRef.current) {
+                if (!isApplyingSyncMutationRef.current) {
+                    needsResyncRef.current = true;
+                }
+                return;
+            }
             if (syncGateRef.current !== 'idle') return;
             if (!userRef.current) return;
             if (!navigator.onLine) {
@@ -285,12 +322,16 @@ export function useSupabaseSyncInternal() {
             }
             const row = await fetchCloudBackup(u.id);
             if (row?.portfolio_data) {
-                overwriteState({
-                    ...(row.portfolio_data as PortfolioState),
-                    localDataOwnerId: u.id,
+                runInternalSyncMutation(() => {
+                    overwriteState({
+                        ...(row.portfolio_data as PortfolioState),
+                        localDataOwnerId: u.id,
+                    });
                 });
             } else {
-                overwriteState(createEmptyPortfolioStateForUser(u.id));
+                runInternalSyncMutation(() => {
+                    overwriteState(createEmptyPortfolioStateForUser(u.id));
+                });
             }
             setPersistSuffix(u.id);
             setLocalDataOwnerId(u.id);
@@ -304,7 +345,7 @@ export function useSupabaseSyncInternal() {
         } finally {
             setIsSyncing(false);
         }
-    }, [overwriteState, setLocalDataOwnerId, syncWithServer]);
+    }, [overwriteState, runInternalSyncMutation, setLocalDataOwnerId, syncWithServer]);
 
     const resolveAccountSwitchMerge = useCallback(async () => {
         const u = userRef.current;
@@ -318,13 +359,18 @@ export function useSupabaseSyncInternal() {
                 setSyncGate('blocked_account_mismatch');
                 return;
             }
-            const localState = usePortfolioStore.getState() as PortfolioState;
             const row = await fetchCloudBackup(u.id);
             const cloud = row?.portfolio_data
                 ? (row.portfolio_data as PortfolioState)
                 : createEmptyPortfolioStateForUser(u.id);
-            const merged = syncMerge(localState, cloud);
-            overwriteState({ ...merged, localDataOwnerId: u.id });
+            const merged = prepareStateForSyncUpload(
+                usePortfolioStore.getState() as PortfolioState,
+                cloud,
+                u.id,
+            );
+            runInternalSyncMutation(() => {
+                overwriteState(merged);
+            });
             setPersistSuffix(u.id);
             setLocalDataOwnerId(u.id);
             setSyncGate('idle');
@@ -337,7 +383,7 @@ export function useSupabaseSyncInternal() {
         } finally {
             setIsSyncing(false);
         }
-    }, [overwriteState, setLocalDataOwnerId, syncWithServer]);
+    }, [overwriteState, runInternalSyncMutation, setLocalDataOwnerId, syncWithServer]);
 
     const resolveAccountSwitchCancel = useCallback(async () => {
         try {
