@@ -1,4 +1,4 @@
-import type { PortfolioState } from '../types';
+import type { PortfolioState, AssetPool, StockHolding, PoolLedgerEntry } from '../types';
 
 function toSafeNonNegativeNumber(value: unknown): number {
     const num = Number(value);
@@ -9,14 +9,18 @@ function toSafeNonNegativeNumber(value: unknown): number {
 export type ReconcilePortfolioOptions = {
     /**
      * 同步合併時：依「雲端較新／本地較新」選出的美元基底（usdAccountCash ?? usStockFundPool）。
-     * 未傳則用 state 內兩欄較大者。
+     * 僅在無 US_STOCK 交易紀錄（legacy 資料）時作為 fallback 使用。
      */
     usdBaseHint?: number;
 };
 
 /**
- * 依入金／提領、池、全域持倉、自訂欄位，重算與畫面邏輯一致的純量（masterTwdTotal、totalCapitalPool、美金帳戶）。
- * 可於同步後、或從 localStorage 還原後執行，修正歷史錯位資料。
+ * 從不可變來源（入金紀錄、poolLedger、holdings 陣列）以封閉公式重算所有派生純量，
+ * 包括 masterTwdTotal、totalCapitalPool、usdAccountCash/usStockFundPool，
+ * 以及每個 pool 的 allocatedBudget 與 currentCash。
+ *
+ * 設計原則：結果完全由「帳本紀錄 + 當前持倉」決定，不依賴任何「前一個值」，
+ * 從而避免增量操作（如 removeHolding 的 pnlDelta）在 sync 復活循環中累積膨脹。
  */
 export function reconcilePortfolioState(
     state: PortfolioState,
@@ -33,8 +37,14 @@ export function reconcilePortfolioState(
     const pools = state.pools ?? [];
     const holdings = state.holdings ?? [];
     const customCategories = state.customCategories ?? [];
+    const transactions = state.transactions ?? [];
+    const poolLedger = state.poolLedger ?? [];
 
-    const twdPoolAllocated = pools
+    // ═══ 1. Pool allocatedBudget + currentCash（封閉公式） ═══
+    const reconciledPools = reconcilePools(pools, holdings, poolLedger);
+
+    // ═══ 2. TWD totalCapitalPool（封閉公式，使用 reconciled pool 值） ═══
+    const twdPoolAllocated = reconciledPools
         .filter((p) => p.type !== 'US_STOCK')
         .reduce((sum, p) => sum + toSafeNonNegativeNumber(p.allocatedBudget), 0);
     const globalTwdInvested = holdings
@@ -50,32 +60,117 @@ export function reconcilePortfolioState(
     totalCapitalPool = Math.round(totalCapitalPool);
     totalCapitalPool = Math.max(0, Math.min(masterTwdTotal, totalCapitalPool));
 
-    const usGlobalInvestedUsd = holdings
-        .filter((h) => !h.poolId && h.type === 'US_STOCK')
-        .reduce((sum, h) => sum + toSafeNonNegativeNumber(h.totalAmountUSD ?? 0), 0);
-    const usPoolAllocatedUsd = pools
-        .filter((p) => p.type === 'US_STOCK')
-        .reduce((sum, p) => sum + toSafeNonNegativeNumber(p.allocatedBudget), 0);
-    const minUsdBase = usGlobalInvestedUsd + usPoolAllocatedUsd;
-
-    const fromState = Math.max(
-        toSafeNonNegativeNumber(state.usdAccountCash),
-        toSafeNonNegativeNumber(state.usStockFundPool),
-    );
-    const hint =
-        options?.usdBaseHint !== undefined
-            ? toSafeNonNegativeNumber(options.usdBaseHint)
-            : fromState;
-    const baseUsd =
-        options?.usdBaseHint !== undefined
-            ? hint
-            : fromState;
-    const safeUsd = Math.max(baseUsd, minUsdBase);
+    // ═══ 3. USD 帳戶（封閉公式，從交易紀錄重算） ═══
+    const safeUsd = reconcileUsd(transactions, holdings, pools, state, options);
 
     return {
         masterTwdTotal,
         totalCapitalPool,
         usdAccountCash: safeUsd,
         usStockFundPool: safeUsd,
+        pools: reconciledPools,
     };
+}
+
+// ─── Pool 封閉公式 ───
+
+function reconcilePools(
+    pools: AssetPool[],
+    holdings: StockHolding[],
+    poolLedger: PoolLedgerEntry[],
+): AssetPool[] {
+    return pools.map((pool) => {
+        const poolHoldings = holdings.filter((h) => h.poolId === pool.id);
+        const isUsd = pool.type === 'US_STOCK';
+
+        // allocatedBudget：若有 ledger 紀錄則從帳本重算，否則保留現值（legacy）
+        const allocatedBudget = reconcilePoolAllocatedBudget(
+            pool,
+            poolHoldings,
+            poolLedger,
+        );
+
+        // currentCash = allocatedBudget − 池內持倉投資總額
+        const totalInvested = isUsd
+            ? poolHoldings.reduce(
+                  (sum, h) => sum + toSafeNonNegativeNumber(h.totalAmountUSD ?? 0),
+                  0,
+              )
+            : poolHoldings.reduce(
+                  (sum, h) => sum + toSafeNonNegativeNumber(h.totalAmount),
+                  0,
+              );
+
+        const rawCash = allocatedBudget - totalInvested;
+        const currentCash = isUsd
+            ? Math.max(0, rawCash)
+            : Math.max(0, Math.round(rawCash));
+
+        return { ...pool, allocatedBudget, currentCash };
+    });
+}
+
+function reconcilePoolAllocatedBudget(
+    pool: AssetPool,
+    poolHoldings: StockHolding[],
+    poolLedger: PoolLedgerEntry[],
+): number {
+    const entries = poolLedger.filter((e) => e.poolId === pool.id);
+    if (entries.length === 0) return pool.allocatedBudget; // legacy: 無帳本則信任現值
+
+    const isUsd = pool.type === 'US_STOCK';
+
+    // 帳本基底 = CREATE + ALLOCATE − WITHDRAW
+    const baseAlloc = entries.reduce((sum, e) => {
+        const amount = isUsd ? (e.amountUSD || 0) : (e.amountTWD || 0);
+        if (e.action === 'POOL_CREATE' || e.action === 'POOL_ALLOCATE')
+            return sum + amount;
+        if (e.action === 'POOL_WITHDRAW' || e.action === 'POOL_REMOVE')
+            return sum - amount;
+        return sum;
+    }, 0);
+
+    // 已實現損益回流（持倉交易的複利效應）
+    const pnlAdj = poolHoldings.reduce(
+        (sum, h) => sum + (h.realizedPnL || 0),
+        0,
+    );
+
+    const raw = baseAlloc + pnlAdj;
+    return isUsd ? Math.max(0, raw) : Math.max(0, Math.round(raw));
+}
+
+// ─── USD 封閉公式 ───
+
+function reconcileUsd(
+    transactions: PortfolioState['transactions'],
+    holdings: StockHolding[],
+    pools: AssetPool[],
+    state: PortfolioState,
+    options?: ReconcilePortfolioOptions,
+): number {
+    const usTx = (transactions ?? []).filter((tx) => tx.type === 'US_STOCK');
+
+    if (usTx.length > 0) {
+        // 封閉公式：從交易紀錄 + 持倉損益重算
+        const usdFromTx = usTx.reduce((sum, tx) => {
+            if (tx.action === 'DEPOSIT') return sum + (tx.amountUSD || 0);
+            if (tx.action === 'WITHDRAWAL') return sum - (tx.amountUSD || 0);
+            return sum;
+        }, 0);
+        const usdHoldingPnl = holdings
+            .filter((h) => h.type === 'US_STOCK')
+            .reduce((sum, h) => sum + (h.realizedPnL || 0), 0);
+
+        return Math.max(0, usdFromTx + usdHoldingPnl);
+    }
+
+    // Legacy fallback：無 US_STOCK 交易紀錄，保留 hint 或 state 值
+    const fromState = Math.max(
+        toSafeNonNegativeNumber(state.usdAccountCash),
+        toSafeNonNegativeNumber(state.usStockFundPool),
+    );
+    return options?.usdBaseHint !== undefined
+        ? toSafeNonNegativeNumber(options.usdBaseHint)
+        : fromState;
 }
