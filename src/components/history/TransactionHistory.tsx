@@ -1,4 +1,5 @@
 import { usePortfolioStore } from '../../store/portfolioStore';
+import { filterActive } from '../../utils/entityActive';
 import { ASSET_LABELS, ASSET_COLORS } from '../../utils/constants';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -11,7 +12,7 @@ export const TransactionHistory = () => {
 
     // 過濾掉舊的已移除類型 (如 BONDS)，避免 label 查找失敗
     const validTypes = new Set(['TAIWAN_STOCK', 'US_STOCK', 'FUNDS']);
-    const filteredTransactions = transactions.filter((tx) => validTypes.has(tx.type));
+    const filteredTransactions = filterActive(transactions).filter((tx) => validTypes.has(tx.type));
 
     if (filteredTransactions.length === 0) {
         return (

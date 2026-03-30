@@ -62,7 +62,8 @@ const THEME_CONFIG = {
 export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string) => void, type: AssetType }) => {
     const { pools, allocateToPool, withdrawFromPool, getUsStockAvailableCapital, getGlobalFreeCapital } = usePortfolioStore();
     const isUSStock = type === 'US_STOCK';
-    const { twdPools, usdPools } = selectPoolBuckets(pools);
+    const activePools = pools.filter(p => !p.deletedAt);
+    const { twdPools, usdPools } = selectPoolBuckets(activePools);
     const currentTypePools = isUSStock ? usdPools : twdPools.filter((pool) => pool.type === type);
     
     const availableBalance = isUSStock ? getUsStockAvailableCapital() : getGlobalFreeCapital();

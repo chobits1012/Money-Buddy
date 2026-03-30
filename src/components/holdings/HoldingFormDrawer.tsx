@@ -32,7 +32,7 @@ export const BuyStockDrawer = ({
     // 美股買入時使用美股帳戶餘額，其他使用總資產餘額
     // 取得當前可用資金：如果是軍團則用軍團現金，否則依據類型選擇全局或美股池
     const availableCapital = poolId 
-        ? (pools.find(p => p.id === poolId)?.currentCash || 0)
+        ? (pools.find(p => p.id === poolId && !p.deletedAt)?.currentCash || 0)
         : (isUSStock ? getUsStockAvailableCapital() : getGlobalFreeCapital());
 
     const [name, setName] = useState('');
@@ -47,6 +47,7 @@ export const BuyStockDrawer = ({
     // 取得當前輸入的標的以做防呆
     // 取得當前輸入的標的以做防呆：必須比對 poolId 以確保隔離
     const currentHolding = holdings.find((h) => 
+        !h.deletedAt &&
         h.type === type && 
         h.name.toLowerCase() === name.trim().toLowerCase() &&
         h.poolId === poolId

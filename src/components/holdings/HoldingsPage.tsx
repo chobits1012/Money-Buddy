@@ -39,7 +39,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [isAddPoolOpen, setIsAddPoolOpen] = useState(false);
     
     // 取得當前可用餘額：若是進入軍團視圖，則顯示軍團內的現金
-    const currentPool = pools.find(p => p.id === activePoolId);
+    const currentPool = pools.find(p => p.id === activePoolId && !p.deletedAt);
     const availableTotal = activePoolId && currentPool 
         ? currentPool.currentCash 
         : getGlobalFreeCapital();
