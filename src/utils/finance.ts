@@ -73,10 +73,9 @@ export function recalcHolding(holding: StockHolding): StockHolding {
         ...holding,
         shares: Number(totalShares.toFixed(6)),
         avgPrice: Math.round(avgPrice * 100) / 100,
-        totalAmount: Math.round(totalCost), // 台幣取整數
-        totalAmountUSD: totalCostUSD > 0 ? Number(totalCostUSD.toFixed(2)) : undefined, // 美金取兩位
+        totalAmount: Math.round(totalCost),
+        totalAmountUSD: totalCostUSD > 0 ? Number(totalCostUSD.toFixed(2)) : undefined,
         unrealizedPnL: unrealizedPnL !== undefined ? Math.round(unrealizedPnL * 100) / 100 : undefined,
         realizedPnL: Math.round(realizedPnL * 100) / 100,
-        updatedAt: new Date().toISOString(),
     };
 }
