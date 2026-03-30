@@ -2,13 +2,18 @@
 
 export type AssetType = 'TAIWAN_STOCK' | 'US_STOCK' | 'FUNDS' | 'CRYPTO';
 
+/** 軟刪除標記：有 deletedAt 代表已標記刪除，同步時 tombstone 永遠勝出 */
+export interface SoftDeletable {
+    deletedAt?: string;
+}
+
 // 支援持倉管理的資產類型 (全部類型皆使用持倉系統)
 export type StockAssetType = AssetType;
 
 // 簡易模式的類型 (只需名稱 + 金額，不需股數/價格)
 export const SIMPLE_HOLDING_TYPES: AssetType[] = ['FUNDS'];
 
-export interface Transaction {
+export interface Transaction extends SoftDeletable {
     id: string;
     type: AssetType;
     amount: number;
@@ -18,7 +23,7 @@ export interface Transaction {
     note: string;
     action: 'DEPOSIT' | 'WITHDRAWAL';
     holdingId?: string;
-    poolId?: string; // 關聯入金池
+    poolId?: string;
     updatedAt?: string;
 }
 
@@ -37,11 +42,11 @@ export interface PurchaseRecord {
 }
 
 // 個股/基金持倉資料 (由 PurchaseRecords 聚合)
-export interface StockHolding {
+export interface StockHolding extends SoftDeletable {
     id: string;
     type: StockAssetType;
     name: string;
-    symbol?: string; // 加入 symbol 供報價使用
+    symbol?: string;
     purchases: PurchaseRecord[];
     shares: number;
     avgPrice: number;
@@ -49,14 +54,14 @@ export interface StockHolding {
     totalAmountUSD?: number;
     currentPrice?: number;
     unrealizedPnL?: number;
-    realizedPnL?: number; // 已實現損益
-    poolId?: string; // 關聯入金池
+    realizedPnL?: number;
+    poolId?: string;
     createdAt: string;
     updatedAt: string;
 }
 
 // 使用者自訂欄位 (e.g. 緊急預備金、保險)
-export interface CustomCategory {
+export interface CustomCategory extends SoftDeletable {
     id: string;
     name: string;
     amount: number;
@@ -66,7 +71,7 @@ export interface CustomCategory {
 }
 
 // 總資產入金紀錄
-export interface CapitalDeposit {
+export interface CapitalDeposit extends SoftDeletable {
     id: string;
     amount: number;
     note: string;
@@ -74,8 +79,8 @@ export interface CapitalDeposit {
     updatedAt?: string;
 }
 
-// 總資產提領紀錄 (新增)
-export interface CapitalWithdrawal {
+// 總資產提領紀錄
+export interface CapitalWithdrawal extends SoftDeletable {
     id: string;
     amount: number;
     note: string;
@@ -84,12 +89,12 @@ export interface CapitalWithdrawal {
 }
 
 // 入金池 (隔離資金管理)
-export interface AssetPool {
+export interface AssetPool extends SoftDeletable {
     id: string;
     name: string;
-    allocatedBudget: number; // 分配預算
+    allocatedBudget: number;
     currentCash: number;
-    type: AssetType;         // 所屬市場分類 (e.g. TAIWAN_STOCK)
+    type: AssetType;
     note?: string;
     createdAt: string;
     updatedAt: string;
