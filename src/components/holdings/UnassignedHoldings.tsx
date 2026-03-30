@@ -1,6 +1,7 @@
 import { Card } from '../ui/Card';
 import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, AssetPool, StockAssetType } from '../../types';
+import { isActive } from '../../utils/entityActive';
 
 interface UnassignedHoldingsProps {
     holdings: StockHolding[];
@@ -45,7 +46,7 @@ export const UnassignedHoldings = ({
                                     defaultValue=""
                                 >
                                     <option value="" disabled>移至軍團...</option>
-                                    {pools.filter(p => p.type === type).map(p => (
+                                    {pools.filter((p) => isActive(p) && p.type === type).map((p) => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </select>

@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { FORMAT_TWD } from '../../utils/constants';
 import { cn } from '../../utils/cn';
 import type { CapitalDeposit } from '../../types';
+import { filterActive } from '../../utils/entityActive';
 
 type ActionBarVariant = 'segmented' | 'cards' | 'minimal';
 
@@ -38,6 +39,7 @@ export const CapitalOverview = ({
     onReset,
     onRemoveDeposit
 }: CapitalOverviewProps) => {
+    const activeDeposits = filterActive(capitalDeposits);
     const [showDepositHistory, setShowDepositHistory] = useState(false);
     const [showMarketPnL, setShowMarketPnL] = useState(false);
     const [showFundingHint, setShowFundingHint] = useState(false);
@@ -292,20 +294,20 @@ export const CapitalOverview = ({
             </div>
 
             {/* 入金紀錄 (可收合) */}
-            {capitalDeposits.length > 0 && (
+            {activeDeposits.length > 0 && (
                 <div className="z-10">
                     <button
                         onClick={() => setShowDepositHistory(!showDepositHistory)}
                         className="text-[10px] text-clay uppercase tracking-wider font-medium flex items-center gap-1 hover:text-slate-800 transition-colors"
                     >
-                        入金紀錄 ({capitalDeposits.length} 筆)
+                        入金紀錄 ({activeDeposits.length} 筆)
                         <span className="material-symbols-outlined text-sm">
                             {showDepositHistory ? 'expand_less' : 'expand_more'}
                         </span>
                     </button>
                     {showDepositHistory && (
                         <div className="mt-2 flex flex-col gap-1.5 max-h-40 overflow-y-auto">
-                            {capitalDeposits.map((dep) => {
+                            {activeDeposits.map((dep) => {
                                 const dateStr = new Date(dep.date).toLocaleDateString('zh-TW', {
                                     month: 'short', day: 'numeric',
                                 });

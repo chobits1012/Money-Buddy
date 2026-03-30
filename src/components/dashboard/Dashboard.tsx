@@ -13,6 +13,7 @@ import { AssetAllocationSection } from './AssetAllocationSection';
 import { CustomCategorySection } from './CustomCategorySection';
 import { Button } from '../ui/Button';
 import { buildDashboardAllocationView } from '../../utils/dashboardMetrics';
+import { filterActive, isActive } from '../../utils/entityActive';
 
 interface DashboardProps {
     onOpenDeposit: () => void; // 從 App.tsx 接收
@@ -125,6 +126,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
     let usUnrealizedPnLUSD = 0;
 
     holdings.forEach((h) => {
+        if (!isActive(h)) return;
         const u = h.unrealizedPnL || 0;
         const r = h.realizedPnL || 0;
 
@@ -239,7 +241,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 usUnrealizedPnLUSD={usUnrealizedPnLUSD}
                 exchangeRateUSD={exchangeRateUSD}
                 isLoadingQuotes={isLoadingQuotes}
-                capitalDeposits={capitalDeposits}
+                capitalDeposits={filterActive(capitalDeposits)}
                 onOpenDeposit={onOpenDeposit} // 傳遞從 App.tsx 接收的 prop
                 onOpenWithdrawal={onOpenWithdrawal} // 傳遞從 App.tsx 接收的 prop
                 onReset={handleResetClick}
@@ -251,7 +253,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
 
             {/* ═══ 自訂欄位區域 ═══ */}
             <CustomCategorySection 
-                categories={customCategories}
+                categories={filterActive(customCategories)}
                 onAdd={() => { setEditingCategory(undefined); setIsCategoryDrawerOpen(true); }}
                 onEdit={handleEditCategory}
                 onRemove={(cat) => setConfirmAction({

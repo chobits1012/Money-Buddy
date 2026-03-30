@@ -1,4 +1,5 @@
 import type { PortfolioState } from '../types';
+import { filterActive } from './entityActive';
 
 function toSafeNonNegativeNumber(value: unknown): number {
     const num = Number(value);
@@ -22,17 +23,17 @@ export function reconcilePortfolioState(
     state: PortfolioState,
     options?: ReconcilePortfolioOptions,
 ): Partial<PortfolioState> {
-    const deposits = state.capitalDeposits ?? [];
-    const withdrawals = state.capitalWithdrawals ?? [];
+    const deposits = filterActive(state.capitalDeposits ?? []);
+    const withdrawals = filterActive(state.capitalWithdrawals ?? []);
     const masterTwdTotal = Math.max(
         0,
         deposits.reduce((s, d) => s + d.amount, 0) -
             withdrawals.reduce((s, w) => s + w.amount, 0),
     );
 
-    const pools = state.pools ?? [];
-    const holdings = state.holdings ?? [];
-    const customCategories = state.customCategories ?? [];
+    const pools = filterActive(state.pools ?? []);
+    const holdings = filterActive(state.holdings ?? []);
+    const customCategories = filterActive(state.customCategories ?? []);
 
     const twdPoolAllocated = pools
         .filter((p) => p.type !== 'US_STOCK')

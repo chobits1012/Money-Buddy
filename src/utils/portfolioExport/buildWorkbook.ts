@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import type { AssetType, PortfolioState, StockHolding } from '../../types';
 import { ASSET_LABELS } from '../constants';
 import { buildDashboardAllocationView } from '../dashboardMetrics';
+import { filterActive, isActive } from '../entityActive';
 import { buildReportLedgerRows } from './reportLedger';
 
 const SHEET_OVERVIEW = '總覽';
@@ -28,12 +29,14 @@ function autosizeColumns(worksheet: ExcelJS.Worksheet, min = 10, max = 42) {
 
 function poolLabel(state: PortfolioState, holding: StockHolding): string {
     if (!holding.poolId) return '—';
-    return state.pools.find((p) => p.id === holding.poolId)?.name ?? holding.poolId;
+    return (
+        state.pools.find((p) => p.id === holding.poolId && isActive(p))?.name ?? holding.poolId
+    );
 }
 
 function holdingRows(state: PortfolioState): (string | number | null)[][] {
     const rate = Number(state.exchangeRateUSD) > 0 ? Number(state.exchangeRateUSD) : 31;
-    return (state.holdings ?? []).map((h) => {
+    return filterActive(state.holdings ?? []).map((h) => {
         const isUs = h.type === 'US_STOCK';
         const costTwd = Math.round(h.totalAmount || 0);
         const costUsd =

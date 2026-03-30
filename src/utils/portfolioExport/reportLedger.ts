@@ -1,5 +1,6 @@
 import type { PortfolioState, PoolLedgerEntry, StockHolding } from '../../types';
 import { ASSET_LABELS } from '../constants';
+import { filterActive, isActive } from '../entityActive';
 
 export type ReportLedgerCategoryZh =
     | '入金'
@@ -81,7 +82,7 @@ function poolRow(entry: PoolLedgerEntry, exchangeRateUSD: number): ReportLedgerR
 
 function poolNameForHolding(state: PortfolioState, holding: StockHolding): string {
     if (!holding.poolId) return '（未分配／主帳）';
-    const p = state.pools.find((x) => x.id === holding.poolId);
+    const p = state.pools.find((x) => x.id === holding.poolId && isActive(x));
     return p ? p.name : holding.poolId;
 }
 
@@ -92,7 +93,7 @@ export function buildReportLedgerRows(state: PortfolioState): ReportLedgerRow[] 
     const exchangeRateUSD = Number(state.exchangeRateUSD) > 0 ? Number(state.exchangeRateUSD) : 31;
     const rows: ReportLedgerRow[] = [];
 
-    for (const d of state.capitalDeposits ?? []) {
+    for (const d of filterActive(state.capitalDeposits ?? [])) {
         const when = pickTime(d.updatedAt, d.date);
         rows.push({
             id: `cap-dep-${d.id}`,
@@ -106,7 +107,7 @@ export function buildReportLedgerRows(state: PortfolioState): ReportLedgerRow[] 
         });
     }
 
-    for (const w of state.capitalWithdrawals ?? []) {
+    for (const w of filterActive(state.capitalWithdrawals ?? [])) {
         const when = pickTime(w.updatedAt, w.date);
         rows.push({
             id: `cap-wdr-${w.id}`,
@@ -120,7 +121,7 @@ export function buildReportLedgerRows(state: PortfolioState): ReportLedgerRow[] 
         });
     }
 
-    for (const tx of state.transactions ?? []) {
+    for (const tx of filterActive(state.transactions ?? [])) {
         const when = pickTime(tx.updatedAt, tx.date);
         const market = ASSET_LABELS[tx.type] || tx.type;
         const isUs = tx.type === 'US_STOCK';
@@ -147,10 +148,10 @@ export function buildReportLedgerRows(state: PortfolioState): ReportLedgerRow[] 
         });
     }
 
-    for (const h of state.holdings ?? []) {
+    for (const h of filterActive(state.holdings ?? [])) {
         const poolLabel = poolNameForHolding(state, h);
         const isUs = h.type === 'US_STOCK';
-        for (const p of h.purchases ?? []) {
+        for (const p of filterActive(h.purchases ?? [])) {
             const when = pickTime(p.updatedAt, p.date);
             const side = p.action === 'SELL' ? '賣出' : '買入';
             const categoryZh: ReportLedgerCategoryZh = side === '買入' ? '買入' : '賣出';
@@ -183,7 +184,7 @@ export function buildReportLedgerRows(state: PortfolioState): ReportLedgerRow[] 
         }
     }
 
-    for (const e of state.poolLedger ?? []) {
+    for (const e of filterActive(state.poolLedger ?? [])) {
         rows.push(poolRow(e, exchangeRateUSD));
     }
 

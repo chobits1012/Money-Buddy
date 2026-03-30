@@ -1,5 +1,13 @@
 // 採用嚴格型別定義資產與紀錄 (遵循 typescript-expert 規範)
 
+/** 可同步且可軟刪除的實體共通欄位（供合併／LWW 使用） */
+export interface HasIdUpdatedDeleted {
+    id: string;
+    updatedAt?: string;
+    /** ISO8601；存在表示已刪除（墓碑），仍留在陣列內供同步合併 */
+    deletedAt?: string;
+}
+
 export type AssetType = 'TAIWAN_STOCK' | 'US_STOCK' | 'FUNDS' | 'CRYPTO';
 
 // 支援持倉管理的資產類型 (全部類型皆使用持倉系統)
@@ -20,6 +28,7 @@ export interface Transaction {
     holdingId?: string;
     poolId?: string; // 關聯入金池
     updatedAt?: string;
+    deletedAt?: string;
 }
 
 // 單次交易紀錄 (原購買紀錄擴充)
@@ -34,6 +43,7 @@ export interface PurchaseRecord {
     exchangeRate?: number;
     note?: string;
     updatedAt?: string;
+    deletedAt?: string;
 }
 
 // 個股/基金持倉資料 (由 PurchaseRecords 聚合)
@@ -53,6 +63,7 @@ export interface StockHolding {
     poolId?: string; // 關聯入金池
     createdAt: string;
     updatedAt: string;
+    deletedAt?: string;
 }
 
 // 使用者自訂欄位 (e.g. 緊急預備金、保險)
@@ -63,6 +74,7 @@ export interface CustomCategory {
     note: string;
     createdAt: string;
     updatedAt: string;
+    deletedAt?: string;
 }
 
 // 總資產入金紀錄
@@ -72,6 +84,7 @@ export interface CapitalDeposit {
     note: string;
     date: string;
     updatedAt?: string;
+    deletedAt?: string;
 }
 
 // 總資產提領紀錄 (新增)
@@ -81,6 +94,7 @@ export interface CapitalWithdrawal {
     note: string;
     date: string;
     updatedAt?: string;
+    deletedAt?: string;
 }
 
 // 入金池 (隔離資金管理)
@@ -93,6 +107,7 @@ export interface AssetPool {
     note?: string;
     createdAt: string;
     updatedAt: string;
+    deletedAt?: string;
 }
 
 /** 入金池建立／調撥／移除（供報表流水與同步合併） */
@@ -115,6 +130,7 @@ export interface PoolLedgerEntry {
     /** 美股池：金額為美元 */
     amountUSD?: number;
     note?: string;
+    deletedAt?: string;
 }
 
 // 資金管理狀態

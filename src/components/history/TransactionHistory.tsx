@@ -4,6 +4,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { useState } from 'react';
+import { isActive } from '../../utils/entityActive';
 
 export const TransactionHistory = () => {
     const { transactions, removeTransaction } = usePortfolioStore();
@@ -11,7 +12,9 @@ export const TransactionHistory = () => {
 
     // 過濾掉舊的已移除類型 (如 BONDS)，避免 label 查找失敗
     const validTypes = new Set(['TAIWAN_STOCK', 'US_STOCK', 'FUNDS']);
-    const filteredTransactions = transactions.filter((tx) => validTypes.has(tx.type));
+    const filteredTransactions = transactions.filter(
+        (tx) => validTypes.has(tx.type) && isActive(tx),
+    );
 
     if (filteredTransactions.length === 0) {
         return (

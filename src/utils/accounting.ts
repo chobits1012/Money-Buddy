@@ -1,5 +1,6 @@
 import type { StockHolding, StockAssetType, PurchaseRecord } from '../types';
 import { recalcHolding } from './finance';
+import { isActive } from './entityActive';
 
 /**
  * 會計引擎結果介面
@@ -28,7 +29,8 @@ export function calculateTransactionImpact(
     }
 ): AccountingImpact {
     const now = new Date().toISOString();
-    
+    const baseHolding = holding.deletedAt ? { ...holding, deletedAt: undefined } : holding;
+
     // 1. 建立新的購買紀錄 (如果是 SELL，代表贖回紀錄)
     const newPurchase: PurchaseRecord = {
         id: crypto.randomUUID(),
@@ -44,12 +46,12 @@ export function calculateTransactionImpact(
     };
 
     // 2. 紀錄舊的損益（為了計算差值）
-    const oldPnL = holding.realizedPnL || 0;
+    const oldPnL = baseHolding.realizedPnL || 0;
 
     // 3. 準備更新後的持倉對象
     const updatedHoldingBase: StockHolding = {
-        ...holding,
-        purchases: [...holding.purchases, newPurchase],
+        ...baseHolding,
+        purchases: [...baseHolding.purchases, newPurchase],
         updatedAt: now,
     };
 
@@ -70,7 +72,7 @@ export function calculateTransactionImpact(
     // 7. 區分台美股損益變動
     let pnlDeltaTWD = 0;
     let pnlDeltaUSD = 0;
-    if (holding.type === 'US_STOCK') {
+    if (baseHolding.type === 'US_STOCK') {
         pnlDeltaUSD = pnlDelta;
     } else {
         pnlDeltaTWD = pnlDelta;
@@ -132,42 +134,29 @@ export function calculateRemovalImpact(
     purchaseId: string
 ): AccountingImpact & { isHoldingEmpty: boolean } {
     const now = new Date().toISOString();
-    const purchaseToRemove = holding.purchases.find(p => p.id === purchaseId);
-    
+    const purchaseToRemove = holding.purchases.find((p) => p.id === purchaseId);
+
     if (!purchaseToRemove) {
         throw new Error('找不到該筆交易紀錄');
+    }
+    if (!isActive(purchaseToRemove)) {
+        throw new Error('該筆交易紀錄已刪除');
     }
 
     // 1. 紀錄舊損益
     const oldPnL = holding.realizedPnL || 0;
 
-    // 2. 準備移除後的持倉
-    const remainingPurchases = holding.purchases.filter(p => p.id !== purchaseId);
-    let updatedHolding: StockHolding;
-    let isHoldingEmpty = false;
+    // 2. 軟刪該筆 purchase，其餘保留（含其他已刪除之墓碑）
+    const purchasesAfterSoftDelete = holding.purchases.map((p) =>
+        p.id === purchaseId ? { ...p, deletedAt: now, updatedAt: now } : p,
+    );
+    const isHoldingEmpty = !purchasesAfterSoftDelete.some(isActive);
 
-    if (remainingPurchases.length === 0) {
-        // 持倉歸零：重設所有會計數值
-        updatedHolding = {
-            ...holding,
-            purchases: [],
-            shares: 0,
-            avgPrice: 0,
-            totalAmount: 0,
-            totalAmountUSD: undefined,
-            unrealizedPnL: undefined,
-            realizedPnL: 0,
-            updatedAt: now,
-        };
-        isHoldingEmpty = true;
-    } else {
-        // 重算聚合資訊
-        updatedHolding = recalcHolding({
-            ...holding,
-            purchases: remainingPurchases,
-            updatedAt: now,
-        });
-    }
+    const updatedHolding = recalcHolding({
+        ...holding,
+        purchases: purchasesAfterSoftDelete,
+        updatedAt: now,
+    });
 
     // 3. 損益變動 (移除交易後的 PNL 差)
     const newPnL = updatedHolding.realizedPnL || 0;
@@ -236,15 +225,16 @@ export function calculateUpdateImpact(
     updates: Partial<PurchaseRecord>
 ): AccountingImpact {
     const now = new Date().toISOString();
-    const oldPurchase = holding.purchases.find(p => p.id === purchaseId);
+    const oldPurchase = holding.purchases.find((p) => p.id === purchaseId);
     if (!oldPurchase) throw new Error('找不到該筆交易紀錄');
+    if (!isActive(oldPurchase)) throw new Error('該筆交易紀錄已刪除');
 
     // 1. 紀錄舊損益
     const oldPnL = holding.realizedPnL || 0;
 
     // 2. 準備更新後的持倉
-    const updatedPurchases = holding.purchases.map(p => 
-        p.id === purchaseId ? { ...p, ...updates, updatedAt: now } : p
+    const updatedPurchases = holding.purchases.map((p) =>
+        p.id === purchaseId ? { ...p, ...updates, deletedAt: undefined, updatedAt: now } : p,
     );
     const updatedHolding = recalcHolding({
         ...holding,

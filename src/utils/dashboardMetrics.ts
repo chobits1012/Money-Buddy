@@ -6,6 +6,7 @@ import type {
     CustomCategory,
     StockHolding,
 } from '../types';
+import { filterActive } from './entityActive';
 
 interface DashboardMetricsInput {
     masterTwdTotal?: number;
@@ -71,7 +72,7 @@ const splitPoolsByCurrencyView = (pools: AssetPool[]): PoolSplitView => {
 };
 
 export const selectPoolBuckets = (pools: AssetPool[]): PoolBuckets => {
-    const { twdPools, usdPools } = splitPoolsByCurrencyView(pools);
+    const { twdPools, usdPools } = splitPoolsByCurrencyView(filterActive(pools));
     return {
         twdPools,
         usdPools,
@@ -84,8 +85,8 @@ export const calculateMasterCapitalTotal = (
     deposits?: CapitalDeposit[],
     withdrawals?: CapitalWithdrawal[]
 ): number => {
-    const deposited = (deposits ?? []).reduce((sum, item) => sum + item.amount, 0);
-    const withdrawn = (withdrawals ?? []).reduce((sum, item) => sum + item.amount, 0);
+    const deposited = filterActive(deposits ?? []).reduce((sum, item) => sum + item.amount, 0);
+    const withdrawn = filterActive(withdrawals ?? []).reduce((sum, item) => sum + item.amount, 0);
     return clampNonNegative(Math.round(deposited - withdrawn));
 };
 
@@ -94,9 +95,9 @@ export const calculateGlobalIdleCapital = (
     holdings: StockHolding[],
     customCategories: CustomCategory[]
 ): number => {
-    const holdingsInGlobal = holdings.filter((h) => !h.poolId && h.type !== 'US_STOCK');
+    const holdingsInGlobal = filterActive(holdings).filter((h) => !h.poolId && h.type !== 'US_STOCK');
     const totalInvestedGlobal = holdingsInGlobal.reduce((sum, h) => sum + h.totalAmount, 0);
-    const customTotal = customCategories.reduce((sum, c) => sum + c.amount, 0);
+    const customTotal = filterActive(customCategories).reduce((sum, c) => sum + c.amount, 0);
     const globalFree = totalCapitalPool - totalInvestedGlobal - customTotal;
     return clampNonNegative(Math.round(globalFree));
 };
@@ -128,10 +129,10 @@ export const calculateFundingMetrics = ({
         ? clampNonNegative(Math.round(masterTwdTotalFromState))
         : calculateMasterCapitalTotal(capitalDeposits, capitalWithdrawals);
     const { twdAllocatedTotal } = selectPoolBuckets(pools);
-    const directGlobalTwdInvested = holdings
+    const directGlobalTwdInvested = filterActive(holdings)
         .filter((h) => !h.poolId && h.type !== 'US_STOCK')
         .reduce((sum, h) => sum + h.totalAmount, 0);
-    const customTotal = customCategories.reduce((sum, c) => sum + c.amount, 0);
+    const customTotal = filterActive(customCategories).reduce((sum, c) => sum + c.amount, 0);
     const usdAccountTwd = Math.round(pickUsdBase(usdAccountCash, usStockFundPool) * exchangeRateUSD);
     const allocatedCapital = clampNonNegative(
         Math.round(twdAllocatedTotal + directGlobalTwdInvested + customTotal + usdAccountTwd),
@@ -189,7 +190,7 @@ export const calculateAllocationMetrics = ({
         CRYPTO: 0,
     };
 
-    holdings.forEach((holding) => {
+    filterActive(holdings).forEach((holding) => {
         if (holding.poolId) return;
         if (holding.type === 'US_STOCK') {
             return;
@@ -203,7 +204,7 @@ export const calculateAllocationMetrics = ({
     const masterCapitalTotal = typeof masterTwdTotalFromState === 'number'
         ? clampNonNegative(Math.round(masterTwdTotalFromState))
         : calculateMasterCapitalTotal(capitalDeposits, capitalWithdrawals);
-    const customTotal = customCategories.reduce((sum, c) => sum + c.amount, 0);
+    const customTotal = filterActive(customCategories).reduce((sum, c) => sum + c.amount, 0);
     const idleUpperBound = clampNonNegative(masterCapitalTotal - customTotal);
 
     return {
@@ -223,8 +224,16 @@ export const calculateAllocationMetrics = ({
  * 閒置一律來自 calculateFundingMetrics，與 calculateAllocationMetrics 內的 idle 無關。
  */
 export function buildDashboardAllocationView(
-    input: DashboardMetricsInput,
+    raw: DashboardMetricsInput,
 ): DashboardAllocationView {
+    const input: DashboardMetricsInput = {
+        ...raw,
+        holdings: filterActive(raw.holdings),
+        pools: filterActive(raw.pools ?? []),
+        customCategories: filterActive(raw.customCategories),
+        capitalDeposits: filterActive(raw.capitalDeposits ?? []),
+        capitalWithdrawals: filterActive(raw.capitalWithdrawals ?? []),
+    };
     const funding = calculateFundingMetrics({
         masterTwdTotal: input.masterTwdTotal,
         capitalDeposits: input.capitalDeposits,

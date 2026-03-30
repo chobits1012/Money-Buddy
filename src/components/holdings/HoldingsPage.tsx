@@ -13,6 +13,7 @@ import { FundTransferDrawer } from './FundTransferDrawer';
 import { AddPoolModal } from './AddPoolModal';
 import { UnassignedHoldings } from './UnassignedHoldings';
 import { HoldingCard } from './HoldingCard';
+import { isActive } from '../../utils/entityActive';
 
 interface HoldingsPageProps {
     type: StockAssetType;
@@ -39,7 +40,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [isAddPoolOpen, setIsAddPoolOpen] = useState(false);
     
     // 取得當前可用餘額：若是進入軍團視圖，則顯示軍團內的現金
-    const currentPool = pools.find(p => p.id === activePoolId);
+    const currentPool = pools.find((p) => p.id === activePoolId && isActive(p));
     const availableTotal = activePoolId && currentPool 
         ? currentPool.currentCash 
         : getGlobalFreeCapital();

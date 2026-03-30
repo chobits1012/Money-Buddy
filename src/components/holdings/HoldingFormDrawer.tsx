@@ -7,6 +7,7 @@ import { Input } from '../ui/Input';
 import { AssetSearchInput } from './AssetSearchInput';
 import { Button } from '../ui/Button';
 import { cn } from '../../utils/cn';
+import { isActive } from '../../utils/entityActive';
 
 interface BuyStockDrawerProps {
     isOpen: boolean;
@@ -31,9 +32,11 @@ export const BuyStockDrawer = ({
 
     // 美股買入時使用美股帳戶餘額，其他使用總資產餘額
     // 取得當前可用資金：如果是軍團則用軍團現金，否則依據類型選擇全局或美股池
-    const availableCapital = poolId 
-        ? (pools.find(p => p.id === poolId)?.currentCash || 0)
-        : (isUSStock ? getUsStockAvailableCapital() : getGlobalFreeCapital());
+    const availableCapital = poolId
+        ? pools.find((p) => p.id === poolId && isActive(p))?.currentCash || 0
+        : isUSStock
+          ? getUsStockAvailableCapital()
+          : getGlobalFreeCapital();
 
     const [name, setName] = useState('');
     const [symbol, setSymbol] = useState('');
@@ -46,10 +49,12 @@ export const BuyStockDrawer = ({
 
     // 取得當前輸入的標的以做防呆
     // 取得當前輸入的標的以做防呆：必須比對 poolId 以確保隔離
-    const currentHolding = holdings.find((h) => 
-        h.type === type && 
-        h.name.toLowerCase() === name.trim().toLowerCase() &&
-        h.poolId === poolId
+    const currentHolding = holdings.find(
+        (h) =>
+            isActive(h) &&
+            h.type === type &&
+            h.name.toLowerCase() === name.trim().toLowerCase() &&
+            h.poolId === poolId,
     );
     const availableShares = currentHolding ? currentHolding.shares : 0;
     const availableAmount = currentHolding ? currentHolding.totalAmount : 0;

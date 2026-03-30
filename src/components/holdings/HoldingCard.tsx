@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { cn } from '../../utils/cn';
 import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, PurchaseRecord } from '../../types';
+import { filterActive } from '../../utils/entityActive';
 
 interface HoldingCardProps {
     holding: StockHolding;
@@ -25,6 +26,7 @@ export const HoldingCard = ({
     onRemovePurchase,
     onRemoveHolding
 }: HoldingCardProps) => {
+    const activePurchases = filterActive(holding.purchases ?? []);
     const totalPnL = (holding.unrealizedPnL || 0) + (holding.realizedPnL || 0);
     const pnlPercent = holding.totalAmount > 0 
         ? (totalPnL / holding.totalAmount) * 100 
@@ -43,7 +45,7 @@ export const HoldingCard = ({
                             {holding.name}
                         </h4>
                         <span className="text-[10px] text-clay bg-stoneSoft/40 px-1.5 py-0.5 rounded shrink-0">
-                            {holding.purchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
+                            {activePurchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
                         </span>
                     </div>
                     {isSimpleMode ? (
@@ -146,7 +148,7 @@ export const HoldingCard = ({
                                 全部刪除
                             </Button>
                         </div>
-                        {(holding.purchases || []).slice(-5).reverse().map((purchase) => (
+                        {activePurchases.slice(-5).reverse().map((purchase) => (
                             <div key={purchase.id} className="flex flex-col gap-2 p-3 bg-white/50 rounded-xl border border-stoneSoft/30 group relative">
                                 <div className="flex justify-between items-start">
                                     <div>
