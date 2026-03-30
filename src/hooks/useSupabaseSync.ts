@@ -62,8 +62,9 @@ export function useSupabaseSyncInternal() {
         setPendingUpload(false);
 
         try {
-            const localState = usePortfolioStore.getState() as PortfolioState;
             const cloudRow = await fetchCloudBackup(currentUser.id);
+            // 必須在 await 之後再讀本機：否則使用者在拉雲端期間做的刪除／編輯會被過期的 localState 蓋掉
+            const localState = usePortfolioStore.getState() as PortfolioState;
 
             let merged: PortfolioState;
             if (cloudRow?.portfolio_data) {
