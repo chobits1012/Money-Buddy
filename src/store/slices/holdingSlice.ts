@@ -4,6 +4,7 @@ import type {
     AssetType, PortfolioStore
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
+import { isActive, filterActive } from '../../utils/entityActive';
 import { 
     calculateTransactionImpact, 
     calculateNewHoldingImpact, 
@@ -110,11 +111,14 @@ export const createHoldingSlice: StateCreator<
 
     removeTransaction: (id: string) => {
         set((state) => {
-            const tx = state.transactions.find((t) => t.id === id);
+            const tx = state.transactions.find((t) => t.id === id && isActive(t));
             if (!tx) return {};
 
+            const now = new Date().toISOString();
             const updates: any = {
-                transactions: state.transactions.filter((t) => t.id !== id),
+                transactions: state.transactions.map((t) =>
+                    t.id === id ? { ...t, deletedAt: now, updatedAt: now } : t
+                ),
             };
 
             if (tx.type === 'US_STOCK') {
@@ -147,7 +151,7 @@ export const createHoldingSlice: StateCreator<
             CRYPTO: 0,
         };
 
-        state.holdings.forEach((h) => {
+        filterActive(state.holdings).forEach((h) => {
             if (h.type in totals && h.type !== 'US_STOCK') {
                 totals[h.type] += h.totalAmount;
             }
@@ -165,26 +169,24 @@ export const createHoldingSlice: StateCreator<
 
     getAvailableCapital: () => {
         const state = get();
-        // 1. 計算全域(未分配)的閒置資金 (台幣)
-        const holdingsInGlobal = state.holdings.filter(h => !h.poolId && h.type !== 'US_STOCK');
+        const activeHoldings = filterActive(state.holdings);
+        const activePools = filterActive(state.pools);
+
+        const holdingsInGlobal = activeHoldings.filter(h => !h.poolId && h.type !== 'US_STOCK');
         const totalInvestedGlobal = holdingsInGlobal.reduce((sum, h) => sum + h.totalAmount, 0);
         const customTotal = state.getCustomCategoriesTotal();
         const globalFree = state.totalCapitalPool - totalInvestedGlobal - customTotal;
         
-        // 2. 計算美股帳戶中未分配且未投資的閒置資金 (換算回台幣)
         const usFreeTWD = state.getUsStockAvailableCapital() * state.exchangeRateUSD;
-
-        // 3. 計算所有入金池內的現金總和 (台幣)
-        const poolCash = state.pools.reduce((sum, p) => sum + (p.type === 'US_STOCK' ? p.currentCash * state.exchangeRateUSD : p.currentCash), 0);
+        const poolCash = activePools.reduce((sum, p) => sum + (p.type === 'US_STOCK' ? p.currentCash * state.exchangeRateUSD : p.currentCash), 0);
         
-        // 4. 總可用資金 = 全域閒置 + 美股閒置 + 池內現金
         const available = globalFree + usFreeTWD + poolCash;
         return available > 0 ? Math.round(available) : 0;
     },
 
     getGlobalFreeCapital: () => {
         const state = get();
-        const holdingsInGlobal = state.holdings.filter(h => !h.poolId && h.type !== 'US_STOCK');
+        const holdingsInGlobal = filterActive(state.holdings).filter(h => !h.poolId && h.type !== 'US_STOCK');
         const totalInvestedGlobal = holdingsInGlobal.reduce((sum, h) => sum + h.totalAmount, 0);
         const customTotal = state.getCustomCategoriesTotal();
         const globalFree = state.totalCapitalPool - totalInvestedGlobal - customTotal;
@@ -194,7 +196,7 @@ export const createHoldingSlice: StateCreator<
     buyStock: (params) => {
         set((state) => {
             const existingIndex = state.holdings.findIndex(
-                (h) => h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase() && h.poolId === params.poolId
+                (h) => isActive(h) && h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase() && h.poolId === params.poolId
             );
 
             let impact: AccountingImpact;
@@ -250,9 +252,10 @@ export const createHoldingSlice: StateCreator<
 
     removePurchase: (holdingId, purchaseId) => {
         set((state) => {
-            const holding = state.holdings.find((h) => h.id === holdingId);
+            const holding = state.holdings.find((h) => h.id === holdingId && isActive(h));
             if (!holding) return {};
 
+            const now = new Date().toISOString();
             const { 
                 updatedHolding, 
                 cashDeltaTWD, 
@@ -266,7 +269,9 @@ export const createHoldingSlice: StateCreator<
             const holdingIndex = state.holdings.findIndex(h => h.id === holdingId);
 
             if (isHoldingEmpty) {
-                updatedHoldings = state.holdings.filter((h) => h.id !== holdingId);
+                updatedHoldings = state.holdings.map((h) =>
+                    h.id === holdingId ? { ...h, deletedAt: now, updatedAt: now } : h
+                );
             } else {
                 updatedHoldings[holdingIndex] = updatedHolding;
             }
@@ -321,9 +326,10 @@ export const createHoldingSlice: StateCreator<
 
     removeHolding: (id) => {
         set((state) => {
-            const holding = state.holdings.find((h) => h.id === id);
+            const holding = state.holdings.find((h) => h.id === id && isActive(h));
             if (!holding) return {};
             
+            const now = new Date().toISOString();
             const { 
                 cashDeltaTWD, 
                 cashDeltaUSD, 
@@ -332,7 +338,9 @@ export const createHoldingSlice: StateCreator<
             } = calculateHoldingRemovalImpact(holding);
 
             return {
-                holdings: state.holdings.filter((h) => h.id !== id),
+                holdings: state.holdings.map((h) =>
+                    h.id === id ? { ...h, deletedAt: now, updatedAt: now } : h
+                ),
                 totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
                     ? state.totalCapitalPool 
                     : state.totalCapitalPool + pnlDeltaTWD,
@@ -344,25 +352,25 @@ export const createHoldingSlice: StateCreator<
                     ...p, 
                     allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
                     currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
-                    updatedAt: new Date().toISOString()
+                    updatedAt: now,
                 } : p) : state.pools,
             };
         });
     },
 
     getHoldingsByType: (type) => {
-        return get().holdings.filter((h) => h.type === type);
+        return filterActive(get().holdings).filter((h) => h.type === type);
     },
 
     getHoldingsTotalByType: (type) => {
-        return get().holdings
+        return filterActive(get().holdings)
             .filter((h) => h.type === type)
             .reduce((sum, h) => sum + h.totalAmount, 0);
     },
 
     updatePurchase: (holdingId, purchaseId, updates) => {
         set((state) => {
-            const holding = state.holdings.find((h) => h.id === holdingId);
+            const holding = state.holdings.find((h) => h.id === holdingId && isActive(h));
             if (!holding) return {};
 
             const { 
@@ -417,18 +425,21 @@ export const createHoldingSlice: StateCreator<
     },
 
     removeCustomCategory: (id) => {
+        const now = new Date().toISOString();
         set((state) => ({
-            customCategories: state.customCategories.filter((c) => c.id !== id),
+            customCategories: state.customCategories.map((c) =>
+                c.id === id ? { ...c, deletedAt: now, updatedAt: now } : c
+            ),
         }));
     },
 
     getCustomCategoriesTotal: () => {
-        return get().customCategories.reduce((sum, c) => sum + c.amount, 0);
+        return filterActive(get().customCategories).reduce((sum, c) => sum + c.amount, 0);
     },
 
     fetchQuotesForHoldings: async () => {
         const state = get();
-        const targetHoldings = state.holdings.filter(
+        const targetHoldings = filterActive(state.holdings).filter(
             h => (h.type === 'TAIWAN_STOCK' || h.type === 'US_STOCK') && h.symbol
         );
 
@@ -452,7 +463,7 @@ export const createHoldingSlice: StateCreator<
 
             set((state) => {
                 const updated = state.holdings.map(h => {
-                    if (!h.symbol || !quoteMap[h.symbol]) return h;
+                    if (h.deletedAt || !h.symbol || !quoteMap[h.symbol]) return h;
                     return recalcHolding({ ...h, currentPrice: quoteMap[h.symbol] } as any);
                 });
                 return { holdings: updated, isLoadingQuotes: false } as any;

@@ -8,6 +8,7 @@ import type {
     PortfolioStore,
     PoolLedgerEntry,
 } from '../../types';
+import { isActive, filterActive } from '../../utils/entityActive';
 
 export interface CapitalActions {
     setCapitalPool: (amount: number) => void;
@@ -73,12 +74,15 @@ export const createCapitalSlice: StateCreator<
 
     removeCapitalDeposit: (id) => {
         set((state) => {
-            const deposit = state.capitalDeposits.find((d) => d.id === id);
+            const deposit = state.capitalDeposits.find((d) => d.id === id && isActive(d));
             if (!deposit) return {};
+            const now = new Date().toISOString();
             return {
                 masterTwdTotal: Math.max(0, state.masterTwdTotal - deposit.amount),
                 totalCapitalPool: state.totalCapitalPool - deposit.amount,
-                capitalDeposits: state.capitalDeposits.filter((d) => d.id !== id),
+                capitalDeposits: state.capitalDeposits.map((d) =>
+                    d.id === id ? { ...d, deletedAt: now, updatedAt: now } : d
+                ),
             };
         });
     },
@@ -160,7 +164,7 @@ export const createCapitalSlice: StateCreator<
 
     removePool: (id: string) => {
         set((state) => {
-            const poolToRemove = state.pools.find(p => p.id === id);
+            const poolToRemove = state.pools.find(p => p.id === id && isActive(p));
             if (!poolToRemove) return {};
 
             const now = new Date().toISOString();
@@ -180,16 +184,20 @@ export const createCapitalSlice: StateCreator<
 
             if (poolToRemove.type === 'US_STOCK') {
                 return {
-                    pools: state.pools.filter((p) => p.id !== id),
-                    holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h),
+                    pools: state.pools.map((p) =>
+                        p.id === id ? { ...p, deletedAt: now, updatedAt: now } : p
+                    ),
+                    holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined, updatedAt: now } : h),
                     poolLedger,
                 };
             }
 
             return {
                 totalCapitalPool: state.totalCapitalPool + poolToRemove.allocatedBudget,
-                pools: state.pools.filter((p) => p.id !== id),
-                holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined } : h),
+                pools: state.pools.map((p) =>
+                    p.id === id ? { ...p, deletedAt: now, updatedAt: now } : p
+                ),
+                holdings: state.holdings.map(h => h.poolId === id ? { ...h, poolId: undefined, updatedAt: now } : h),
                 poolLedger,
             };
         });
@@ -197,7 +205,7 @@ export const createCapitalSlice: StateCreator<
 
     allocateToPool: (poolId: string, amount: number) => {
         set((state) => {
-            const pool = state.pools.find(p => p.id === poolId);
+            const pool = state.pools.find(p => p.id === poolId && isActive(p));
             if (!pool) return {};
 
             if (pool.type === 'US_STOCK') {
@@ -252,7 +260,7 @@ export const createCapitalSlice: StateCreator<
 
     withdrawFromPool: (poolId: string, amount: number) => {
         set((state) => {
-            const pool = state.pools.find((p) => p.id === poolId);
+            const pool = state.pools.find((p) => p.id === poolId && isActive(p));
             if (!pool || pool.currentCash < amount) return {};
 
             const now = new Date().toISOString();
@@ -314,9 +322,9 @@ export const createCapitalSlice: StateCreator<
 
     getUsStockAvailableCapital: () => {
         const state = get();
-        const holdingsInUS = state.holdings.filter(h => !h.poolId && h.type === 'US_STOCK');
+        const holdingsInUS = filterActive(state.holdings).filter(h => !h.poolId && h.type === 'US_STOCK');
         const totalInvestedUSD = holdingsInUS.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0);
-        const poolsUSD = state.pools.filter(p => p.type === 'US_STOCK').reduce((sum, p) => sum + p.allocatedBudget, 0);
+        const poolsUSD = filterActive(state.pools).filter(p => p.type === 'US_STOCK').reduce((sum, p) => sum + p.allocatedBudget, 0);
         const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
         const available = usdBase - totalInvestedUSD - poolsUSD;
         return available > 0 ? available : 0;
