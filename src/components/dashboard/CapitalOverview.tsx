@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { ConfirmModal } from '../ui/ConfirmModal';
 import { FORMAT_TWD } from '../../utils/constants';
 import { cn } from '../../utils/cn';
 import type { CapitalDeposit } from '../../types';
@@ -41,6 +42,7 @@ export const CapitalOverview = ({
     const [showDepositHistory, setShowDepositHistory] = useState(false);
     const [showMarketPnL, setShowMarketPnL] = useState(false);
     const [showFundingHint, setShowFundingHint] = useState(false);
+    const [pendingDeleteDepositId, setPendingDeleteDepositId] = useState<string | null>(null);
     // Default to "B" (cards style). This avoids the A/B/C preview controls
     // pushing the action buttons outside the card width.
     const actionBarVariant: ActionBarVariant = 'cards';
@@ -232,8 +234,8 @@ export const CapitalOverview = ({
                                             </div>
                                         )}
                                         {usUnrealizedPnLUSD !== 0 && (
-                                            <div className="flex items-start flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
-                                                <span className="text-clay shrink-0 leading-none">美股未實現</span>
+                                            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+                                                <span className="text-clay shrink-0">美股未實現</span>
                                                 <div className="flex flex-col gap-0.5 tabular-nums">
                                                     <span className={cn(
                                                         "font-semibold leading-none block",
@@ -317,8 +319,8 @@ export const CapitalOverview = ({
                                             {dep.note && <span className="text-clay/60 bg-stoneSoft/30 px-1.5 py-0.5 rounded text-[10px]">{dep.note}</span>}
                                         </div>
                                         <button
-                                            onClick={() => onRemoveDeposit(dep.id)}
-                                            className="p-1 rounded text-clay/30 hover:text-rust hover:bg-rust/10 transition-all opacity-0 group-hover/dep:opacity-100"
+                                            onClick={() => setPendingDeleteDepositId(dep.id)}
+                                            className="p-1 rounded text-clay/30 hover:text-rust hover:bg-rust/10 transition-all opacity-0 group-hover/dep:opacity-100 md:opacity-100"
                                             title="刪除"
                                         >
                                             <span className="material-symbols-outlined text-sm">delete</span>
@@ -330,6 +332,19 @@ export const CapitalOverview = ({
                     )}
                 </div>
             )}
+            <ConfirmModal
+                isOpen={!!pendingDeleteDepositId}
+                title="刪除入金紀錄"
+                message="確定要刪除這筆入金紀錄嗎？此動作無法復原。"
+                confirmText="刪除"
+                onConfirm={() => {
+                    if (pendingDeleteDepositId) {
+                        onRemoveDeposit(pendingDeleteDepositId);
+                    }
+                    setPendingDeleteDepositId(null);
+                }}
+                onCancel={() => setPendingDeleteDepositId(null)}
+            />
         </Card>
     );
 };

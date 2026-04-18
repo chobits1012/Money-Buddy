@@ -51,6 +51,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
     }, [fetchQuotesForHoldings]);
 
     const [activeHoldingsType, setActiveHoldingsType] = useState<StockAssetType | null>(null);
+    const [isExportCardExpanded, setIsExportCardExpanded] = useState(false);
 
     // 自訂欄位 Drawer 狀態
     const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
@@ -65,6 +66,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         message: string;
         action: () => void;
         requireText?: string;
+        confirmText?: string;
     } | null>(null);
 
     const [exportExcelBusy, setExportExcelBusy] = useState(false);
@@ -76,6 +78,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             title: '重設所有資料',
             message: '確定要重設所有資料嗎？此操作無法復原。\n(我們會為您保留一份本地快照以防萬一)',
             requireText: randomCode,
+            confirmText: '確定重設',
             action: () => {
                 resetAll();
                 setHasSnapshot(true);
@@ -187,13 +190,32 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             )}
 
             {/* ═══ 匯出報表（首頁即可見；備份頁另有相同功能）═══ */}
-            <div className="glass-panel rounded-2xl border border-stoneSoft/70 bg-white/45 px-4 py-4 sm:px-5">
-                <div className="flex flex-col gap-4 sm:gap-3.5">
-                    <div className="flex w-full items-start gap-3">
-                        <span className="material-symbols-outlined text-2xl text-moss shrink-0 mt-0.5">table_chart</span>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 tracking-wide">匯出理財報表 (Excel)</p>
-                            <p className="text-xs text-clay mt-1 leading-relaxed break-words">
+            <div className="glass-panel rounded-2xl border border-stoneSoft/70 bg-white/45 px-4 py-3 sm:px-5">
+                <button
+                    type="button"
+                    onClick={() => setIsExportCardExpanded((prev) => !prev)}
+                    aria-expanded={isExportCardExpanded}
+                    className="flex w-full items-center gap-3 text-left"
+                >
+                    <span className="material-symbols-outlined text-2xl text-moss shrink-0">table_chart</span>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-800 tracking-wide">匯出理財報表</p>
+                        <p className="text-[11px] text-clay mt-0.5 leading-relaxed break-words">
+                            匯出 Excel 或前往備份管理
+                        </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-stoneSoft/80 bg-white/55 px-2.5 py-1 text-[11px] font-medium text-clayDark shrink-0">
+                        {isExportCardExpanded ? '收合' : '展開'}
+                        <span className="material-symbols-outlined text-base leading-none">
+                            {isExportCardExpanded ? 'expand_less' : 'expand_more'}
+                        </span>
+                    </span>
+                </button>
+
+                {isExportCardExpanded && (
+                    <div className="mt-3 border-t border-stoneSoft/60 pt-3">
+                        <div className="pl-9">
+                            <p className="text-xs text-clay leading-relaxed break-words">
                                 含總覽、資產配置、持倉與完整流水。手機上會優先開啟系統分享。
                             </p>
                             <p className="text-[11px] text-clay/90 mt-1.5 leading-relaxed break-words">
@@ -202,32 +224,32 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                                     : '未登入也可匯出本地資料；登入後可用右上角「備份管理」同步雲端。'}
                             </p>
                         </div>
+                        <div className="mt-3 flex flex-col sm:flex-row gap-2.5 w-full">
+                            <Button
+                                type="button"
+                                variant="primary"
+                                size="md"
+                                className="w-full sm:w-auto !bg-moss hover:!bg-moss/90 shadow-sm shadow-moss/15"
+                                disabled={exportExcelBusy}
+                                onClick={() => void handleExportExcel()}
+                            >
+                                <span className="material-symbols-outlined text-lg mr-1.5">
+                                    {exportExcelBusy ? 'hourglass_empty' : 'download'}
+                                </span>
+                                {exportExcelBusy ? '產生中…' : '匯出 Excel'}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="md"
+                                className="w-full sm:w-auto border border-stoneSoft/80 text-clayDark bg-white/50 hover:bg-white/70"
+                                onClick={() => navigate('/backup')}
+                            >
+                                備份管理
+                            </Button>
+                        </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2.5 w-full">
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="md"
-                        className="w-full sm:w-auto !bg-moss hover:!bg-moss/90 shadow-sm shadow-moss/15"
-                        disabled={exportExcelBusy}
-                        onClick={() => void handleExportExcel()}
-                    >
-                        <span className="material-symbols-outlined text-lg mr-1.5">
-                            {exportExcelBusy ? 'hourglass_empty' : 'download'}
-                        </span>
-                        {exportExcelBusy ? '產生中…' : '匯出 Excel'}
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="md"
-                        className="w-full sm:w-auto border border-stoneSoft/80 text-clayDark bg-white/50 hover:bg-white/70"
-                        onClick={() => navigate('/backup')}
-                    >
-                        備份管理
-                    </Button>
-                </div>
-                </div>
+                )}
             </div>
 
             {/* ═══ 總覽卡片 ═══ */}
@@ -258,6 +280,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 onRemove={(cat) => setConfirmAction({
                     title: '刪除自訂欄位',
                     message: `確定要刪除「${cat.name}」嗎？`,
+                    confirmText: '刪除欄位',
                     action: () => removeCustomCategory(cat.id)
                 })}
             />
@@ -285,7 +308,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 title={confirmAction?.title || ''}
                 message={confirmAction?.message || ''}
                 requireText={confirmAction?.requireText}
-                confirmText="確定重設"
+                confirmText={confirmAction?.confirmText || '確認'}
                 onConfirm={() => {
                     if (confirmAction) confirmAction.action();
                     setConfirmAction(null);
