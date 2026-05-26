@@ -28,9 +28,36 @@ npm install --legacy-peer-deps
 # 啟動開發伺服器
 npm run dev
 
-# 進行生產環境建置
+# 進行生產環境建置（會自動更新台股清單，需連線證交所 API）
 npm run build
+
+# 僅手動更新台股搜尋清單（不建置）
+npm run update:tw-stocks
 ```
+
+## 台股搜尋清單（Phase 1）
+
+台股標的自動完成使用內建 `src/data/tw_stocks.json`（資料來源：證交所 Open API 上市清單）。美股／基金則透過 Yahoo Finance 即時搜尋，兩者互不影響。
+
+| 指令 | 說明 |
+|------|------|
+| `npm run update:tw-stocks` | 手動從 TWSE 重抓並更新 JSON |
+| `npm run build` | 建置前會自動執行 `prebuild` → 更新清單 |
+| `npm run dev` | **不會**更新清單，開發時不受影響 |
+
+更新紀錄可查看 `src/data/tw_stocks.meta.json` 的 `updatedAt` 與 `count`。
+
+### 回滾方式（若更新或建置出問題）
+
+```bash
+# 還原清單與 meta 至上一版 commit
+git checkout HEAD -- src/data/tw_stocks.json src/data/tw_stocks.meta.json
+
+# 證交所 API 暫時不可用、需離線建置時（跳過 prebuild）
+npm run build --ignore-scripts
+```
+
+僅還原 `package.json` 的 `prebuild` 即可關閉自動更新，不影響記帳或報價計算邏輯。
 
 ## 部署至 Vercel
 
