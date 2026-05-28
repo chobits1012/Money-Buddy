@@ -4,6 +4,8 @@ import { cn } from '../../utils/cn';
 import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, PurchaseRecord } from '../../types';
 
+const TODAY_TIMESTAMP = Date.now();
+
 interface HoldingCardProps {
     holding: StockHolding;
     isExpanded: boolean;
@@ -26,6 +28,9 @@ export const HoldingCard = ({
     onRemoveHolding
 }: HoldingCardProps) => {
     const isFund = holding.type === 'FUNDS';
+    const navDate = holding.currentPriceDate ? new Date(holding.currentPriceDate) : null;
+    const navAgeDays = navDate ? Math.floor((TODAY_TIMESTAMP - navDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    const isNavStale = isFund && navAgeDays !== null && navAgeDays > 3;
     const totalPnL = (holding.unrealizedPnL || 0) + (holding.realizedPnL || 0);
     const pnlPercent = holding.totalAmount > 0 
         ? (totalPnL / holding.totalAmount) * 100 
@@ -86,6 +91,15 @@ export const HoldingCard = ({
                                         : '-'
                                     }
                                 </p>
+                                {isFund && holding.currentPriceDate && (
+                                    <p className={cn(
+                                        "text-[10px] mt-0.5",
+                                        isNavStale ? "text-rust" : "text-clay"
+                                    )}>
+                                        {new Date(holding.currentPriceDate).toLocaleDateString('zh-TW')}
+                                        {isNavStale ? ' · 可能過期' : ''}
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-[10px] text-clay uppercase tracking-wider">

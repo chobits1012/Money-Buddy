@@ -31,6 +31,7 @@ export interface HoldingActions {
         totalCost: number;
         totalCostUSD?: number;
         currentPrice?: number;
+        currentPriceDate?: string;
         exchangeRate?: number;
         note?: string;
         poolId?: string;
@@ -49,6 +50,7 @@ export interface HoldingActions {
         totalCost?: number;
         totalCostUSD?: number;
         currentPrice?: number;
+        currentPriceDate?: string;
         exchangeRate?: number;
         note?: string;
     }) => void;
@@ -213,6 +215,7 @@ export const createHoldingSlice: StateCreator<
                     totalCost: params.totalCost,
                     totalCostUSD: params.totalCostUSD,
                     currentPrice: params.currentPrice,
+                    currentPriceDate: params.currentPriceDate,
                     exchangeRate: params.exchangeRate,
                     note: params.note,
                 });

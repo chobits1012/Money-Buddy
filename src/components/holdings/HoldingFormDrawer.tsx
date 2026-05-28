@@ -42,6 +42,7 @@ export const BuyStockDrawer = ({
     const [shares, setShares] = useState('');
     const [price, setPrice] = useState('');
     const [latestNav, setLatestNav] = useState('');
+    const [navDate, setNavDate] = useState('');
     const [amount, setAmount] = useState(''); // 簡易模式用
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
@@ -69,6 +70,9 @@ export const BuyStockDrawer = ({
     useEffect(() => {
         if (isOpen) {
             if (editingPurchase) {
+                const editingHolding = editingHoldingId
+                    ? holdings.find((h) => !h.deletedAt && h.id === editingHoldingId)
+                    : undefined;
                 setName(editingHoldingName || '');
                 setSymbol('');
                 setAction(editingPurchase.action || 'BUY');
@@ -77,7 +81,8 @@ export const BuyStockDrawer = ({
                 } else {
                     setShares(String(editingPurchase.shares));
                     setPrice(String(editingPurchase.pricePerShare));
-                    setLatestNav(editingPurchase.pricePerShare > 0 ? String(editingPurchase.pricePerShare) : '');
+                    setLatestNav(editingHolding?.currentPrice ? String(editingHolding.currentPrice) : '');
+                    setNavDate(editingHolding?.currentPriceDate?.slice(0, 10) || new Date().toISOString().slice(0, 10));
                 }
                 setNote(editingPurchase.note || '');
             } else {
@@ -87,12 +92,13 @@ export const BuyStockDrawer = ({
                 setShares('');
                 setPrice('');
                 setLatestNav('');
+                setNavDate(new Date().toISOString().slice(0, 10));
                 setAmount('');
                 setNote('');
             }
             setError('');
         }
-    }, [isOpen, editingPurchase, editingHoldingName, isSimpleMode]);
+    }, [isOpen, editingPurchase, editingHoldingName, editingHoldingId, isSimpleMode, holdings]);
 
     if (!isOpen) return null;
 
@@ -178,6 +184,12 @@ export const BuyStockDrawer = ({
             if (isNaN(numPrice) || numPrice <= 0) { setError(`請輸入有效的${action === 'BUY' ? '買入' : '賣出'}價格`); return; }
             const parsedLatestNav = Number(latestNav || 0);
             const currentPriceForSubmit = isFund && parsedLatestNav > 0 ? parsedLatestNav : undefined;
+            const currentPriceDateForSubmit = isFund && currentPriceForSubmit ? navDate : undefined;
+
+            if (isFund && currentPriceForSubmit && !navDate) {
+                setError('請選擇淨值日期');
+                return;
+            }
 
             if (action === 'SELL' && !isEditMode && numShares > availableShares) {
                 setError(`${isFund ? '贖回單位' : '賣出數量'}不能大於目前持有${isFund ? '單位' : '數量'} (${availableShares.toLocaleString()})`);
@@ -202,6 +214,7 @@ export const BuyStockDrawer = ({
                     totalCost: calcTotalTWD,
                     totalCostUSD: isUSStock ? calcTotal : undefined,
                     currentPrice: currentPriceForSubmit,
+                    currentPriceDate: currentPriceDateForSubmit,
                     exchangeRate: isUSStock ? exchangeRateUSD : undefined,
                     note: note || undefined,
                 });
@@ -225,6 +238,7 @@ export const BuyStockDrawer = ({
                     totalCost: calcTotalTWD,
                     totalCostUSD: isUSStock ? calcTotal : undefined,
                     currentPrice: currentPriceForSubmit,
+                    currentPriceDate: currentPriceDateForSubmit,
                     exchangeRate: isUSStock ? exchangeRateUSD : undefined,
                     note: note || undefined,
                     poolId,
@@ -361,13 +375,25 @@ export const BuyStockDrawer = ({
                                 />
                             </div>
                             {isFund && (
-                                <Input
-                                    label="最新淨值 (TWD，選填)"
-                                    placeholder="用於計算目前未實現損益"
-                                    value={latestNav}
-                                    onChange={(e) => handleDecimalInput(e.target.value, setLatestNav)}
-                                    icon={<span className="font-semibold px-1 text-xs">NT$</span>}
-                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="最新淨值 (TWD，選填)"
+                                        placeholder="用於計算目前未實現損益"
+                                        value={latestNav}
+                                        onChange={(e) => handleDecimalInput(e.target.value, setLatestNav)}
+                                        icon={<span className="font-semibold px-1 text-xs">NT$</span>}
+                                    />
+                                    <Input
+                                        type="date"
+                                        label="淨值日期"
+                                        value={navDate}
+                                        max={new Date().toISOString().slice(0, 10)}
+                                        onChange={(e) => {
+                                            setNavDate(e.target.value);
+                                            setError('');
+                                        }}
+                                    />
+                                </div>
                             )}
 
                             {/* 自動計算總額 */}

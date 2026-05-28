@@ -53,6 +53,7 @@ export interface StockHolding extends SoftDeletable {
     totalAmount: number;
     totalAmountUSD?: number;
     currentPrice?: number;
+    currentPriceDate?: string;
     unrealizedPnL?: number;
     realizedPnL?: number;
     poolId?: string;
@@ -184,6 +185,7 @@ export interface HoldingActions {
         totalCost: number;
         totalCostUSD?: number;
         currentPrice?: number;
+        currentPriceDate?: string;
         exchangeRate?: number;
         note?: string;
         poolId?: string;
@@ -202,6 +204,7 @@ export interface HoldingActions {
         totalCost?: number;
         totalCostUSD?: number;
         currentPrice?: number;
+        currentPriceDate?: string;
         exchangeRate?: number;
         note?: string;
     }) => void;
