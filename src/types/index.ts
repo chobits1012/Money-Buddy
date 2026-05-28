@@ -183,6 +183,7 @@ export interface HoldingActions {
         pricePerShare: number;
         totalCost: number;
         totalCostUSD?: number;
+        currentPrice?: number;
         exchangeRate?: number;
         note?: string;
         poolId?: string;
@@ -200,6 +201,7 @@ export interface HoldingActions {
         pricePerShare?: number;
         totalCost?: number;
         totalCostUSD?: number;
+        currentPrice?: number;
         exchangeRate?: number;
         note?: string;
     }) => void;

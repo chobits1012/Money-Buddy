@@ -27,7 +27,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     } = usePortfolioStore();
 
     useEffect(() => {
-        if (!SIMPLE_HOLDING_TYPES.includes(type)) {
+        if (type !== 'FUNDS' && !SIMPLE_HOLDING_TYPES.includes(type)) {
             fetchQuotesForHoldings();
         }
     }, [type, fetchQuotesForHoldings]);
@@ -57,7 +57,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [editingHoldingName, setEditingHoldingName] = useState<string | undefined>(undefined);
 
     const isUSStock = type === 'US_STOCK';
-    const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type);
+    const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type) && type !== 'FUNDS';
     
     // 根據當前軍團過濾持倉與計算總投入 (若是 null 則代表全局)
     const allHoldingsOfType = getHoldingsByType(type);

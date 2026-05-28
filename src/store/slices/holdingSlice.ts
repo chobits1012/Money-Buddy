@@ -30,6 +30,7 @@ export interface HoldingActions {
         pricePerShare: number;
         totalCost: number;
         totalCostUSD?: number;
+        currentPrice?: number;
         exchangeRate?: number;
         note?: string;
         poolId?: string;
@@ -47,6 +48,7 @@ export interface HoldingActions {
         pricePerShare?: number;
         totalCost?: number;
         totalCostUSD?: number;
+        currentPrice?: number;
         exchangeRate?: number;
         note?: string;
     }) => void;
@@ -210,6 +212,7 @@ export const createHoldingSlice: StateCreator<
                     pricePerShare: params.pricePerShare,
                     totalCost: params.totalCost,
                     totalCostUSD: params.totalCostUSD,
+                    currentPrice: params.currentPrice,
                     exchangeRate: params.exchangeRate,
                     note: params.note,
                 });
