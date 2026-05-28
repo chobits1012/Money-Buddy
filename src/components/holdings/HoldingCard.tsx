@@ -31,6 +31,9 @@ export const HoldingCard = ({
     const navDate = holding.currentPriceDate ? new Date(holding.currentPriceDate) : null;
     const navAgeDays = navDate ? Math.floor((TODAY_TIMESTAMP - navDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
     const isNavStale = isFund && navAgeDays !== null && navAgeDays > 3;
+    const fundMarketValue = isFund && holding.currentPrice !== undefined
+        ? Math.round(holding.shares * holding.currentPrice)
+        : null;
     const totalPnL = (holding.unrealizedPnL || 0) + (holding.realizedPnL || 0);
     const pnlPercent = holding.totalAmount > 0 
         ? (totalPnL / holding.totalAmount) * 100 
@@ -103,7 +106,7 @@ export const HoldingCard = ({
                             </div>
                             <div>
                                 <p className="text-[10px] text-clay uppercase tracking-wider">
-                                    總成本 {isUSStock ? '(USD)' : '(NT)'}
+                                    {isFund ? '投入成本 (NT)' : `總成本 ${isUSStock ? '(USD)' : '(NT)'}`}
                                 </p>
                                 <p className="text-sm font-bold text-slate-800 mt-0.5">
                                     {isUSStock
@@ -113,7 +116,7 @@ export const HoldingCard = ({
                                 </p>
                             </div>
                             <div className="col-span-2">
-                                <p className="text-[10px] text-clay uppercase tracking-wider">累積損益</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">{isFund ? '目前損益' : '累積損益'}</p>
                                 <div className="flex items-baseline gap-2 mt-0.5">
                                     <p className={cn(
                                         "text-sm font-bold",
@@ -132,6 +135,14 @@ export const HoldingCard = ({
                                     </p>
                                 </div>
                             </div>
+                            {isFund && (
+                                <div>
+                                    <p className="text-[10px] text-clay uppercase tracking-wider">目前現值 (NT)</p>
+                                    <p className="text-sm font-bold text-slate-800 mt-0.5">
+                                        {fundMarketValue !== null ? FORMAT_TWD.format(fundMarketValue) : '-'}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
