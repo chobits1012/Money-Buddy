@@ -23,6 +23,8 @@ export function calculateTransactionImpact(
         pricePerShare: number;
         totalCost: number;
         totalCostUSD?: number;
+        currentPrice?: number;
+        currentPriceDate?: string;
         exchangeRate?: number;
         note?: string;
     }
@@ -50,6 +52,8 @@ export function calculateTransactionImpact(
     const updatedHoldingBase: StockHolding = {
         ...holding,
         purchases: [...holding.purchases, newPurchase],
+        currentPrice: params.currentPrice ?? holding.currentPrice,
+        currentPriceDate: params.currentPriceDate ?? holding.currentPriceDate,
         updatedAt: now,
     };
 
@@ -99,6 +103,8 @@ export function calculateNewHoldingImpact(
         pricePerShare: number;
         totalCost: number;
         totalCostUSD?: number;
+        currentPrice?: number;
+        currentPriceDate?: string;
         exchangeRate?: number;
         note?: string;
     }
@@ -116,6 +122,8 @@ export function calculateNewHoldingImpact(
         shares: 0,
         avgPrice: 0,
         totalAmount: 0,
+        currentPrice: params.currentPrice,
+        currentPriceDate: params.currentPriceDate,
         createdAt: now,
         updatedAt: now,
     };
@@ -233,7 +241,7 @@ export function calculateHoldingRemovalImpact(
 export function calculateUpdateImpact(
     holding: StockHolding,
     purchaseId: string,
-    updates: Partial<PurchaseRecord>
+    updates: Partial<PurchaseRecord> & { currentPrice?: number; currentPriceDate?: string }
 ): AccountingImpact {
     const now = new Date().toISOString();
     const oldPurchase = holding.purchases.find(p => p.id === purchaseId);
@@ -249,6 +257,8 @@ export function calculateUpdateImpact(
     const updatedHolding = recalcHolding({
         ...holding,
         purchases: updatedPurchases,
+        currentPrice: updates.currentPrice ?? holding.currentPrice,
+        currentPriceDate: updates.currentPriceDate ?? holding.currentPriceDate,
         updatedAt: now,
     });
 

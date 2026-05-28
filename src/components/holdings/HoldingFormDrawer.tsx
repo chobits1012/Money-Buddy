@@ -26,7 +26,8 @@ export const BuyStockDrawer = ({
     const { buyStock, updatePurchase, exchangeRateUSD, getGlobalFreeCapital, getUsStockAvailableCapital, holdings, pools } = usePortfolioStore();
 
     const isUSStock = type === 'US_STOCK';
-    const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type);
+    const isFund = type === 'FUNDS';
+    const isSimpleMode = SIMPLE_HOLDING_TYPES.includes(type) && !isFund;
     const isEditMode = !!editingPurchase;
 
     // 美股買入時使用美股帳戶餘額，其他使用總資產餘額
@@ -40,6 +41,8 @@ export const BuyStockDrawer = ({
     const [action, setAction] = useState<'BUY' | 'SELL'>('BUY');
     const [shares, setShares] = useState('');
     const [price, setPrice] = useState('');
+    const [latestNav, setLatestNav] = useState('');
+    const [navDate, setNavDate] = useState('');
     const [amount, setAmount] = useState(''); // 簡易模式用
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
@@ -67,6 +70,9 @@ export const BuyStockDrawer = ({
     useEffect(() => {
         if (isOpen) {
             if (editingPurchase) {
+                const editingHolding = editingHoldingId
+                    ? holdings.find((h) => !h.deletedAt && h.id === editingHoldingId)
+                    : undefined;
                 setName(editingHoldingName || '');
                 setSymbol('');
                 setAction(editingPurchase.action || 'BUY');
@@ -75,6 +81,8 @@ export const BuyStockDrawer = ({
                 } else {
                     setShares(String(editingPurchase.shares));
                     setPrice(String(editingPurchase.pricePerShare));
+                    setLatestNav(editingHolding?.currentPrice ? String(editingHolding.currentPrice) : '');
+                    setNavDate(editingHolding?.currentPriceDate?.slice(0, 10) || new Date().toISOString().slice(0, 10));
                 }
                 setNote(editingPurchase.note || '');
             } else {
@@ -83,12 +91,14 @@ export const BuyStockDrawer = ({
                 setAction('BUY');
                 setShares('');
                 setPrice('');
+                setLatestNav('');
+                setNavDate(new Date().toISOString().slice(0, 10));
                 setAmount('');
                 setNote('');
             }
             setError('');
         }
-    }, [isOpen, editingPurchase, editingHoldingName, isSimpleMode]);
+    }, [isOpen, editingPurchase, editingHoldingName, editingHoldingId, isSimpleMode, holdings]);
 
     if (!isOpen) return null;
 
@@ -106,6 +116,20 @@ export const BuyStockDrawer = ({
         const val = e.target.value.replace(/,/g, '').replace(/[^\d]/g, '');
         if (!val) { setAmount(''); setError(''); return; }
         setAmount(Number(val).toLocaleString('en-US'));
+        setError('');
+    };
+
+    const handleDecimalInput = (
+        value: string,
+        setter: React.Dispatch<React.SetStateAction<string>>
+    ) => {
+        const sanitized = value.replace(/[^\d.]/g, '');
+        const [integerPart, decimalPart] = sanitized.split('.');
+        if (decimalPart !== undefined) {
+            setter(`${integerPart}.${decimalPart.slice(0, 6)}`);
+        } else {
+            setter(integerPart);
+        }
         setError('');
     };
 
@@ -158,9 +182,17 @@ export const BuyStockDrawer = ({
             // ═══ 股數模式 (台股/美股/虛擬幣) ═══
             if (isNaN(numShares) || numShares <= 0) { setError('請輸入有效的數量'); return; }
             if (isNaN(numPrice) || numPrice <= 0) { setError(`請輸入有效的${action === 'BUY' ? '買入' : '賣出'}價格`); return; }
+            const parsedLatestNav = Number(latestNav || 0);
+            const currentPriceForSubmit = isFund && parsedLatestNav > 0 ? parsedLatestNav : undefined;
+            const currentPriceDateForSubmit = isFund && currentPriceForSubmit ? navDate : undefined;
+
+            if (isFund && currentPriceForSubmit && !navDate) {
+                setError('請選擇淨值日期');
+                return;
+            }
 
             if (action === 'SELL' && !isEditMode && numShares > availableShares) {
-                setError(`賣出數量不能大於目前持有數量 (${availableShares.toLocaleString()})`);
+                setError(`${isFund ? '贖回單位' : '賣出數量'}不能大於目前持有${isFund ? '單位' : '數量'} (${availableShares.toLocaleString()})`);
                 return;
             }
 
@@ -181,6 +213,8 @@ export const BuyStockDrawer = ({
                     pricePerShare: numPrice,
                     totalCost: calcTotalTWD,
                     totalCostUSD: isUSStock ? calcTotal : undefined,
+                    currentPrice: currentPriceForSubmit,
+                    currentPriceDate: currentPriceDateForSubmit,
                     exchangeRate: isUSStock ? exchangeRateUSD : undefined,
                     note: note || undefined,
                 });
@@ -203,6 +237,8 @@ export const BuyStockDrawer = ({
                     pricePerShare: numPrice,
                     totalCost: calcTotalTWD,
                     totalCostUSD: isUSStock ? calcTotal : undefined,
+                    currentPrice: currentPriceForSubmit,
+                    currentPriceDate: currentPriceDateForSubmit,
                     exchangeRate: isUSStock ? exchangeRateUSD : undefined,
                     note: note || undefined,
                     poolId,
@@ -254,7 +290,7 @@ export const BuyStockDrawer = ({
                                 action === 'BUY' ? "bg-white shadow-sm text-rust" : "text-clay hover:text-slate-800"
                             )}
                         >
-                            {isSimpleMode ? '投入' : '買入'}
+                            {isSimpleMode ? '投入' : (isFund ? '申購' : '買入')}
                         </button>
                         <button
                             type="button"
@@ -264,7 +300,7 @@ export const BuyStockDrawer = ({
                                 action === 'SELL' ? "bg-white shadow-sm text-moss" : "text-clay hover:text-slate-800"
                             )}
                         >
-                            {isSimpleMode ? '取回' : '賣出'}
+                            {isSimpleMode ? '取回' : (isFund ? '贖回' : '賣出')}
                         </button>
                     </div>
 
@@ -312,23 +348,25 @@ export const BuyStockDrawer = ({
                         <>
                             <div className="grid grid-cols-2 gap-4">
                                 <Input
-                                    label={type === 'CRYPTO' ? (action === 'BUY' ? '買入數量' : '賣出數量') : (action === 'BUY' ? '買入股數' : '賣出股數')}
+                                    label={isFund
+                                        ? (action === 'BUY' ? '申購單位數' : '贖回單位數')
+                                        : (type === 'CRYPTO' ? (action === 'BUY' ? '買入數量' : '賣出數量') : (action === 'BUY' ? '買入股數' : '賣出股數'))
+                                    }
                                     placeholder="0"
                                     value={shares}
                                     onChange={(e) => {
-                                        const val = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
-                                        setShares(val);
-                                        setError('');
+                                        handleDecimalInput(e.target.value, setShares);
                                     }}
                                 />
                                 <Input
-                                    label={isUSStock ? (action === 'BUY' ? '買入價格 (USD)' : '賣出價格 (USD)') : (action === 'BUY' ? '買入價格 (TWD)' : '賣出價格 (TWD)')}
+                                    label={isFund
+                                        ? (action === 'BUY' ? '申購淨值 (TWD)' : '贖回淨值 (TWD)')
+                                        : (isUSStock ? (action === 'BUY' ? '買入價格 (USD)' : '賣出價格 (USD)') : (action === 'BUY' ? '買入價格 (TWD)' : '賣出價格 (TWD)'))
+                                    }
                                     placeholder="0"
                                     value={price}
                                     onChange={(e) => {
-                                        const val = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
-                                        setPrice(val);
-                                        setError('');
+                                        handleDecimalInput(e.target.value, setPrice);
                                     }}
                                     icon={isUSStock
                                         ? <span className="font-semibold px-1 text-xs">$</span>
@@ -336,6 +374,27 @@ export const BuyStockDrawer = ({
                                     }
                                 />
                             </div>
+                            {isFund && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="最新淨值 (TWD，選填)"
+                                        placeholder="用於計算目前未實現損益"
+                                        value={latestNav}
+                                        onChange={(e) => handleDecimalInput(e.target.value, setLatestNav)}
+                                        icon={<span className="font-semibold px-1 text-xs">NT$</span>}
+                                    />
+                                    <Input
+                                        type="date"
+                                        label="淨值日期"
+                                        value={navDate}
+                                        max={new Date().toISOString().slice(0, 10)}
+                                        onChange={(e) => {
+                                            setNavDate(e.target.value);
+                                            setError('');
+                                        }}
+                                    />
+                                </div>
+                            )}
 
                             {/* 自動計算總額 */}
                             {calcTotal > 0 && (
@@ -346,7 +405,7 @@ export const BuyStockDrawer = ({
                                         </p>
                                         {action === 'SELL' && availableShares > 0 && (
                                             <p className="text-[10px] text-clay bg-white/50 px-1.5 py-0.5 rounded">
-                                                可賣出餘額: {availableShares.toLocaleString()}
+                                                {isFund ? '可贖回單位' : '可賣出餘額'}: {availableShares.toLocaleString()}
                                             </p>
                                         )}
                                     </div>
@@ -373,7 +432,7 @@ export const BuyStockDrawer = ({
 
                     <Input
                         label="備註 (選填)"
-                        placeholder={isSimpleMode ? '例如: 定期定額、單筆申購' : '例如: 定期定額、加碼'}
+                        placeholder={isFund ? '例如: 單筆申購、每月定期定額' : (isSimpleMode ? '例如: 定期定額、單筆申購' : '例如: 定期定額、加碼')}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                     />

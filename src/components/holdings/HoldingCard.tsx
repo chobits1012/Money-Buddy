@@ -4,6 +4,8 @@ import { cn } from '../../utils/cn';
 import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, PurchaseRecord } from '../../types';
 
+const TODAY_TIMESTAMP = Date.now();
+
 interface HoldingCardProps {
     holding: StockHolding;
     isExpanded: boolean;
@@ -25,6 +27,13 @@ export const HoldingCard = ({
     onRemovePurchase,
     onRemoveHolding
 }: HoldingCardProps) => {
+    const isFund = holding.type === 'FUNDS';
+    const navDate = holding.currentPriceDate ? new Date(holding.currentPriceDate) : null;
+    const navAgeDays = navDate ? Math.floor((TODAY_TIMESTAMP - navDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
+    const isNavStale = isFund && navAgeDays !== null && navAgeDays > 3;
+    const fundMarketValue = isFund && holding.currentPrice !== undefined
+        ? Math.round(holding.shares * holding.currentPrice)
+        : null;
     const totalPnL = (holding.unrealizedPnL || 0) + (holding.realizedPnL || 0);
     const pnlPercent = holding.totalAmount > 0 
         ? (totalPnL / holding.totalAmount) * 100 
@@ -57,14 +66,14 @@ export const HoldingCard = ({
                     ) : (
                         <div className="grid grid-cols-3 gap-y-4 gap-x-2 mt-2">
                             <div>
-                                <p className="text-[10px] text-clay uppercase tracking-wider">總股數</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">{isFund ? '總單位數' : '總股數'}</p>
                                 <p className="text-sm font-medium text-slate-800 mt-0.5">
                                     {holding.shares.toLocaleString('en-US')}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] text-clay uppercase tracking-wider">
-                                    均價 {isUSStock ? '(USD)' : ''}
+                                    {isFund ? '平均成本淨值 (TWD)' : `均價 ${isUSStock ? '(USD)' : ''}`}
                                 </p>
                                 <p className="text-sm font-medium text-slate-800 mt-0.5">
                                     {isUSStock
@@ -75,7 +84,7 @@ export const HoldingCard = ({
                             </div>
                             <div>
                                 <p className="text-[10px] text-clay uppercase tracking-wider">
-                                    現價 {isUSStock ? '(USD)' : ''}
+                                    {isFund ? '最新淨值 (TWD)' : `現價 ${isUSStock ? '(USD)' : ''}`}
                                 </p>
                                 <p className="text-sm font-medium text-slate-800 mt-0.5">
                                     {holding.currentPrice !== undefined
@@ -85,10 +94,19 @@ export const HoldingCard = ({
                                         : '-'
                                     }
                                 </p>
+                                {isFund && holding.currentPriceDate && (
+                                    <p className={cn(
+                                        "text-[10px] mt-0.5",
+                                        isNavStale ? "text-rust" : "text-clay"
+                                    )}>
+                                        {new Date(holding.currentPriceDate).toLocaleDateString('zh-TW')}
+                                        {isNavStale ? ' · 可能過期' : ''}
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-[10px] text-clay uppercase tracking-wider">
-                                    總成本 {isUSStock ? '(USD)' : '(NT)'}
+                                    {isFund ? '投入成本 (NT)' : `總成本 ${isUSStock ? '(USD)' : '(NT)'}`}
                                 </p>
                                 <p className="text-sm font-bold text-slate-800 mt-0.5">
                                     {isUSStock
@@ -98,7 +116,7 @@ export const HoldingCard = ({
                                 </p>
                             </div>
                             <div className="col-span-2">
-                                <p className="text-[10px] text-clay uppercase tracking-wider">累積損益</p>
+                                <p className="text-[10px] text-clay uppercase tracking-wider">{isFund ? '目前損益' : '累積損益'}</p>
                                 <div className="flex items-baseline gap-2 mt-0.5">
                                     <p className={cn(
                                         "text-sm font-bold",
@@ -117,6 +135,14 @@ export const HoldingCard = ({
                                     </p>
                                 </div>
                             </div>
+                            {isFund && (
+                                <div>
+                                    <p className="text-[10px] text-clay uppercase tracking-wider">目前現值 (NT)</p>
+                                    <p className="text-sm font-bold text-slate-800 mt-0.5">
+                                        {fundMarketValue !== null ? FORMAT_TWD.format(fundMarketValue) : '-'}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -155,14 +181,17 @@ export const HoldingCard = ({
                                                 "text-[10px] font-bold px-1.5 py-0.5 rounded",
                                                 purchase.action === 'BUY' ? "bg-rust/10 text-rust" : "bg-green-100 text-green-700"
                                             )}>
-                                                {purchase.action === 'BUY' ? (isSimpleMode ? '投入' : '買入') : (isSimpleMode ? '減少' : '賣出')}
+                                                {purchase.action === 'BUY'
+                                                    ? (isSimpleMode ? '投入' : (isFund ? '申購' : '買入'))
+                                                    : (isSimpleMode ? '減少' : (isFund ? '贖回' : '賣出'))
+                                                }
                                             </span>
                                             <span className="text-[10px] text-clay font-medium">
                                                 {new Date(purchase.date).toLocaleDateString('zh-TW')}
                                             </span>
                                         </div>
                                         <p className="text-xs font-semibold text-slate-800 mt-1">
-                                            {purchase.shares.toLocaleString()} 股 @ {isUSStock ? `$${purchase.pricePerShare}` : `$${purchase.pricePerShare}`}
+                                            {purchase.shares.toLocaleString()} {isFund ? '單位' : '股'} @ {isUSStock ? `$${purchase.pricePerShare}` : `$${purchase.pricePerShare}`}
                                         </p>
                                     </div>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
