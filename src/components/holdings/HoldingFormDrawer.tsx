@@ -304,13 +304,13 @@ export const BuyStockDrawer = ({
                         </button>
                     </div>
 
-                    {type === 'TAIWAN_STOCK' || type === 'US_STOCK' ? (
+                    {type === 'TAIWAN_STOCK' || type === 'US_STOCK' || type === 'FUNDS' ? (
                         <AssetSearchInput
                             type={type}
                             value={name}
                             onChange={(v) => setName(v)}
                             onSelect={(n, sym) => {
-                                setName(`${n} (${sym})`);
+                                setName(type === 'FUNDS' ? n : `${n} (${sym})`);
                                 setSymbol(sym);
                                 setError('');
                             }}

@@ -2,10 +2,23 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from '../ui/Input';
 import type { StockAssetType } from '../../types';
 import twStocks from '../../data/tw_stocks.json';
+import funds from '../../data/funds.json';
 
 interface SearchResult {
     symbol: string;
     name: string;
+    exchDisp?: string;
+}
+
+interface TaiwanStockEntry {
+    symbol: string;
+    name: string;
+}
+
+interface ApiSearchItem {
+    symbol: string;
+    shortname?: string;
+    longname?: string;
     exchDisp?: string;
 }
 
@@ -49,12 +62,12 @@ export const AssetSearchInput = ({
             if (type === 'TAIWAN_STOCK') {
                 // Local search
                 const lowerVal = value.toLowerCase();
-                const matched = twStocks.filter((s: any) => 
+                const matched = (twStocks as TaiwanStockEntry[]).filter((s) =>
                     s.symbol.includes(lowerVal) || s.name.toLowerCase().includes(lowerVal)
                 ).slice(0, 10);
                 // For Taiwan stock, suffix ".TW" could be added if needed for Yahoo quotes, 
                 // but we will save symbol precisely in the store on selection.
-                const formattedMatched = matched.map((s: any) => ({
+                const formattedMatched = matched.map((s) => ({
                     ...s,
                     // If we use Yahoo API later for quotes, typical TWSE stocks need .TW or .TWO suffix. 
                     // Let's attach .TW if length is 4 and fully numeric as a general heuristic, 
@@ -64,14 +77,21 @@ export const AssetSearchInput = ({
                 }));
                 setResults(formattedMatched);
                 setIsOpen(formattedMatched.length > 0);
-            } else if (type === 'US_STOCK' || type === 'FUNDS') {
+            } else if (type === 'FUNDS') {
+                const lowerVal = value.toLowerCase();
+                const matchedFunds = (funds as SearchResult[]).filter((f) =>
+                    f.name.toLowerCase().includes(lowerVal) || f.symbol.toLowerCase().includes(lowerVal)
+                ).slice(0, 12);
+                setResults(matchedFunds);
+                setIsOpen(matchedFunds.length > 0);
+            } else if (type === 'US_STOCK') {
                 // API search
                 setLoading(true);
                 try {
                     const res = await fetch(`/api/search?q=${encodeURIComponent(value)}`);
                     if (res.ok) {
-                        const data = await res.json();
-                        const mapped = data.map((item: any) => ({
+                        const data: ApiSearchItem[] = await res.json();
+                        const mapped = data.map((item) => ({
                             symbol: item.symbol,
                             name: item.shortname || item.longname || item.symbol,
                             exchDisp: item.exchDisp

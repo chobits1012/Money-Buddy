@@ -1,0 +1,22 @@
+[
+  {
+    "symbol": "ALLIANZ-TW-BIG",
+    "name": "安聯台灣大壩",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "ALLIANZ-TW-TECH",
+    "name": "安聯台灣科技",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "PENTIUM-FUND",
+    "name": "奔騰",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "ALLIANZ-AI",
+    "name": "安聯 AI",
+    "exchDisp": "Global Fund"
+  }
+]
