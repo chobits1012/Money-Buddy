@@ -23,14 +23,18 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, removeHolding, removePurchase,
         usdAccountCash, usStockFundPool, addPool, pools,
-        fetchQuotesForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getGlobalFreeCapital
+        fetchQuotesForHoldings, fetchFundNavForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getGlobalFreeCapital
     } = usePortfolioStore();
 
     useEffect(() => {
-        if (type !== 'FUNDS' && !SIMPLE_HOLDING_TYPES.includes(type)) {
+        if (type === 'FUNDS') {
+            void fetchFundNavForHoldings();
+            return;
+        }
+        if (!SIMPLE_HOLDING_TYPES.includes(type)) {
             fetchQuotesForHoldings();
         }
-    }, [type, fetchQuotesForHoldings]);
+    }, [type, fetchQuotesForHoldings, fetchFundNavForHoldings]);
 
     const [isBuyOpen, setIsBuyOpen] = useState(false);
     const [isDepositOpen, setIsDepositOpen] = useState(false);

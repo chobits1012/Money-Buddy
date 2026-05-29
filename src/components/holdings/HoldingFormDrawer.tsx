@@ -106,7 +106,7 @@ export const BuyStockDrawer = ({
         switch (type) {
             case 'TAIWAN_STOCK': return '例如: 台積電、0050';
             case 'US_STOCK': return '例如: AAPL、QQQ';
-            case 'FUNDS': return '例如: 元大台灣50、復華債券';
+            case 'FUNDS': return '例如: 安聯台灣科技、奔騰、元大高股息';
             case 'CRYPTO': return '例如: BTC、ETH';
             default: return '請輸入名稱';
         }

@@ -5,6 +5,7 @@ import type {
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
 import { isActive, filterActive } from '../../utils/entityActive';
+import { fetchFundNavQuotes, resolveFundCode } from '../../utils/fundNav';
 import { 
     calculateTransactionImpact, 
     calculateNewHoldingImpact, 
@@ -55,6 +56,7 @@ export interface HoldingActions {
         note?: string;
     }) => void;
     fetchQuotesForHoldings: () => Promise<void>;
+    fetchFundNavForHoldings: () => Promise<void>;
 
     addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
     updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
@@ -477,6 +479,42 @@ export const createHoldingSlice: StateCreator<
         } catch (error) {
             console.error('Failed to update quotes:', error);
             set({ isLoadingQuotes: false } as any);
+        }
+    },
+
+    fetchFundNavForHoldings: async () => {
+        const state = get();
+        const targetHoldings = filterActive(state.holdings).filter((h) => h.type === 'FUNDS');
+        if (targetHoldings.length === 0) return;
+
+        const codeByHoldingId = new Map<string, string>();
+        for (const holding of targetHoldings) {
+            const fundCode = resolveFundCode(holding.symbol, holding.name);
+            if (fundCode) codeByHoldingId.set(holding.id, fundCode);
+        }
+
+        if (codeByHoldingId.size === 0) return;
+
+        try {
+            const quotes = await fetchFundNavQuotes([...new Set(codeByHoldingId.values())]);
+            if (quotes.length === 0) return;
+
+            const quoteMap = new Map(quotes.map((q) => [q.fundCode, q] as const));
+            set((current) => ({
+                holdings: current.holdings.map((holding) => {
+                    const fundCode = codeByHoldingId.get(holding.id);
+                    if (!fundCode) return holding;
+                    const quote = quoteMap.get(fundCode);
+                    if (!quote) return holding;
+                    return recalcHolding({
+                        ...holding,
+                        currentPrice: quote.nav,
+                        currentPriceDate: quote.navDate,
+                    });
+                }),
+            }));
+        } catch (error) {
+            console.error('Failed to update fund NAV:', error);
         }
     },
 });

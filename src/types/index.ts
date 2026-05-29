@@ -209,6 +209,7 @@ export interface HoldingActions {
         note?: string;
     }) => void;
     fetchQuotesForHoldings: () => Promise<void>;
+    fetchFundNavForHoldings: () => Promise<void>;
     addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
     updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
     removeCustomCategory: (id: string) => void;
