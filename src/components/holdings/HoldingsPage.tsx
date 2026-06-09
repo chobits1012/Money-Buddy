@@ -13,6 +13,7 @@ import { FundTransferDrawer } from './FundTransferDrawer';
 import { AddPoolModal } from './AddPoolModal';
 import { UnassignedHoldings } from './UnassignedHoldings';
 import { HoldingCard } from './HoldingCard';
+import { filterActive } from '../../utils/entityActive';
 
 interface HoldingsPageProps {
     type: StockAssetType;
@@ -26,6 +27,13 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
         fetchQuotesForHoldings, fetchFundNavForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getGlobalFreeCapital
     } = usePortfolioStore();
 
+    const fundHoldingsKey = usePortfolioStore((state) =>
+        filterActive(state.holdings)
+            .filter((h) => h.type === 'FUNDS')
+            .map((h) => `${h.id}:${h.symbol ?? ''}:${h.name}`)
+            .join('|'),
+    );
+
     useEffect(() => {
         if (type === 'FUNDS') {
             void fetchFundNavForHoldings();
@@ -34,7 +42,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
         if (!SIMPLE_HOLDING_TYPES.includes(type)) {
             fetchQuotesForHoldings();
         }
-    }, [type, fetchQuotesForHoldings, fetchFundNavForHoldings]);
+    }, [type, fundHoldingsKey, fetchQuotesForHoldings, fetchFundNavForHoldings]);
 
     const [isBuyOpen, setIsBuyOpen] = useState(false);
     const [isDepositOpen, setIsDepositOpen] = useState(false);

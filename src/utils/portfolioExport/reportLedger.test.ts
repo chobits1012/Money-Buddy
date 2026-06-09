@@ -32,6 +32,7 @@ const baseState = (): PortfolioState => ({
     usdAccountCash: 1000,
     usStockFundPool: 1000,
     exchangeRateUSD: 32,
+    exchangeRateEUR: 34.5,
     transactions: [],
     holdings: [
         {

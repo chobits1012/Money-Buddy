@@ -17,6 +17,7 @@ describe('sync server merge pipeline (logic only)', () => {
             usdAccountCash: 0,
             usStockFundPool: 0,
             exchangeRateUSD: 31,
+            exchangeRateEUR: 34.5,
             transactions: [],
             holdings: [],
             customCategories: [],
@@ -41,6 +42,7 @@ describe('sync server merge pipeline (logic only)', () => {
             usdAccountCash: 0,
             usStockFundPool: 0,
             exchangeRateUSD: 31,
+            exchangeRateEUR: 34.5,
             transactions: [],
             holdings: [],
             customCategories: [],
@@ -60,6 +62,7 @@ describe('sync server merge pipeline (logic only)', () => {
             usdAccountCash: 0,
             usStockFundPool: 0,
             exchangeRateUSD: 31,
+            exchangeRateEUR: 34.5,
             transactions: [],
             holdings: [],
             customCategories: [],
@@ -91,6 +94,7 @@ describe('sync server merge pipeline (logic only)', () => {
             usdAccountCash: 0,
             usStockFundPool: 0,
             exchangeRateUSD: 31,
+            exchangeRateEUR: 34.5,
             transactions: [],
             holdings: [
                 {

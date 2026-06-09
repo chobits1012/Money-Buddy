@@ -13,6 +13,7 @@ export function toPortfolioExportState(s: PortfolioState): PortfolioState {
         usdAccountCash: s.usdAccountCash,
         usStockFundPool: s.usStockFundPool,
         exchangeRateUSD: s.exchangeRateUSD,
+        exchangeRateEUR: s.exchangeRateEUR > 0 ? s.exchangeRateEUR : 34.5,
         transactions: filterActive(s.transactions),
         holdings: filterActive(s.holdings),
         customCategories: filterActive(s.customCategories),

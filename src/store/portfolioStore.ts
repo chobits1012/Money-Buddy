@@ -71,7 +71,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
         }),
         {
             name: 'portfolio-tracker-storage',
-            version: 4,
+            version: 5,
             skipHydration: true,
             storage: persistScopedStorage,
             migrate: (persistedState: unknown, version: number) => {
@@ -153,6 +153,12 @@ export const usePortfolioStore = create<PortfolioStore>()(
                 if (version < 4) {
                     if (!Array.isArray(state.poolLedger)) {
                         state.poolLedger = [];
+                    }
+                }
+
+                if (version < 5) {
+                    if (typeof state.exchangeRateEUR !== 'number' || state.exchangeRateEUR <= 0) {
+                        state.exchangeRateEUR = 34.5;
                     }
                 }
 

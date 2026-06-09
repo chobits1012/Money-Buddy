@@ -53,6 +53,8 @@ export interface StockHolding extends SoftDeletable {
     totalAmount: number;
     totalAmountUSD?: number;
     currentPrice?: number;
+    currentPriceUSD?: number;
+    currentPriceEUR?: number;
     currentPriceDate?: string;
     unrealizedPnL?: number;
     realizedPnL?: number;
@@ -135,6 +137,7 @@ export interface CapitalState {
     usdAccountCash: number;
     usStockFundPool: number;
     exchangeRateUSD: number;
+    exchangeRateEUR: number;
 }
 
 // 持倉與交易狀態

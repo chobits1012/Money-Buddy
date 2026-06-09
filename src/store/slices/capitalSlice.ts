@@ -41,6 +41,7 @@ export const createCapitalSlice: StateCreator<
     usdAccountCash: 0,
     usStockFundPool: 0,
     exchangeRateUSD: 31, // Default or imported constant
+    exchangeRateEUR: 34.5,
 
     setCapitalPool: (amount: number) => {
         if (amount < 0 || isNaN(amount)) return;

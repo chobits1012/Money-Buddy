@@ -1,82 +1,511 @@
 [
-  { "symbol": "ALLIANZ-TW-BIG", "name": "安聯台灣大壩", "exchDisp": "TW Fund", "keywords": ["大壩", "安聯大壩"] },
-  { "symbol": "ALLIANZ-TW-TECH", "name": "安聯台灣科技", "exchDisp": "TW Fund", "keywords": ["安聯科技"] },
-  { "symbol": "ALLIANZ-AI", "name": "安聯 AI", "exchDisp": "Global Fund", "keywords": ["安聯人工智慧", "安聯AI"] },
-  { "symbol": "UNI-PENTIUM", "name": "統一奔騰基金", "exchDisp": "TW Fund", "keywords": ["奔騰"] },
-  { "symbol": "ALLIANZ-TW-HYD", "name": "安聯台灣高股息", "exchDisp": "TW Fund" },
-  { "symbol": "ALLIANZ-INCOME", "name": "安聯收益成長", "exchDisp": "TW Fund" },
-  { "symbol": "ALLIANZ-EU", "name": "安聯歐洲股信", "exchDisp": "Global Fund" },
-  { "symbol": "ALLIANZ-GLOBAL-TECH", "name": "安聯全球科技", "exchDisp": "Global Fund" },
-  { "symbol": "ALLIANZ-JP", "name": "安聯日本股信", "exchDisp": "Global Fund" },
-  { "symbol": "ALLIANZ-US-TECH", "name": "安聯美國科技", "exchDisp": "Global Fund" },
-  { "symbol": "YUANTA-TW50", "name": "元大台灣50", "exchDisp": "TW Fund", "keywords": ["0050", "台灣50"] },
-  { "symbol": "YUANTA-TW50-EX", "name": "元大台灣卓越50", "exchDisp": "TW Fund" },
-  { "symbol": "YUANTA-HYD", "name": "元大高股息", "exchDisp": "TW Fund", "keywords": ["0056"] },
-  { "symbol": "YUANTA-LEADER", "name": "元大台灣產業龍頭", "exchDisp": "TW Fund" },
-  { "symbol": "YUANTA-SP500", "name": "元大美國S&P500", "exchDisp": "Global Fund" },
-  { "symbol": "YUANTA-GLOBAL-AI", "name": "元大全球AI", "exchDisp": "Global Fund" },
-  { "symbol": "YUANTA-NDX", "name": "元大納斯達克100", "exchDisp": "Global Fund", "keywords": ["NASDAQ"] },
-  { "symbol": "YUANTA-FIN", "name": "元大寶來台灣金控", "exchDisp": "TW Fund" },
-  { "symbol": "YUANTA-LOWVOL", "name": "元大台灣高息低波", "exchDisp": "TW Fund" },
-  { "symbol": "CATHAY-TW-HYD", "name": "國泰台灣高股息", "exchDisp": "TW Fund" },
-  { "symbol": "CATHAY-TECH-BIO", "name": "國泰科技生化", "exchDisp": "TW Fund" },
-  { "symbol": "CATHAY-SMCAP", "name": "國泰中小成長", "exchDisp": "TW Fund" },
-  { "symbol": "CATHAY-ESG-HYD", "name": "國泰永續高股息", "exchDisp": "TW Fund" },
-  { "symbol": "CATHAY-DOW", "name": "國泰美國道瓊", "exchDisp": "Global Fund" },
-  { "symbol": "CAPITAL-TW-HYD", "name": "群益台灣精選高息", "exchDisp": "TW Fund" },
-  { "symbol": "CAPITAL-SMCAP", "name": "群益金鼎中小成長", "exchDisp": "TW Fund" },
-  { "symbol": "CAPITAL-DONG", "name": "群益東祥", "exchDisp": "TW Fund" },
-  { "symbol": "CAPITAL-INDIA", "name": "群益印度中小", "exchDisp": "Global Fund" },
-  { "symbol": "CAPITAL-NDX", "name": "群益NASDAQ-100", "exchDisp": "Global Fund" },
-  { "symbol": "FUBON-SEMI", "name": "富邦台灣半導體", "exchDisp": "TW Fund" },
-  { "symbol": "FUBON-NDX", "name": "富邦NASDAQ", "exchDisp": "Global Fund" },
-  { "symbol": "FUBON-HSI", "name": "富邦恒生", "exchDisp": "Global Fund", "keywords": ["港股", "恒生"] },
-  { "symbol": "FUBON-ETF-LINK", "name": "富邦台灣ETF連結", "exchDisp": "TW Fund" },
-  { "symbol": "FUBON-TECH", "name": "富邦科技", "exchDisp": "TW Fund" },
-  { "symbol": "FH-TW-TECH-HYD", "name": "復華台灣科技優息", "exchDisp": "TW Fund" },
-  { "symbol": "FH-TW-MAIN", "name": "復華台灣主流產業", "exchDisp": "TW Fund" },
-  { "symbol": "FH-SOX", "name": "復華南卡期", "exchDisp": "Global Fund" },
-  { "symbol": "FH-LEVER", "name": "復華正2", "exchDisp": "TW Fund" },
-  { "symbol": "FH-GROWTH", "name": "復華高成長", "exchDisp": "TW Fund" },
-  { "symbol": "UNI-BLACK", "name": "統一黑馬", "exchDisp": "TW Fund" },
-  { "symbol": "UNI-ALL-WEATHER", "name": "統一全天候", "exchDisp": "TW Fund" },
-  { "symbol": "UNI-US-PLUS", "name": "統一美國增益", "exchDisp": "Global Fund" },
-  { "symbol": "CTBC-TW-HYD", "name": "中信台灣高股息", "exchDisp": "TW Fund" },
-  { "symbol": "CTBC-SMALL", "name": "中信小龍", "exchDisp": "TW Fund" },
-  { "symbol": "CTBC-JP", "name": "中信日本", "exchDisp": "Global Fund" },
-  { "symbol": "NOMURA-TW-HYD", "name": "野村台灣高股息", "exchDisp": "TW Fund" },
-  { "symbol": "NOMURA-TW50", "name": "野村台灣50", "exchDisp": "TW Fund" },
-  { "symbol": "NOMURA-JP", "name": "野村日本", "exchDisp": "Global Fund" },
-  { "symbol": "EASTSPRING-TW-TECH", "name": "瀚亞台灣高科技", "exchDisp": "TW Fund" },
-  { "symbol": "EASTSPRING-FI", "name": "瀚亞外債", "exchDisp": "Global Fund" },
-  { "symbol": "EASTSPRING-US-TECH", "name": "瀚亞美國高科技", "exchDisp": "Global Fund" },
-  { "symbol": "PICTET-TW", "name": "柏瑞台灣A股", "exchDisp": "TW Fund" },
-  { "symbol": "PICTET-ESG", "name": "柏瑞ESG量化多重資產", "exchDisp": "Global Fund" },
-  { "symbol": "JPM-PAC", "name": "摩根太平洋", "exchDisp": "Global Fund" },
-  { "symbol": "JPM-EM", "name": "摩根新興市場", "exchDisp": "Global Fund" },
-  { "symbol": "FID-US-GROWTH", "name": "富達美國成長", "exchDisp": "Global Fund" },
-  { "symbol": "FTFT-HITECH", "name": "富蘭克林華美高科技", "exchDisp": "Global Fund" },
-  { "symbol": "AB-GHY", "name": "聯博全球高收益", "exchDisp": "Global Fund" },
-  { "symbol": "AB-US-INCOME", "name": "聯博美國收益", "exchDisp": "Global Fund" },
-  { "symbol": "KGI-VIP", "name": "凱基台灣VIP", "exchDisp": "TW Fund" },
-  { "symbol": "KGI-HYD30", "name": "凱基優選高股息30", "exchDisp": "TW Fund" },
-  { "symbol": "TAISHIN-2000", "name": "台新2000", "exchDisp": "TW Fund" },
-  { "symbol": "TAISHIN-INDIA", "name": "台新印度", "exchDisp": "Global Fund" },
-  { "symbol": "SINOPAC-TW-HYD", "name": "永豐台灣高息", "exchDisp": "TW Fund" },
-  { "symbol": "SINOPAC-SP500", "name": "永豐美國500", "exchDisp": "Global Fund" },
-  { "symbol": "FIRST-SAT", "name": "第一金太空衛星", "exchDisp": "TW Fund" },
-  { "symbol": "FIRST-US100", "name": "第一金美國100", "exchDisp": "Global Fund" },
-  { "symbol": "SKIS-INNO", "name": "新光創新成長", "exchDisp": "TW Fund" },
-  { "symbol": "MEGA-VIP", "name": "兆豐台灣VIP", "exchDisp": "TW Fund" },
-  { "symbol": "NEUBERGER-MA", "name": "路博邁無論等", "exchDisp": "Global Fund" },
-  { "symbol": "HSBC-ASIA-HYD", "name": "匯豐亞洲高股息", "exchDisp": "Global Fund" },
-  { "symbol": "UBS-CHINA", "name": "瑞銀中國", "exchDisp": "Global Fund" },
-  { "symbol": "DEUTSCHE-EM", "name": "德銀新興市場", "exchDisp": "Global Fund" },
-  { "symbol": "BLACKROCK-WORLD", "name": "貝萊德世界科技", "exchDisp": "Global Fund" },
-  { "symbol": "SCHRODER-ASIA", "name": "施羅德亞洲", "exchDisp": "Global Fund" },
-  { "symbol": "MANULIFE-BAL", "name": "宏利平衡", "exchDisp": "Global Fund" },
-  { "symbol": "BNP-EU", "name": "法巴歐洲", "exchDisp": "Global Fund" },
-  { "symbol": "AMUNDI-US", "name": "東方匯理美國", "exchDisp": "Global Fund" },
-  { "symbol": "PGIM-HEALTH", "name": "保德信全球醫療", "exchDisp": "Global Fund" },
-  { "symbol": "INVESCO-TECH", "name": "景順全球科技", "exchDisp": "Global Fund" }
+  {
+    "symbol": "ALLIANZ-TW-BIG",
+    "name": "安聯台灣大壩",
+    "exchDisp": "TW Fund",
+    "keywords": [
+      "大壩",
+      "安聯大壩"
+    ],
+    "fundCode": "ACDD01",
+    "navScope": "domestic",
+    "cnyesCode": "A36001"
+  },
+  {
+    "symbol": "ALLIANZ-TW-TECH",
+    "name": "安聯台灣科技",
+    "exchDisp": "TW Fund",
+    "keywords": [
+      "安聯科技"
+    ],
+    "fundCode": "ACDD04",
+    "navScope": "domestic",
+    "cnyesCode": "A36004"
+  },
+  {
+    "symbol": "ALLIANZ-AI",
+    "name": "安聯 AI",
+    "exchDisp": "Global Fund",
+    "keywords": [
+      "安聯人工智慧",
+      "安聯AI"
+    ],
+    "fundCode": "TLH43",
+    "navScope": "offshore",
+    "cnyesCode": "B20166"
+  },
+  {
+    "symbol": "UNI-PENTIUM",
+    "name": "統一奔騰基金",
+    "exchDisp": "TW Fund",
+    "keywords": [
+      "奔騰"
+    ],
+    "fundCode": "ACPS10",
+    "navScope": "domestic",
+    "cnyesCode": "A09012"
+  },
+  {
+    "symbol": "ALLIANZ-GLOBAL-ESG-EUR",
+    "name": "安聯全球永續發展Ａ配息歐元",
+    "exchDisp": "Global Fund",
+    "keywords": [
+      "永續",
+      "ESG",
+      "安聯永續",
+      "A配息",
+      "全球永續發展"
+    ],
+    "fundCode": "TLZ58",
+    "navScope": "offshore",
+    "cnyesCode": "B20059"
+  },
+  {
+    "symbol": "ALLIANZ-TW-HYD",
+    "name": "安聯台灣高股息",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACDD158",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "ALLIANZ-INCOME",
+    "name": "安聯收益成長",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACDD74",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "ALLIANZ-EU",
+    "name": "安聯歐洲股信",
+    "exchDisp": "Global Fund",
+    "fundCode": "TLZA2",
+    "navScope": "offshore"
+  },
+  {
+    "symbol": "ALLIANZ-GLOBAL-TECH",
+    "name": "安聯全球科技",
+    "exchDisp": "Global Fund",
+    "fundCode": "TLZM0",
+    "navScope": "offshore"
+  },
+  {
+    "symbol": "ALLIANZ-JP",
+    "name": "安聯日本股信",
+    "exchDisp": "Global Fund",
+    "fundCode": "TLZ94",
+    "navScope": "offshore"
+  },
+  {
+    "symbol": "ALLIANZ-US-TECH",
+    "name": "安聯美國科技",
+    "exchDisp": "Global Fund",
+    "fundCode": "TLZM0",
+    "navScope": "offshore"
+  },
+  {
+    "symbol": "YUANTA-TW50",
+    "name": "元大台灣50",
+    "exchDisp": "TW Fund",
+    "keywords": [
+      "0050",
+      "台灣50"
+    ],
+    "fundCode": "AC0050",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "YUANTA-TW50-EX",
+    "name": "元大台灣卓越50",
+    "exchDisp": "TW Fund",
+    "fundCode": "AC0050",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "YUANTA-HYD",
+    "name": "元大高股息",
+    "exchDisp": "TW Fund",
+    "keywords": [
+      "0056"
+    ],
+    "fundCode": "AC0056",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "YUANTA-LEADER",
+    "name": "元大台灣產業龍頭",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACYT153",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "YUANTA-SP500",
+    "name": "元大美國S&P500",
+    "exchDisp": "Global Fund",
+    "fundCode": "ACYT80",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "YUANTA-GLOBAL-AI",
+    "name": "元大全球AI",
+    "exchDisp": "Global Fund",
+    "fundCode": "ACYT146",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "YUANTA-NDX",
+    "name": "元大納斯達克100",
+    "exchDisp": "Global Fund",
+    "fundCode": "ACYT214",
+    "navScope": "domestic",
+    "keywords": [
+      "NASDAQ"
+    ]
+  },
+  {
+    "symbol": "YUANTA-FIN",
+    "name": "元大寶來台灣金控",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "YUANTA-LOWVOL",
+    "name": "元大台灣高息低波",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "CATHAY-TW-HYD",
+    "name": "國泰台灣高股息",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACCY149",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "CATHAY-TECH-BIO",
+    "name": "國泰科技生化",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACCY07",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "CATHAY-SMCAP",
+    "name": "國泰中小成長",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACCY03",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "CATHAY-ESG-HYD",
+    "name": "國泰永續高股息",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACCY150",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "CATHAY-DOW",
+    "name": "國泰美國道瓊",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "CAPITAL-TW-HYD",
+    "name": "群益台灣精選高息",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACCA278",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "CAPITAL-SMCAP",
+    "name": "群益金鼎中小成長",
+    "exchDisp": "TW Fund",
+    "fundCode": "AC0023",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "CAPITAL-DONG",
+    "name": "群益東祥",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "CAPITAL-INDIA",
+    "name": "群益印度中小",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "CAPITAL-NDX",
+    "name": "群益NASDAQ-100",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "FUBON-SEMI",
+    "name": "富邦台灣半導體",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACFP132",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "FUBON-NDX",
+    "name": "富邦NASDAQ",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "FUBON-HSI",
+    "name": "富邦恒生",
+    "exchDisp": "Global Fund",
+    "keywords": [
+      "港股",
+      "恒生"
+    ]
+  },
+  {
+    "symbol": "FUBON-ETF-LINK",
+    "name": "富邦台灣ETF連結",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "FUBON-TECH",
+    "name": "富邦科技",
+    "exchDisp": "TW Fund",
+    "fundCode": "AC0052",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "FH-TW-TECH-HYD",
+    "name": "復華台灣科技優息",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACFH113",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "FH-TW-MAIN",
+    "name": "復華台灣主流產業",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "FH-SOX",
+    "name": "復華南卡期",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "FH-LEVER",
+    "name": "復華正2",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "FH-GROWTH",
+    "name": "復華高成長",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "UNI-BLACK",
+    "name": "統一黑馬",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACPS02",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "UNI-ALL-WEATHER",
+    "name": "統一全天候",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACPS01",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "UNI-US-PLUS",
+    "name": "統一美國增益",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "CTBC-TW-HYD",
+    "name": "中信台灣高股息",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "CTBC-SMALL",
+    "name": "中信小龍",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "CTBC-JP",
+    "name": "中信日本",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "NOMURA-TW-HYD",
+    "name": "野村台灣高股息",
+    "exchDisp": "TW Fund",
+    "fundCode": "ACKH29",
+    "navScope": "domestic"
+  },
+  {
+    "symbol": "NOMURA-TW50",
+    "name": "野村台灣50",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "NOMURA-JP",
+    "name": "野村日本",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "EASTSPRING-TW-TECH",
+    "name": "瀚亞台灣高科技",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "EASTSPRING-FI",
+    "name": "瀚亞外債",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "EASTSPRING-US-TECH",
+    "name": "瀚亞美國高科技",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "PICTET-TW",
+    "name": "柏瑞台灣A股",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "PICTET-ESG",
+    "name": "柏瑞ESG量化多重資產",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "JPM-PAC",
+    "name": "摩根太平洋",
+    "exchDisp": "Global Fund",
+    "fundCode": "JFZ04",
+    "navScope": "offshore"
+  },
+  {
+    "symbol": "JPM-EM",
+    "name": "摩根新興市場",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "FID-US-GROWTH",
+    "name": "富達美國成長",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "FTFT-HITECH",
+    "name": "富蘭克林華美高科技",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "AB-GHY",
+    "name": "聯博全球高收益",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "AB-US-INCOME",
+    "name": "聯博美國收益",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "KGI-VIP",
+    "name": "凱基台灣VIP",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "KGI-HYD30",
+    "name": "凱基優選高股息30",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "TAISHIN-2000",
+    "name": "台新2000",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "TAISHIN-INDIA",
+    "name": "台新印度",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "SINOPAC-TW-HYD",
+    "name": "永豐台灣高息",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "SINOPAC-SP500",
+    "name": "永豐美國500",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "FIRST-SAT",
+    "name": "第一金太空衛星",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "FIRST-US100",
+    "name": "第一金美國100",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "SKIS-INNO",
+    "name": "新光創新成長",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "MEGA-VIP",
+    "name": "兆豐台灣VIP",
+    "exchDisp": "TW Fund"
+  },
+  {
+    "symbol": "NEUBERGER-MA",
+    "name": "路博邁無論等",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "HSBC-ASIA-HYD",
+    "name": "匯豐亞洲高股息",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "UBS-CHINA",
+    "name": "瑞銀中國",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "DEUTSCHE-EM",
+    "name": "德銀新興市場",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "BLACKROCK-WORLD",
+    "name": "貝萊德世界科技",
+    "exchDisp": "Global Fund",
+    "fundCode": "SHZ71",
+    "navScope": "offshore"
+  },
+  {
+    "symbol": "SCHRODER-ASIA",
+    "name": "施羅德亞洲",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "MANULIFE-BAL",
+    "name": "宏利平衡",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "BNP-EU",
+    "name": "法巴歐洲",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "AMUNDI-US",
+    "name": "東方匯理美國",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "PGIM-HEALTH",
+    "name": "保德信全球醫療",
+    "exchDisp": "Global Fund"
+  },
+  {
+    "symbol": "INVESCO-TECH",
+    "name": "景順全球科技",
+    "exchDisp": "Global Fund"
+  }
 ]

@@ -5,7 +5,8 @@ import type {
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
 import { isActive, filterActive } from '../../utils/entityActive';
-import { fetchFundNavQuotes, resolveFundCode } from '../../utils/fundNav';
+import { fetchFundNavQuotes, resolveFundNavTarget, shouldApplyFundNavUpdate, type FundNavTarget } from '../../utils/fundNav';
+import { DEFAULT_EXCHANGE_RATE_EUR, fetchEurTwdRate } from '../../utils/exchangeRates';
 import { 
     calculateTransactionImpact, 
     calculateNewHoldingImpact, 
@@ -487,27 +488,69 @@ export const createHoldingSlice: StateCreator<
         const targetHoldings = filterActive(state.holdings).filter((h) => h.type === 'FUNDS');
         if (targetHoldings.length === 0) return;
 
-        const codeByHoldingId = new Map<string, string>();
+        const targetByHoldingId = new Map<string, FundNavTarget>();
         for (const holding of targetHoldings) {
-            const fundCode = resolveFundCode(holding.symbol, holding.name);
-            if (fundCode) codeByHoldingId.set(holding.id, fundCode);
+            const target = resolveFundNavTarget(holding.symbol, holding.name);
+            if (target) targetByHoldingId.set(holding.id, target);
         }
 
-        if (codeByHoldingId.size === 0) return;
+        if (targetByHoldingId.size === 0) return;
 
         try {
-            const quotes = await fetchFundNavQuotes([...new Set(codeByHoldingId.values())]);
+            const eurRateLive = await fetchEurTwdRate();
+            const exchangeRateEUR = eurRateLive
+                ?? (state.exchangeRateEUR > 0 ? state.exchangeRateEUR : DEFAULT_EXCHANGE_RATE_EUR);
+            if (eurRateLive) {
+                set({ exchangeRateEUR: eurRateLive });
+            }
+
+            const uniqueTargets = [...new Map(
+                [...targetByHoldingId.values()].map((t) => [`${t.fundCode}:${t.navScope}`, t] as const),
+            ).values()];
+            const quotes = await fetchFundNavQuotes(uniqueTargets);
             if (quotes.length === 0) return;
 
             const quoteMap = new Map(quotes.map((q) => [q.fundCode, q] as const));
+            const exchangeRateUSD = get().exchangeRateUSD;
+
             set((current) => ({
                 holdings: current.holdings.map((holding) => {
-                    const fundCode = codeByHoldingId.get(holding.id);
-                    if (!fundCode) return holding;
-                    const quote = quoteMap.get(fundCode);
+                    const target = targetByHoldingId.get(holding.id);
+                    if (!target) return holding;
+
+                    const quote = quoteMap.get(target.fundCode);
                     if (!quote) return holding;
+                    if (!shouldApplyFundNavUpdate(holding.currentPriceDate, quote.navDate)) {
+                        return holding;
+                    }
+
+                    if (quote.currency === 'USD') {
+                        return recalcHolding({
+                            ...holding,
+                            currentPriceUSD: quote.nav,
+                            currentPriceEUR: undefined,
+                            currentPrice: Math.round(quote.nav * exchangeRateUSD * 100) / 100,
+                            currentPriceDate: quote.navDate,
+                        });
+                    }
+
+                    if (quote.currency === 'EUR') {
+                        const eurRate = current.exchangeRateEUR > 0
+                            ? current.exchangeRateEUR
+                            : exchangeRateEUR;
+                        return recalcHolding({
+                            ...holding,
+                            currentPriceUSD: undefined,
+                            currentPriceEUR: quote.nav,
+                            currentPrice: Math.round(quote.nav * eurRate * 100) / 100,
+                            currentPriceDate: quote.navDate,
+                        });
+                    }
+
                     return recalcHolding({
                         ...holding,
+                        currentPriceUSD: undefined,
+                        currentPriceEUR: undefined,
                         currentPrice: quote.nav,
                         currentPriceDate: quote.navDate,
                     });

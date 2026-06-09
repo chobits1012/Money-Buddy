@@ -12,6 +12,7 @@ const base = (): PortfolioState => ({
     usdAccountCash: 0,
     usStockFundPool: 0,
     exchangeRateUSD: 31,
+    exchangeRateEUR: 34.5,
     transactions: [],
     holdings: [],
     customCategories: [],

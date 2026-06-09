@@ -8,6 +8,7 @@
     "prebuild": "npm run update:tw-stocks",
     "build": "tsc -b && vite build",
     "update:tw-stocks": "tsx scripts/fetch_tw_stocks.ts",
+    "update:fund-codes": "tsx scripts/apply_fund_codes.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview"

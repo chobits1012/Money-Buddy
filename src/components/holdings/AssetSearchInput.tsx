@@ -164,9 +164,11 @@ export const AssetSearchInput = ({
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex justify-between items-center text-xs mt-0.5">
-                                    <span className="text-clay/70 truncate max-w-[80%]">{res.symbol}</span>
-                                    {res.exchDisp && <span className="text-clay/60 text-[10px]">{res.exchDisp}</span>}
+                                <div className="flex justify-between items-center text-xs mt-0.5 gap-2">
+                                    <span className="text-clay/70 truncate">
+                                        {res.cnyesCode ? `鉅亨 ${res.cnyesCode}` : res.symbol}
+                                    </span>
+                                    {res.exchDisp && <span className="text-clay/60 text-[10px] shrink-0">{res.exchDisp}</span>}
                                 </div>
                             </button>
                         )) : !loading && (

@@ -1,10 +1,16 @@
+export type FundNavScope = 'domestic' | 'offshore';
+
 export interface FundCatalogEntry {
     symbol: string;
     name: string;
     exchDisp?: string;
     keywords?: string[];
-    /** Phase C: 外部淨值資料源代碼（待串接） */
+    /** Phase C: MoneyDJ 基金代碼（a= 參數） */
     fundCode?: string;
+    /** Phase C: 境內 wr02 / 境外 wb02；未填時由 exchDisp 推導 */
+    navScope?: FundNavScope;
+    /** 鉅亨網銷售代碼（僅供對照，淨值抓取仍用 fundCode） */
+    cnyesCode?: string;
 }
 
 export type FundSearchSource = 'holding' | 'catalog';

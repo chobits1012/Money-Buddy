@@ -94,6 +94,24 @@ export const HoldingCard = ({
                                         : '-'
                                     }
                                 </p>
+                                {isFund && holding.currentPriceUSD !== undefined && (
+                                    <p className="text-[10px] text-clay/70 mt-0.5">
+                                        ${holding.currentPriceUSD.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 4,
+                                        })}{' '}
+                                        USD
+                                    </p>
+                                )}
+                                {isFund && holding.currentPriceEUR !== undefined && (
+                                    <p className="text-[10px] text-clay/70 mt-0.5">
+                                        €{holding.currentPriceEUR.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 4,
+                                        })}{' '}
+                                        EUR
+                                    </p>
+                                )}
                                 {isFund && holding.currentPriceDate && (
                                     <p className={cn(
                                         "text-[10px] mt-0.5",

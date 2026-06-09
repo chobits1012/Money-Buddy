@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 import YahooFinance from 'yahoo-finance2';
+import { fetchMoneyDJNavQuotes, parseFundNavQuery } from './src/utils/moneydjNav.ts';
+
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 // https://vitejs.dev/config/
@@ -104,6 +106,28 @@ function localApiPlugin() {
             console.error('Yahoo quote error:', err);
             res.statusCode = 500;
             res.end(JSON.stringify({ error: 'Proxy error' }));
+          }
+          return;
+        }
+
+        if (req.url?.startsWith('/api/fund-nav')) {
+          const urlObj = new URL(req.url, `http://${req.headers.host}`);
+          const codes = urlObj.searchParams.get('codes');
+          const scopes = urlObj.searchParams.get('scopes');
+          if (!codes || !scopes) {
+            res.statusCode = 400;
+            return res.end(JSON.stringify({ error: 'Missing codes or scopes' }));
+          }
+          try {
+            const requests = parseFundNavQuery(codes, scopes);
+            const quotes = await fetchMoneyDJNavQuotes(requests);
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(quotes));
+          } catch (err) {
+            console.error('Fund NAV proxy error:', err);
+            const message = err instanceof Error ? err.message : 'Proxy error';
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: message }));
           }
           return;
         }

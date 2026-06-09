@@ -144,6 +144,9 @@ export function syncMerge(
     const mergedExchangeRateUSD = cloudOverallNewer
         ? cloud.exchangeRateUSD
         : local.exchangeRateUSD;
+    const mergedExchangeRateEUR = cloudOverallNewer
+        ? (cloud.exchangeRateEUR ?? local.exchangeRateEUR ?? 34.5)
+        : (local.exchangeRateEUR ?? cloud.exchangeRateEUR ?? 34.5);
 
     const mergedForReconcile: PortfolioState = {
         ...local,
@@ -155,6 +158,7 @@ export function syncMerge(
         customCategories: mergedCustomCategories,
         transactions: mergedTransactions,
         exchangeRateUSD: mergedExchangeRateUSD,
+        exchangeRateEUR: mergedExchangeRateEUR,
         isConfigured: local.isConfigured || cloud.isConfigured,
         localDataOwnerId: local.localDataOwnerId ?? cloud.localDataOwnerId ?? null,
         pendingUpload: local.pendingUpload ?? cloud.pendingUpload ?? false,
