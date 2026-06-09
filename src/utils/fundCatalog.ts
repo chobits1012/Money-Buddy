@@ -1,4 +1,5 @@
 export type FundNavScope = 'domestic' | 'offshore';
+export type FundPricingCurrency = 'TWD' | 'USD' | 'EUR';
 
 export interface FundCatalogEntry {
     symbol: string;
@@ -11,6 +12,8 @@ export interface FundCatalogEntry {
     navScope?: FundNavScope;
     /** 鉅亨網銷售代碼（僅供對照，淨值抓取仍用 fundCode） */
     cnyesCode?: string;
+    /** 申購/淨值輸入幣別；境外未填時預設 USD */
+    pricingCurrency?: FundPricingCurrency;
 }
 
 export type FundSearchSource = 'holding' | 'catalog';

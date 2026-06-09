@@ -32,7 +32,8 @@
     ],
     "fundCode": "TLH43",
     "navScope": "offshore",
-    "cnyesCode": "B20166"
+    "cnyesCode": "B20166",
+    "pricingCurrency": "USD"
   },
   {
     "symbol": "UNI-PENTIUM",
@@ -58,7 +59,8 @@
     ],
     "fundCode": "TLZ58",
     "navScope": "offshore",
-    "cnyesCode": "B20059"
+    "cnyesCode": "B20059",
+    "pricingCurrency": "EUR"
   },
   {
     "symbol": "ALLIANZ-TW-HYD",

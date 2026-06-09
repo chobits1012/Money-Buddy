@@ -3,6 +3,8 @@ import { Button } from '../ui/Button';
 import { cn } from '../../utils/cn';
 import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, PurchaseRecord } from '../../types';
+import { resolveFundPricingCurrency } from '../../utils/fundNav';
+import { usePortfolioStore } from '../../store/portfolioStore';
 
 const TODAY_TIMESTAMP = Date.now();
 
@@ -28,6 +30,17 @@ export const HoldingCard = ({
     onRemoveHolding
 }: HoldingCardProps) => {
     const isFund = holding.type === 'FUNDS';
+    const exchangeRateUSD = usePortfolioStore((state) => state.exchangeRateUSD);
+    const exchangeRateEUR = usePortfolioStore((state) => state.exchangeRateEUR);
+    const fundCurrency = isFund ? resolveFundPricingCurrency(holding.symbol, holding.name) : 'TWD';
+    const fundRate = fundCurrency === 'EUR'
+        ? exchangeRateEUR
+        : fundCurrency === 'USD'
+            ? exchangeRateUSD
+            : 1;
+    const avgCostNative = isFund && fundCurrency !== 'TWD' && fundRate > 0
+        ? holding.avgPrice / fundRate
+        : undefined;
     const navDate = holding.currentPriceDate ? new Date(holding.currentPriceDate) : null;
     const navAgeDays = navDate ? Math.floor((TODAY_TIMESTAMP - navDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
     const isNavStale = isFund && navAgeDays !== null && navAgeDays > 3;
@@ -81,6 +94,16 @@ export const HoldingCard = ({
                                         : `$${holding.avgPrice.toLocaleString('en-US', { maximumFractionDigits: 1 })}`
                                     }
                                 </p>
+                                {isFund && avgCostNative !== undefined && (
+                                    <p className="text-[10px] text-clay/70 mt-0.5">
+                                        {fundCurrency === 'EUR' ? '€' : '$'}
+                                        {avgCostNative.toLocaleString('en-US', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 4,
+                                        })}{' '}
+                                        {fundCurrency}
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <p className="text-[10px] text-clay uppercase tracking-wider">

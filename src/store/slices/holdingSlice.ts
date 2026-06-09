@@ -5,8 +5,8 @@ import type {
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
 import { isActive, filterActive } from '../../utils/entityActive';
-import { fetchFundNavQuotes, resolveFundNavTarget, shouldApplyFundNavUpdate, type FundNavTarget } from '../../utils/fundNav';
-import { DEFAULT_EXCHANGE_RATE_EUR, fetchEurTwdRate } from '../../utils/exchangeRates';
+import { fetchFundNavQuotes, resolveFundNavTarget, type FundNavTarget } from '../../utils/fundNav';
+import { DEFAULT_EXCHANGE_RATE_EUR, DEFAULT_EXCHANGE_RATE_USD, fetchLiveExchangeRates } from '../../utils/exchangeRates';
 import { 
     calculateTransactionImpact, 
     calculateNewHoldingImpact, 
@@ -497,11 +497,12 @@ export const createHoldingSlice: StateCreator<
         if (targetByHoldingId.size === 0) return;
 
         try {
-            const eurRateLive = await fetchEurTwdRate();
-            const exchangeRateEUR = eurRateLive
-                ?? (state.exchangeRateEUR > 0 ? state.exchangeRateEUR : DEFAULT_EXCHANGE_RATE_EUR);
-            if (eurRateLive) {
-                set({ exchangeRateEUR: eurRateLive });
+            const liveRates = await fetchLiveExchangeRates();
+            const rateUpdates: { exchangeRateUSD?: number; exchangeRateEUR?: number } = {};
+            if (liveRates.usd) rateUpdates.exchangeRateUSD = liveRates.usd;
+            if (liveRates.eur) rateUpdates.exchangeRateEUR = liveRates.eur;
+            if (Object.keys(rateUpdates).length > 0) {
+                set(rateUpdates);
             }
 
             const uniqueTargets = [...new Map(
@@ -511,7 +512,9 @@ export const createHoldingSlice: StateCreator<
             if (quotes.length === 0) return;
 
             const quoteMap = new Map(quotes.map((q) => [q.fundCode, q] as const));
-            const exchangeRateUSD = get().exchangeRateUSD;
+            const { exchangeRateUSD, exchangeRateEUR } = get();
+            const usdRate = exchangeRateUSD > 0 ? exchangeRateUSD : DEFAULT_EXCHANGE_RATE_USD;
+            const eurRate = exchangeRateEUR > 0 ? exchangeRateEUR : DEFAULT_EXCHANGE_RATE_EUR;
 
             set((current) => ({
                 holdings: current.holdings.map((holding) => {
@@ -520,24 +523,18 @@ export const createHoldingSlice: StateCreator<
 
                     const quote = quoteMap.get(target.fundCode);
                     if (!quote) return holding;
-                    if (!shouldApplyFundNavUpdate(holding.currentPriceDate, quote.navDate)) {
-                        return holding;
-                    }
 
                     if (quote.currency === 'USD') {
                         return recalcHolding({
                             ...holding,
                             currentPriceUSD: quote.nav,
                             currentPriceEUR: undefined,
-                            currentPrice: Math.round(quote.nav * exchangeRateUSD * 100) / 100,
+                            currentPrice: Math.round(quote.nav * usdRate * 100) / 100,
                             currentPriceDate: quote.navDate,
                         });
                     }
 
                     if (quote.currency === 'EUR') {
-                        const eurRate = current.exchangeRateEUR > 0
-                            ? current.exchangeRateEUR
-                            : exchangeRateEUR;
                         return recalcHolding({
                             ...holding,
                             currentPriceUSD: undefined,

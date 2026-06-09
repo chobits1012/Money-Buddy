@@ -7,6 +7,9 @@ import { Input } from '../ui/Input';
 import { AssetSearchInput } from './AssetSearchInput';
 import { Button } from '../ui/Button';
 import { cn } from '../../utils/cn';
+import { resolveFundPricingCurrency } from '../../utils/fundNav';
+import { fetchLiveExchangeRates } from '../../utils/exchangeRates';
+import type { FundPricingCurrency } from '../../utils/fundCatalog';
 
 interface BuyStockDrawerProps {
     isOpen: boolean;
@@ -23,7 +26,10 @@ export const BuyStockDrawer = ({
     editingPurchase, editingHoldingId, editingHoldingName,
     poolId,
 }: BuyStockDrawerProps) => {
-    const { buyStock, updatePurchase, exchangeRateUSD, getGlobalFreeCapital, getUsStockAvailableCapital, holdings, pools } = usePortfolioStore();
+    const {
+        buyStock, updatePurchase, exchangeRateUSD, exchangeRateEUR,
+        getGlobalFreeCapital, getUsStockAvailableCapital, holdings, pools,
+    } = usePortfolioStore();
 
     const isUSStock = type === 'US_STOCK';
     const isFund = type === 'FUNDS';
@@ -59,10 +65,36 @@ export const BuyStockDrawer = ({
     const availableAmount = currentHolding ? currentHolding.totalAmount : 0;
 
     // 股數模式：自動計算總額
+    const fundCurrency: FundPricingCurrency = isFund
+        ? resolveFundPricingCurrency(symbol, name.trim())
+        : 'TWD';
+    const isOffshoreFund = isFund && fundCurrency !== 'TWD';
+    const fundExchangeRate = fundCurrency === 'EUR'
+        ? exchangeRateEUR
+        : fundCurrency === 'USD'
+            ? exchangeRateUSD
+            : 1;
+
     const numShares = Number(shares.replace(/,/g, '') || 0);
     const numPrice = Number(price.replace(/,/g, '') || 0);
     const calcTotal = numShares > 0 && numPrice > 0 ? numShares * numPrice : 0;
-    const calcTotalTWD = isUSStock ? Math.round(calcTotal * exchangeRateUSD) : calcTotal;
+    const calcTotalTWD = isUSStock
+        ? Math.round(calcTotal * exchangeRateUSD)
+        : isOffshoreFund
+            ? Math.round(calcTotal * fundExchangeRate)
+            : calcTotal;
+
+    useEffect(() => {
+        if (!isOpen || !isFund || !isOffshoreFund) return;
+        void fetchLiveExchangeRates().then((rates) => {
+            const updates: { exchangeRateUSD?: number; exchangeRateEUR?: number } = {};
+            if (rates.usd) updates.exchangeRateUSD = rates.usd;
+            if (rates.eur) updates.exchangeRateEUR = rates.eur;
+            if (Object.keys(updates).length > 0) {
+                usePortfolioStore.setState(updates);
+            }
+        });
+    }, [isOpen, isFund, isOffshoreFund, symbol, name]);
 
     // 簡易模式：直接從 amount 取值
     const numAmount = Number(amount.replace(/,/g, '') || 0);
@@ -79,9 +111,31 @@ export const BuyStockDrawer = ({
                 if (isSimpleMode) {
                     setAmount(editingPurchase.totalCost.toLocaleString('en-US'));
                 } else {
+                    const editingCurrency = resolveFundPricingCurrency(
+                        editingHolding?.symbol,
+                        editingHoldingName || editingHolding?.name,
+                    );
+                    const editRate = editingPurchase.exchangeRate
+                        ?? (editingCurrency === 'EUR'
+                            ? exchangeRateEUR
+                            : editingCurrency === 'USD'
+                                ? exchangeRateUSD
+                                : 1);
                     setShares(String(editingPurchase.shares));
-                    setPrice(String(editingPurchase.pricePerShare));
-                    setLatestNav(editingHolding?.currentPrice ? String(editingHolding.currentPrice) : '');
+                    if (editingCurrency === 'TWD') {
+                        setPrice(String(editingPurchase.pricePerShare));
+                    } else {
+                        setPrice(String(Number((editingPurchase.pricePerShare / editRate).toFixed(4))));
+                    }
+                    if (editingHolding?.currentPriceEUR !== undefined) {
+                        setLatestNav(String(editingHolding.currentPriceEUR));
+                    } else if (editingHolding?.currentPriceUSD !== undefined) {
+                        setLatestNav(String(editingHolding.currentPriceUSD));
+                    } else if (editingHolding?.currentPrice !== undefined) {
+                        setLatestNav(String(editingHolding.currentPrice));
+                    } else {
+                        setLatestNav('');
+                    }
                     setNavDate(editingHolding?.currentPriceDate?.slice(0, 10) || new Date().toISOString().slice(0, 10));
                 }
                 setNote(editingPurchase.note || '');
@@ -98,7 +152,7 @@ export const BuyStockDrawer = ({
             }
             setError('');
         }
-    }, [isOpen, editingPurchase, editingHoldingName, editingHoldingId, isSimpleMode, holdings]);
+    }, [isOpen, editingPurchase, editingHoldingName, editingHoldingId, isSimpleMode, holdings, exchangeRateEUR, exchangeRateUSD]);
 
     if (!isOpen) return null;
 
@@ -183,8 +237,15 @@ export const BuyStockDrawer = ({
             if (isNaN(numShares) || numShares <= 0) { setError('請輸入有效的數量'); return; }
             if (isNaN(numPrice) || numPrice <= 0) { setError(`請輸入有效的${action === 'BUY' ? '買入' : '賣出'}價格`); return; }
             const parsedLatestNav = Number(latestNav || 0);
-            const currentPriceForSubmit = isFund && parsedLatestNav > 0 ? parsedLatestNav : undefined;
+            const currentPriceForSubmit = isFund && parsedLatestNav > 0
+                ? (isOffshoreFund
+                    ? Math.round(parsedLatestNav * fundExchangeRate * 100) / 100
+                    : parsedLatestNav)
+                : undefined;
             const currentPriceDateForSubmit = isFund && currentPriceForSubmit ? navDate : undefined;
+            const fundPricePerShareTWD = isOffshoreFund
+                ? Math.round(numPrice * fundExchangeRate * 100) / 100
+                : numPrice;
 
             if (isFund && currentPriceForSubmit && !navDate) {
                 setError('請選擇淨值日期');
@@ -210,12 +271,12 @@ export const BuyStockDrawer = ({
                 updatePurchase(editingHoldingId, editingPurchase.id, {
                     action,
                     shares: numShares,
-                    pricePerShare: numPrice,
+                    pricePerShare: isUSStock ? numPrice : fundPricePerShareTWD,
                     totalCost: calcTotalTWD,
                     totalCostUSD: isUSStock ? calcTotal : undefined,
                     currentPrice: currentPriceForSubmit,
                     currentPriceDate: currentPriceDateForSubmit,
-                    exchangeRate: isUSStock ? exchangeRateUSD : undefined,
+                    exchangeRate: isUSStock ? exchangeRateUSD : isOffshoreFund ? fundExchangeRate : undefined,
                     note: note || undefined,
                 });
             } else {
@@ -234,12 +295,12 @@ export const BuyStockDrawer = ({
                     symbol: symbol || undefined,
                     action,
                     shares: numShares,
-                    pricePerShare: numPrice,
+                    pricePerShare: isUSStock ? numPrice : fundPricePerShareTWD,
                     totalCost: calcTotalTWD,
                     totalCostUSD: isUSStock ? calcTotal : undefined,
                     currentPrice: currentPriceForSubmit,
                     currentPriceDate: currentPriceDateForSubmit,
-                    exchangeRate: isUSStock ? exchangeRateUSD : undefined,
+                    exchangeRate: isUSStock ? exchangeRateUSD : isOffshoreFund ? fundExchangeRate : undefined,
                     note: note || undefined,
                     poolId,
                 });
@@ -360,7 +421,7 @@ export const BuyStockDrawer = ({
                                 />
                                 <Input
                                     label={isFund
-                                        ? (action === 'BUY' ? '申購淨值 (TWD)' : '贖回淨值 (TWD)')
+                                        ? (action === 'BUY' ? `申購淨值 (${fundCurrency})` : `贖回淨值 (${fundCurrency})`)
                                         : (isUSStock ? (action === 'BUY' ? '買入價格 (USD)' : '賣出價格 (USD)') : (action === 'BUY' ? '買入價格 (TWD)' : '賣出價格 (TWD)'))
                                     }
                                     placeholder="0"
@@ -368,20 +429,27 @@ export const BuyStockDrawer = ({
                                     onChange={(e) => {
                                         handleDecimalInput(e.target.value, setPrice);
                                     }}
-                                    icon={isUSStock
+                                    icon={isUSStock || fundCurrency === 'USD'
                                         ? <span className="font-semibold px-1 text-xs">$</span>
-                                        : <span className="font-semibold px-1 text-xs">NT$</span>
+                                        : fundCurrency === 'EUR'
+                                            ? <span className="font-semibold px-1 text-xs">€</span>
+                                            : <span className="font-semibold px-1 text-xs">NT$</span>
                                     }
                                 />
                             </div>
                             {isFund && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <Input
-                                        label="最新淨值 (TWD，選填)"
-                                        placeholder="用於計算目前未實現損益"
+                                        label={`最新淨值 (${fundCurrency}，選填)`}
+                                        placeholder="留空將自動抓取"
                                         value={latestNav}
                                         onChange={(e) => handleDecimalInput(e.target.value, setLatestNav)}
-                                        icon={<span className="font-semibold px-1 text-xs">NT$</span>}
+                                        icon={fundCurrency === 'USD'
+                                            ? <span className="font-semibold px-1 text-xs">$</span>
+                                            : fundCurrency === 'EUR'
+                                                ? <span className="font-semibold px-1 text-xs">€</span>
+                                                : <span className="font-semibold px-1 text-xs">NT$</span>
+                                        }
                                     />
                                     <Input
                                         type="date"
@@ -410,20 +478,25 @@ export const BuyStockDrawer = ({
                                         )}
                                     </div>
                                     <div className="flex items-baseline gap-2">
-                                        {isUSStock && (
+                                        {(isUSStock || isOffshoreFund) && (
                                             <span className="text-lg font-light text-slate-800">
-                                                ${calcTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                {fundCurrency === 'EUR' ? '€' : '$'}
+                                                {calcTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                                             </span>
                                         )}
                                         <span className={cn(
                                             "font-medium",
-                                            isUSStock ? "text-sm text-clay" : "text-lg text-slate-800 font-light"
+                                            (isUSStock || isOffshoreFund) ? "text-sm text-clay" : "text-lg text-slate-800 font-light"
                                         )}>
-                                            {isUSStock ? `≈ NT$${calcTotalTWD.toLocaleString()}` : `NT$${calcTotalTWD.toLocaleString()}`}
+                                            {(isUSStock || isOffshoreFund)
+                                                ? `≈ NT$${calcTotalTWD.toLocaleString()}`
+                                                : `NT$${calcTotalTWD.toLocaleString()}`}
                                         </span>
                                     </div>
-                                    {isUSStock && (
-                                        <p className="text-[10px] text-clay/60 mt-1">匯率: {exchangeRateUSD}</p>
+                                    {(isUSStock || isOffshoreFund) && (
+                                        <p className="text-[10px] text-clay/60 mt-1">
+                                            匯率: {isUSStock ? exchangeRateUSD : fundExchangeRate} ({fundCurrency}/TWD)
+                                        </p>
                                     )}
                                 </div>
                             )}
