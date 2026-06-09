@@ -48,7 +48,11 @@ fetchTWStocks().catch((e) => {
     if (fs.existsSync(TMP_PATH)) {
         fs.unlinkSync(TMP_PATH);
     }
-    console.error('Failed to fetch TW stocks:', e);
-    console.error('Existing tw_stocks.json was NOT modified.');
+    console.warn('Failed to fetch TW stocks:', e);
+    if (fs.existsSync(OUT_PATH)) {
+        console.warn('Using existing tw_stocks.json for this build.');
+        process.exit(0);
+    }
+    console.error('No existing tw_stocks.json to fall back on; build cannot continue.');
     process.exit(1);
 });
