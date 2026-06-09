@@ -29,6 +29,7 @@ export const BuyStockDrawer = ({
     const {
         buyStock, updatePurchase, exchangeRateUSD, exchangeRateEUR,
         getGlobalFreeCapital, getUsStockAvailableCapital, holdings, pools,
+        fetchFundNavForHoldings,
     } = usePortfolioStore();
 
     const isUSStock = type === 'US_STOCK';
@@ -305,6 +306,10 @@ export const BuyStockDrawer = ({
                     poolId,
                 });
             }
+        }
+
+        if (isFund) {
+            void fetchFundNavForHoldings();
         }
 
         onClose();

@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 import YahooFinance from 'yahoo-finance2';
-import { fetchMoneyDJNavQuotes, parseFundNavQuery } from './src/utils/moneydjNav.ts';
+import { fetchMoneyDJNavQuotes, parseFundNavQuery } from './api/lib/moneydjNav.ts';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 

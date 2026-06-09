@@ -1,9 +1,9 @@
 import {
     fetchMoneyDJNavQuotes,
     parseFundNavQuery,
-} from '../src/utils/moneydjNav';
+} from './lib/moneydjNav';
 
-export default async function handler(req: { method?: string; query?: Record<string, string | string[] | undefined> }, res: { status: (code: number) => { json: (body: unknown) => void } }) {
+export default async function handler(req: any, res: any) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }

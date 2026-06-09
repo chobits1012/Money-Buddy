@@ -5,7 +5,7 @@ import {
     parseMoneyDJNavDate,
     parseMoneyDJNavResponse,
     scopeFromExchDisp,
-} from './moneydjNav';
+} from '../../api/lib/moneydjNav';
 
 describe('moneydjNav', () => {
     it('parses NAV date to ISO format', () => {

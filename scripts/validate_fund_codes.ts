@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { FUND_CODE_SEED } from './fund_code_seed';
-import { fetchMoneyDJNavQuote } from '../src/utils/moneydjNav';
+import { fetchMoneyDJNavQuote } from '../api/lib/moneydjNav';
 import type { FundCatalogEntry } from '../src/utils/fundCatalog';
 
 const FUNDS_PATH = path.join(process.cwd(), 'src', 'data', 'funds.json');
