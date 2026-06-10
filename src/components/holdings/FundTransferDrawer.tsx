@@ -11,8 +11,9 @@ interface FundTransferDrawerProps {
 }
 
 export const FundTransferDrawer = ({ isOpen, onClose }: FundTransferDrawerProps) => {
-    const { addTransaction, getUsStockAvailableCapital, getGlobalFreeCapital, exchangeRateUSD } = usePortfolioStore();
-    const availableTotal = getGlobalFreeCapital();
+    const { addTransaction, getUsStockAvailableCapital, getIdleCapital, exchangeRateUSD, totalCapitalPool } = usePortfolioStore();
+    const idleCapital = getIdleCapital();
+    const availableTotal = Math.min(idleCapital, totalCapitalPool);
     const availableInUS = getUsStockAvailableCapital();
 
     const [mode, setMode] = useState<'IN' | 'OUT'>('IN');
@@ -61,7 +62,7 @@ export const FundTransferDrawer = ({ isOpen, onClose }: FundTransferDrawerProps)
         }
 
         if (mode === 'IN' && numTWD > availableTotal) {
-            setError(`金額不可大於目前總資產剩餘可動用資金 (NT$ ${availableTotal.toLocaleString()})`);
+            setError(`金額不可大於可分配餘額 (NT$ ${availableTotal.toLocaleString()})`);
             return;
         }
 
@@ -135,7 +136,7 @@ export const FundTransferDrawer = ({ isOpen, onClose }: FundTransferDrawerProps)
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     <div className="p-3 rounded-xl bg-stoneSoft/20 border border-stoneSoft">
                         <p className="text-xs text-clay mb-1">
-                            {mode === 'IN' ? '總資產可用資金 (NT)' : '美股帳戶可用餘額 (USD)'}
+                            {mode === 'IN' ? '可分配餘額 (NT)' : '美股帳戶可用餘額 (USD)'}
                         </p>
                         <p className="text-lg font-light text-slate-800">
                             {mode === 'IN'

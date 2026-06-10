@@ -177,6 +177,9 @@ export interface HoldingActions {
     addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
     removeTransaction: (id: string) => void;
     getAvailableCapital: () => number;
+    /** @deprecated 僅內部帳本；UI 請用 getIdleCapital */
+    getGlobalFreeCapital: () => number;
+    getIdleCapital: () => number;
     getAssetTotals: () => Record<AssetType, number>;
     buyStock: (params: {
         type: StockAssetType;

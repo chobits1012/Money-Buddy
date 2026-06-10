@@ -60,16 +60,17 @@ const THEME_CONFIG = {
 };
 
 export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string) => void, type: AssetType }) => {
-    const { pools, allocateToPool, withdrawFromPool, getUsStockAvailableCapital, getGlobalFreeCapital } = usePortfolioStore();
+    const { pools, allocateToPool, withdrawFromPool, getUsStockAvailableCapital, getIdleCapital, totalCapitalPool } = usePortfolioStore();
     const isUSStock = type === 'US_STOCK';
     const activePools = pools.filter(p => !p.deletedAt);
     const { twdPools, usdPools } = selectPoolBuckets(activePools);
     const currentTypePools = isUSStock ? usdPools : twdPools.filter((pool) => pool.type === type);
-    
-    const availableBalance = isUSStock ? getUsStockAvailableCapital() : getGlobalFreeCapital();
-    const balanceLabel = isUSStock
-        ? `可用餘額: $${availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`
-        : `可用餘額: ${FORMAT_TWD.format(availableBalance)}`;
+
+    const idleCapital = getIdleCapital();
+    const usStockDeployable = getUsStockAvailableCapital();
+    const twdDeployable = Math.min(idleCapital, totalCapitalPool);
+    const allocateMax = isUSStock ? usStockDeployable : twdDeployable;
+    const balanceLabel = `可分配餘額: ${FORMAT_TWD.format(idleCapital)}`;
 
     const parseMoneyInput = (raw: string): number => Number(raw.replace(/,/g, '').trim());
 
@@ -150,7 +151,7 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                                                 className={cn("h-8 px-3 text-[10px] border-none shadow-none", theme.accentBg, theme.accentText, theme.accentHoverBg)}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setFundModal({ action: 'ALLOCATE', pool, max: availableBalance });
+                                                    setFundModal({ action: 'ALLOCATE', pool, max: allocateMax });
                                                     setAmountText('');
                                                     setModalError('');
                                                 }}

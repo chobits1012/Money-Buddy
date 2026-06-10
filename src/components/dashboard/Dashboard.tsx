@@ -28,7 +28,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         holdings, exchangeRateUSD,
         totalCapitalPool, pools, usStockFundPool, usdAccountCash, resetAll, customCategories, removeCustomCategory,
         capitalDeposits, capitalWithdrawals, removeCapitalDeposit, // addCapitalDeposit 已移至 App.tsx
-        fetchQuotesForHoldings, isLoadingQuotes, restoreFromSnapshot
+        fetchQuotesForHoldings, fetchFundNavForHoldings, isLoadingQuotes, restoreFromSnapshot
     } = usePortfolioStore();
 
     // 檢查是否有可還原的快照
@@ -46,9 +46,12 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
     };
 
     useEffect(() => {
-        // Fetch real-time quotes when the dashboard loads
         fetchQuotesForHoldings();
     }, [fetchQuotesForHoldings]);
+
+    useEffect(() => {
+        void fetchFundNavForHoldings();
+    }, [fetchFundNavForHoldings]);
 
     const [activeHoldingsType, setActiveHoldingsType] = useState<StockAssetType | null>(null);
     const [isExportCardExpanded, setIsExportCardExpanded] = useState(false);
@@ -127,6 +130,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
     let totalRealizedPnL = 0;
     let taiwanUnrealizedPnL = 0;
     let usUnrealizedPnLUSD = 0;
+    let fundUnrealizedPnL = 0;
 
     filterActive(holdings).forEach((h) => {
         const u = h.unrealizedPnL || 0;
@@ -138,6 +142,10 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             totalRealizedPnL += r * exchangeRateUSD;
         } else if (h.type === 'TAIWAN_STOCK') {
             taiwanUnrealizedPnL += u;
+            totalUnrealizedPnL += u;
+            totalRealizedPnL += r;
+        } else if (h.type === 'FUNDS') {
+            fundUnrealizedPnL += u;
             totalUnrealizedPnL += u;
             totalRealizedPnL += r;
         } else {
@@ -260,6 +268,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 totalRealizedPnL={totalRealizedPnL}
                 taiwanUnrealizedPnL={taiwanUnrealizedPnL}
                 usUnrealizedPnLUSD={usUnrealizedPnLUSD}
+                fundUnrealizedPnL={fundUnrealizedPnL}
                 exchangeRateUSD={exchangeRateUSD}
                 isLoadingQuotes={isLoadingQuotes}
                 capitalDeposits={filterActive(capitalDeposits)}

@@ -123,7 +123,8 @@ export const createCapitalSlice: StateCreator<
             const usAvailable = state.getUsStockAvailableCapital();
             if (normalizedInitialAmount > usAvailable) return;
         } else {
-            if (normalizedInitialAmount > state.totalCapitalPool) return;
+            const idleCapital = state.getIdleCapital();
+            if (normalizedInitialAmount > idleCapital || normalizedInitialAmount > state.totalCapitalPool) return;
         }
 
         const newPool: AssetPool = {
@@ -234,7 +235,8 @@ export const createCapitalSlice: StateCreator<
                 };
             }
 
-            if (state.totalCapitalPool < amount) return {};
+            const idleCapital = get().getIdleCapital();
+            if (amount > idleCapital || state.totalCapitalPool < amount) return {};
             const now = new Date().toISOString();
             const ledgerEntry: PoolLedgerEntry = {
                 id: crypto.randomUUID(),

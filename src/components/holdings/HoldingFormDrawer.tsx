@@ -28,7 +28,7 @@ export const BuyStockDrawer = ({
 }: BuyStockDrawerProps) => {
     const {
         buyStock, updatePurchase, exchangeRateUSD, exchangeRateEUR,
-        getGlobalFreeCapital, getUsStockAvailableCapital, holdings, pools,
+        getIdleCapital, getUsStockAvailableCapital, holdings, pools,
         fetchFundNavForHoldings,
     } = usePortfolioStore();
 
@@ -41,7 +41,7 @@ export const BuyStockDrawer = ({
     // 取得當前可用資金：如果是軍團則用軍團現金，否則依據類型選擇全局或美股池
     const availableCapital = poolId 
         ? (pools.find(p => p.id === poolId && !p.deletedAt)?.currentCash || 0)
-        : (isUSStock ? getUsStockAvailableCapital() : getGlobalFreeCapital());
+        : (isUSStock ? getUsStockAvailableCapital() : getIdleCapital());
 
     const [name, setName] = useState('');
     const [symbol, setSymbol] = useState('');

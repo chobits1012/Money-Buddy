@@ -24,7 +24,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, removeHolding, removePurchase,
         usdAccountCash, usStockFundPool, addPool, pools,
-        fetchQuotesForHoldings, fetchFundNavForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getGlobalFreeCapital
+        fetchQuotesForHoldings, fetchFundNavForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getIdleCapital, totalCapitalPool
     } = usePortfolioStore();
 
     const fundHoldingsKey = usePortfolioStore((state) =>
@@ -50,11 +50,12 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [activePoolId, setActivePoolId] = useState<string | null>(null);
     const [isAddPoolOpen, setIsAddPoolOpen] = useState(false);
     
-    // 取得當前可用餘額：若是進入軍團視圖，則顯示軍團內的現金
+    // 取得當前可用餘額：若是進入軍團視圖，則顯示軍團內的現金；否則為全局可分配餘額
     const currentPool = pools.find(p => p.id === activePoolId && !p.deletedAt);
-    const availableTotal = activePoolId && currentPool 
-        ? currentPool.currentCash 
-        : getGlobalFreeCapital();
+    const idleCapital = getIdleCapital();
+    const availableTotal = activePoolId && currentPool
+        ? currentPool.currentCash
+        : Math.min(idleCapital, totalCapitalPool);
  
     // ConfirmModal 狀態
     const [confirmAction, setConfirmAction] = useState<{

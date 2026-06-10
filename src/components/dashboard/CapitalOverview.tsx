@@ -15,6 +15,7 @@ interface CapitalOverviewProps {
     totalRealizedPnL: number;
     taiwanUnrealizedPnL: number;
     usUnrealizedPnLUSD: number;
+    fundUnrealizedPnL?: number;
     exchangeRateUSD: number;
     isLoadingQuotes: boolean;
     capitalDeposits: CapitalDeposit[];
@@ -31,6 +32,7 @@ export const CapitalOverview = ({
     totalRealizedPnL,
     taiwanUnrealizedPnL,
     usUnrealizedPnLUSD,
+    fundUnrealizedPnL = 0,
     exchangeRateUSD,
     isLoadingQuotes,
     capitalDeposits,
@@ -173,7 +175,7 @@ export const CapitalOverview = ({
             <div className="flex justify-between items-start gap-3 sm:gap-4 z-10">
                 {/* 勿加 flex-1：否則內層 justify-between 會把損益數字推到「按鈕左側」整段寬的最右邊 */}
                 <div className="min-w-0 pr-2">
-                    <h2 className="text-clay text-sm font-medium tracking-wide">總閒置資金 (TWD)</h2>
+                    <h2 className="text-clay text-sm font-medium tracking-wide">可分配餘額 (TWD)</h2>
                     <div className="mt-1 flex items-baseline gap-2">
                         <span className="text-3xl font-light tracking-tight text-slate-800">
                             {FORMAT_TWD.format(availableCapital)}
@@ -209,7 +211,7 @@ export const CapitalOverview = ({
                             </div>
                         )}
                         {/* 分市場未實現損益：可收合 */}
-                        {(taiwanUnrealizedPnL !== 0 || usUnrealizedPnLUSD !== 0) && (
+                        {(taiwanUnrealizedPnL !== 0 || usUnrealizedPnLUSD !== 0 || fundUnrealizedPnL !== 0) && (
                             <div className="mt-1">
                                 <button
                                     onClick={() => setShowMarketPnL(!showMarketPnL)}
@@ -251,6 +253,17 @@ export const CapitalOverview = ({
                                                 </div>
                                             </div>
                                         )}
+                                        {fundUnrealizedPnL !== 0 && (
+                                            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
+                                                <span className="text-clay shrink-0">基金未實現</span>
+                                                <span className={cn(
+                                                    "font-semibold tabular-nums",
+                                                    fundUnrealizedPnL > 0 ? "text-rust" : fundUnrealizedPnL < 0 ? "text-moss" : "text-clay"
+                                                )}>
+                                                    {fundUnrealizedPnL > 0 ? '+' : ''}{FORMAT_TWD.format(fundUnrealizedPnL)}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -288,7 +301,7 @@ export const CapitalOverview = ({
                 </div>
                 {showFundingHint && (
                     <p className="text-[10px] text-clay/70">
-                        已分配包含：台股/基金/美股帳戶與各軍團；未分配為主帳戶可再配置資金。
+                        可分配餘額 = 主資本總額 − 台股／基金軍團預算 − 美股帳戶 − 非軍團持倉 − 自訂類別。此數字與各市場入金池頁右上角一致。
                     </p>
                 )}
             </div>

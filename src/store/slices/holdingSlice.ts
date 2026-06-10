@@ -15,12 +15,15 @@ import {
     calculateUpdateImpact,
     type AccountingImpact 
 } from '../../utils/accounting';
+import { calculateFundingMetrics } from '../../utils/dashboardMetrics';
 
 export interface HoldingActions {
     addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
     removeTransaction: (id: string) => void;
     getAvailableCapital: () => number;
+    /** @deprecated 僅內部帳本；UI 請用 getIdleCapital */
     getGlobalFreeCapital: () => number;
+    getIdleCapital: () => number;
     getAssetTotals: () => Record<AssetType, number>;
     
     buyStock: (params: {
@@ -95,7 +98,8 @@ export const createHoldingSlice: StateCreator<
                 const twdAmount = payload.amount || 0;
                 if (payload.action === 'DEPOSIT') {
                     // 保護主帳戶：美股入金視為台幣主帳戶轉出，不可超過可分配餘額
-                    if (state.totalCapitalPool < twdAmount) return {};
+                    const idleCapital = get().getIdleCapital();
+                    if (twdAmount > idleCapital || state.totalCapitalPool < twdAmount) return {};
                     updates.usdAccountCash = usdBase + (payload.amountUSD || 0);
                     updates.usStockFundPool = usdBase + (payload.amountUSD || 0);
                     // 主帳戶可分配資金（totalCapitalPool）扣除轉出
@@ -191,6 +195,7 @@ export const createHoldingSlice: StateCreator<
         return available > 0 ? Math.round(available) : 0;
     },
 
+    /** @deprecated 僅內部帳本；UI 請用 getIdleCapital */
     getGlobalFreeCapital: () => {
         const state = get();
         const holdingsInGlobal = filterActive(state.holdings).filter(h => !h.poolId && h.type !== 'US_STOCK');
@@ -198,6 +203,22 @@ export const createHoldingSlice: StateCreator<
         const customTotal = state.getCustomCategoriesTotal();
         const globalFree = state.totalCapitalPool - totalInvestedGlobal - customTotal;
         return globalFree > 0 ? Math.round(globalFree) : 0;
+    },
+
+    getIdleCapital: () => {
+        const state = get();
+        return calculateFundingMetrics({
+            masterTwdTotal: state.masterTwdTotal,
+            capitalDeposits: state.capitalDeposits,
+            capitalWithdrawals: state.capitalWithdrawals,
+            totalCapitalPool: state.totalCapitalPool,
+            pools: state.pools,
+            usdAccountCash: state.usdAccountCash,
+            usStockFundPool: state.usStockFundPool,
+            exchangeRateUSD: state.exchangeRateUSD,
+            holdings: state.holdings,
+            customCategories: state.customCategories,
+        }).idleCapital;
     },
 
     buyStock: (params) => {

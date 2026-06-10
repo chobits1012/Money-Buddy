@@ -3,6 +3,7 @@ import {
     buildDashboardAllocationView,
     calculateAllocationMetrics,
     calculateFundingMetrics,
+    calculateGlobalIdleCapital,
     selectPoolBuckets,
 } from './dashboardMetrics';
 import type { AssetPool, CustomCategory, StockHolding } from '../types';
@@ -163,5 +164,82 @@ describe('dashboardMetrics', () => {
         expect(buckets.usdPools).toHaveLength(1);
         expect(buckets.twdAllocatedTotal).toBe(10);
         expect(buckets.usdAllocatedTotal).toBe(5);
+    });
+
+    it('idleCapital differs from globalFree when USD account is allocated', () => {
+        const pools: AssetPool[] = [
+            {
+                id: 'p-tw',
+                name: '台股軍團',
+                allocatedBudget: 4_000_000,
+                currentCash: 4_000_000,
+                type: 'TAIWAN_STOCK',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'p-fund',
+                name: '基金大軍',
+                allocatedBudget: 453_000,
+                currentCash: 453_000,
+                type: 'FUNDS',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ];
+
+        const input = {
+            masterTwdTotal: 5_678_660,
+            capitalDeposits: [],
+            capitalWithdrawals: [],
+            totalCapitalPool: 1_225_660,
+            pools,
+            usdAccountCash: 15_746.095238,
+            usStockFundPool: 15_746.095238,
+            exchangeRateUSD: 31.5,
+            holdings: [] as StockHolding[],
+            customCategories: emptyCustom,
+        };
+
+        const { idleCapital } = calculateFundingMetrics(input);
+        const globalFree = calculateGlobalIdleCapital(input.totalCapitalPool, input.holdings, input.customCategories);
+        const usdAccountTwd = Math.round(input.usdAccountCash * input.exchangeRateUSD);
+
+        expect(idleCapital).toBe(729_658);
+        expect(globalFree).toBe(1_225_660);
+        expect(globalFree - idleCapital).toBe(usdAccountTwd);
+    });
+
+    it('idleCapital equals globalFree when no USD account is allocated', () => {
+        const pools: AssetPool[] = [
+            {
+                id: 'p-tw',
+                name: '台股軍團',
+                allocatedBudget: 300_000,
+                currentCash: 300_000,
+                type: 'TAIWAN_STOCK',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ];
+
+        const input = {
+            masterTwdTotal: 1_000_000,
+            capitalDeposits: [],
+            capitalWithdrawals: [],
+            totalCapitalPool: 700_000,
+            pools,
+            usdAccountCash: 0,
+            usStockFundPool: 0,
+            exchangeRateUSD: 31,
+            holdings: [] as StockHolding[],
+            customCategories: emptyCustom,
+        };
+
+        const { idleCapital } = calculateFundingMetrics(input);
+        const globalFree = calculateGlobalIdleCapital(input.totalCapitalPool, input.holdings, input.customCategories);
+
+        expect(idleCapital).toBe(700_000);
+        expect(globalFree).toBe(idleCapital);
     });
 });
