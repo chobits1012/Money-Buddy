@@ -144,8 +144,12 @@ export interface CapitalState {
 export interface HoldingState {
     transactions: Transaction[];
     holdings: StockHolding[];
-    customCategories: CustomCategory[];
     isConfigured: boolean;
+}
+
+// 自訂欄位狀態
+export interface CustomCategoryState {
+    customCategories: CustomCategory[];
 }
 
 // 同步狀態
@@ -157,7 +161,7 @@ export interface SyncState {
     pendingUpload?: boolean;
 }
 
-export interface PortfolioState extends CapitalState, HoldingState, SyncState {}
+export interface PortfolioState extends CapitalState, HoldingState, CustomCategoryState, SyncState {}
 
 export interface CapitalActions {
     setCapitalPool: (amount: number) => void;
@@ -216,6 +220,9 @@ export interface HoldingActions {
     }) => void;
     fetchQuotesForHoldings: () => Promise<void>;
     fetchFundNavForHoldings: () => Promise<void>;
+}
+
+export interface CustomCategoryActions {
     addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
     updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
     removeCustomCategory: (id: string) => void;
@@ -229,7 +236,7 @@ export interface SyncActions {
     restoreFromSnapshot: () => boolean;
 }
 
-export interface PortfolioActions extends CapitalActions, HoldingActions, SyncActions {
+export interface PortfolioActions extends CapitalActions, HoldingActions, CustomCategoryActions, SyncActions {
     isLoadingQuotes: boolean;
     resetAll: () => void;
 }

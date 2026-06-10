@@ -5,8 +5,7 @@ import type {
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
 import { isActive, filterActive } from '../../utils/entityActive';
-import { fetchFundNavQuotes, resolveFundNavTarget, type FundNavTarget } from '../../utils/fundNav';
-import { DEFAULT_EXCHANGE_RATE_EUR, DEFAULT_EXCHANGE_RATE_USD, fetchLiveExchangeRates } from '../../utils/exchangeRates';
+import { applyFundNavQuotesToHoldings, refreshFundNavData } from '../../services/fundNavService';
 import { 
     calculateTransactionImpact, 
     calculateNewHoldingImpact, 
@@ -16,6 +15,12 @@ import {
     type AccountingImpact 
 } from '../../utils/accounting';
 import { calculateFundingMetrics } from '../../utils/dashboardMetrics';
+import { applyAccountingImpact } from '../../utils/applyAccountingImpact';
+import {
+    applyStockQuotesToHoldings,
+    fetchStockQuotes,
+    toYahooQuoteSymbols,
+} from '../../services/quoteService';
 
 export interface HoldingActions {
     addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
@@ -61,11 +66,6 @@ export interface HoldingActions {
     }) => void;
     fetchQuotesForHoldings: () => Promise<void>;
     fetchFundNavForHoldings: () => Promise<void>;
-
-    addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
-    updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
-    removeCustomCategory: (id: string) => void;
-    getCustomCategoriesTotal: () => number;
 }
 
 export type HoldingSlice = HoldingState & HoldingActions;
@@ -78,7 +78,6 @@ export const createHoldingSlice: StateCreator<
 > = (set, get) => ({
     transactions: [],
     holdings: [],
-    customCategories: [],
     isConfigured: false,
 
     addTransaction: (payload) => {
@@ -253,29 +252,12 @@ export const createHoldingSlice: StateCreator<
                 updatedHoldings.push(impact.updatedHolding);
             }
 
-            const { cashDeltaTWD, cashDeltaUSD, pnlDeltaTWD, pnlDeltaUSD } = impact;
-
-            return { 
+            return {
                 holdings: updatedHoldings,
-                // 如果指定了 Pool，或是美股（美股有獨立的 usStockFundPool），則不影響全域本金池
-                // 否則，將損益變動 (pnlDelta) 回流至全域資產池
-                totalCapitalPool: (params.poolId || params.type === 'US_STOCK') 
-                    ? state.totalCapitalPool 
-                    : state.totalCapitalPool + pnlDeltaTWD,
-                
-                // 美股資金池：增加/減少現金變動 (cashDelta) 以及 損益變動 (pnlDelta)
-                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                
-                // 入金池連動
-                pools: params.poolId ? state.pools.map(p => p.id === params.poolId ? { 
-                    ...p, 
-                    // 分配預算 (allocatedBudget) 應隨損益變動 (pnlDelta) 增減 (複利效應)
-                    allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
-                    // 剩餘現金 (currentCash) 隨實際交易金額 (cashDelta) 增減
-                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
-                    updatedAt: new Date().toISOString()
-                } : p) : state.pools,
+                ...applyAccountingImpact(state, impact, {
+                    poolId: params.poolId,
+                    assetType: params.type,
+                }),
             };
         });
     },
@@ -306,21 +288,13 @@ export const createHoldingSlice: StateCreator<
                 updatedHoldings[holdingIndex] = updatedHolding;
             }
 
-            return { 
+            return {
                 holdings: updatedHoldings,
-                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
-                    ? state.totalCapitalPool 
-                    : state.totalCapitalPool + pnlDeltaTWD,
-                
-                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                
-                pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
-                    ...p, 
-                    allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
-                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
-                    updatedAt: new Date().toISOString()
-                } : p) : state.pools,
+                ...applyAccountingImpact(
+                    state,
+                    { cashDeltaTWD, cashDeltaUSD, pnlDeltaTWD, pnlDeltaUSD },
+                    { poolId: holding.poolId, assetType: holding.type },
+                ),
             };
         });
     },
@@ -371,19 +345,11 @@ export const createHoldingSlice: StateCreator<
                 holdings: state.holdings.map((h) =>
                     h.id === id ? { ...h, deletedAt: now, updatedAt: now } : h
                 ),
-                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
-                    ? state.totalCapitalPool 
-                    : state.totalCapitalPool + pnlDeltaTWD,
-                
-                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                
-                pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
-                    ...p, 
-                    allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
-                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
-                    updatedAt: now,
-                } : p) : state.pools,
+                ...applyAccountingImpact(
+                    state,
+                    { cashDeltaTWD, cashDeltaUSD, pnlDeltaTWD, pnlDeltaUSD },
+                    { poolId: holding.poolId, assetType: holding.type, updatedAt: now },
+                ),
             };
         });
     },
@@ -413,64 +379,21 @@ export const createHoldingSlice: StateCreator<
 
             const updatedHoldings = state.holdings.map(h => h.id === holdingId ? updatedHolding : h);
 
-            return { 
+            return {
                 holdings: updatedHoldings,
-                totalCapitalPool: (holding.poolId || holding.type === 'US_STOCK') 
-                    ? state.totalCapitalPool 
-                    : state.totalCapitalPool + pnlDeltaTWD,
-                
-                usdAccountCash: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                usStockFundPool: Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0) + pnlDeltaUSD,
-                
-                pools: holding.poolId ? state.pools.map(p => p.id === holding.poolId ? { 
-                    ...p, 
-                    allocatedBudget: p.allocatedBudget + (p.type === 'US_STOCK' ? pnlDeltaUSD : pnlDeltaTWD),
-                    currentCash: p.currentCash + (p.type === 'US_STOCK' ? cashDeltaUSD : cashDeltaTWD),
-                    updatedAt: new Date().toISOString()
-                } : p) : state.pools,
+                ...applyAccountingImpact(
+                    state,
+                    { cashDeltaTWD, cashDeltaUSD, pnlDeltaTWD, pnlDeltaUSD },
+                    { poolId: holding.poolId, assetType: holding.type },
+                ),
             };
         });
-    },
-
-    addCustomCategory: (params) => {
-        const now = new Date().toISOString();
-        set((state) => ({
-            customCategories: [...state.customCategories, {
-                id: crypto.randomUUID(),
-                name: params.name.trim(),
-                amount: params.amount,
-                note: params.note,
-                createdAt: now,
-                updatedAt: now,
-            }],
-        }));
-    },
-
-    updateCustomCategory: (id, updates) => {
-        set((state) => ({
-            customCategories: state.customCategories.map((c) =>
-                c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
-            ),
-        }));
-    },
-
-    removeCustomCategory: (id) => {
-        const now = new Date().toISOString();
-        set((state) => ({
-            customCategories: state.customCategories.map((c) =>
-                c.id === id ? { ...c, deletedAt: now, updatedAt: now } : c
-            ),
-        }));
-    },
-
-    getCustomCategoriesTotal: () => {
-        return filterActive(get().customCategories).reduce((sum, c) => sum + c.amount, 0);
     },
 
     fetchQuotesForHoldings: async () => {
         const state = get();
         const targetHoldings = filterActive(state.holdings).filter(
-            h => (h.type === 'TAIWAN_STOCK' || h.type === 'US_STOCK') && h.symbol
+            (h) => (h.type === 'TAIWAN_STOCK' || h.type === 'US_STOCK') && h.symbol,
         );
 
         if (targetHoldings.length === 0) return;
@@ -478,26 +401,11 @@ export const createHoldingSlice: StateCreator<
         set({ isLoadingQuotes: true } as any);
 
         try {
-            const symbols = [...new Set(targetHoldings.map(h => h.type === 'TAIWAN_STOCK' && !h.symbol!.includes('.') ? `${h.symbol}.TW` : h.symbol!))];
-            const res = await fetch(`/api/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
-            if (!res.ok) throw new Error('Failed to fetch quotes');
-            
-            const quotes = await res.json();
-            const quoteMap: Record<string, number> = {};
-            quotes.forEach((q: any) => {
-                quoteMap[q.symbol] = q.price;
-                if (q.symbol.endsWith('.TW')) {
-                    quoteMap[q.symbol.replace('.TW', '')] = q.price;
-                }
-            });
-
-            set((state) => {
-                const updated = state.holdings.map(h => {
-                    if (h.deletedAt || !h.symbol || !quoteMap[h.symbol]) return h;
-                    return recalcHolding({ ...h, currentPrice: quoteMap[h.symbol] } as any);
-                });
-                return { holdings: updated, isLoadingQuotes: false } as any;
-            });
+            const quoteMap = await fetchStockQuotes(toYahooQuoteSymbols(targetHoldings));
+            set((current) => ({
+                holdings: applyStockQuotesToHoldings(current.holdings, quoteMap),
+                isLoadingQuotes: false,
+            } as any));
         } catch (error) {
             console.error('Failed to update quotes:', error);
             set({ isLoadingQuotes: false } as any);
@@ -509,70 +417,24 @@ export const createHoldingSlice: StateCreator<
         const targetHoldings = filterActive(state.holdings).filter((h) => h.type === 'FUNDS');
         if (targetHoldings.length === 0) return;
 
-        const targetByHoldingId = new Map<string, FundNavTarget>();
-        for (const holding of targetHoldings) {
-            const target = resolveFundNavTarget(holding.symbol, holding.name);
-            if (target) targetByHoldingId.set(holding.id, target);
-        }
-
-        if (targetByHoldingId.size === 0) return;
-
         try {
-            const liveRates = await fetchLiveExchangeRates();
-            const rateUpdates: { exchangeRateUSD?: number; exchangeRateEUR?: number } = {};
-            if (liveRates.usd) rateUpdates.exchangeRateUSD = liveRates.usd;
-            if (liveRates.eur) rateUpdates.exchangeRateEUR = liveRates.eur;
+            const result = await refreshFundNavData(targetHoldings);
+            if (!result || result.quotes.length === 0) return;
+
+            const { targetByHoldingId, quotes, rateUpdates } = result;
             if (Object.keys(rateUpdates).length > 0) {
                 set(rateUpdates);
             }
 
-            const uniqueTargets = [...new Map(
-                [...targetByHoldingId.values()].map((t) => [`${t.fundCode}:${t.navScope}`, t] as const),
-            ).values()];
-            const quotes = await fetchFundNavQuotes(uniqueTargets);
-            if (quotes.length === 0) return;
-
-            const quoteMap = new Map(quotes.map((q) => [q.fundCode, q] as const));
             const { exchangeRateUSD, exchangeRateEUR } = get();
-            const usdRate = exchangeRateUSD > 0 ? exchangeRateUSD : DEFAULT_EXCHANGE_RATE_USD;
-            const eurRate = exchangeRateEUR > 0 ? exchangeRateEUR : DEFAULT_EXCHANGE_RATE_EUR;
-
             set((current) => ({
-                holdings: current.holdings.map((holding) => {
-                    const target = targetByHoldingId.get(holding.id);
-                    if (!target) return holding;
-
-                    const quote = quoteMap.get(target.fundCode);
-                    if (!quote) return holding;
-
-                    if (quote.currency === 'USD') {
-                        return recalcHolding({
-                            ...holding,
-                            currentPriceUSD: quote.nav,
-                            currentPriceEUR: undefined,
-                            currentPrice: Math.round(quote.nav * usdRate * 100) / 100,
-                            currentPriceDate: quote.navDate,
-                        });
-                    }
-
-                    if (quote.currency === 'EUR') {
-                        return recalcHolding({
-                            ...holding,
-                            currentPriceUSD: undefined,
-                            currentPriceEUR: quote.nav,
-                            currentPrice: Math.round(quote.nav * eurRate * 100) / 100,
-                            currentPriceDate: quote.navDate,
-                        });
-                    }
-
-                    return recalcHolding({
-                        ...holding,
-                        currentPriceUSD: undefined,
-                        currentPriceEUR: undefined,
-                        currentPrice: quote.nav,
-                        currentPriceDate: quote.navDate,
-                    });
-                }),
+                holdings: applyFundNavQuotesToHoldings(
+                    current.holdings,
+                    targetByHoldingId,
+                    quotes,
+                    exchangeRateUSD,
+                    exchangeRateEUR,
+                ),
             }));
         } catch (error) {
             console.error('Failed to update fund NAV:', error);

@@ -8,7 +8,7 @@ import { Button } from '../ui/Button';
 import { BuyStockDrawer } from './HoldingFormDrawer';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { cn } from '../../utils/cn';
-import { CapitalPools } from "../dashboard/CapitalPools";
+import { CapitalPools } from "../pools/CapitalPools";
 import { FundTransferDrawer } from './FundTransferDrawer';
 import { AddPoolModal } from './AddPoolModal';
 import { UnassignedHoldings } from './UnassignedHoldings';

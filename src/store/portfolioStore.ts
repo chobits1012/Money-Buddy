@@ -7,12 +7,14 @@ import { createHoldingSlice } from './slices/holdingSlice';
 import type { HoldingActions } from './slices/holdingSlice';
 import { createSyncSlice } from './slices/syncSlice';
 import type { SyncActions } from './slices/syncSlice';
+import { createCustomCategorySlice } from './slices/customCategorySlice';
+import type { CustomCategoryActions } from './slices/customCategorySlice';
 import { encryptedLocalStorage } from '../utils/storageEncryption';
 import { getPersistStorageKey } from '../utils/persistUserStorage';
 import { reconcilePortfolioState } from '../utils/reconcilePortfolioState';
 
 // Combined Store Interface
-interface PortfolioStore extends PortfolioState, CapitalActions, HoldingActions, SyncActions {
+interface PortfolioStore extends PortfolioState, CapitalActions, HoldingActions, CustomCategoryActions, SyncActions {
     isLoadingQuotes: boolean;
     resetAll: () => void;
 }
@@ -29,6 +31,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
         (set, get, api) => ({
             ...createCapitalSlice(set, get, api),
             ...createHoldingSlice(set, get, api),
+            ...createCustomCategorySlice(set, get, api),
             ...createSyncSlice(set, get, api),
             
             isLoadingQuotes: false,
