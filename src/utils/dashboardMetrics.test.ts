@@ -213,11 +213,12 @@ describe('dashboardMetrics', () => {
             transactions: [makeUsStockDeposit(usdDepositTwd, 15_746.095238, 31.5)],
         };
 
-        const atRate31 = calculateFundingMetrics({ ...baseInput, exchangeRateUSD: 31.5 });
-        const atRate35 = calculateFundingMetrics({ ...baseInput, exchangeRateUSD: 35 });
+        const atRate31 = buildDashboardAllocationView({ ...baseInput, exchangeRateUSD: 31.5 });
+        const atRate35 = buildDashboardAllocationView({ ...baseInput, exchangeRateUSD: 35 });
 
         expect(atRate31.idleCapital).toBe(729_658);
         expect(atRate35.idleCapital).toBe(729_658);
+        expect(atRate31.assetTotals.US_STOCK).not.toBe(atRate35.assetTotals.US_STOCK);
     });
 
     it('idleCapital equals globalFree when USD deposit reduced totalCapitalPool', () => {

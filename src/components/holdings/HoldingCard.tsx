@@ -234,18 +234,22 @@ export const HoldingCard = ({
                                             {purchase.shares.toLocaleString()} {isFund ? '單位' : '股'} @ {isUSStock ? `$${purchase.pricePerShare}` : `$${purchase.pricePerShare}`}
                                         </p>
                                     </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex gap-1 shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                         <button
                                             onClick={() => onEditPurchase(holding.id, holding.name, purchase)}
-                                            className="p-1.5 text-clay hover:text-primary transition-colors"
+                                            className="p-1.5 rounded-lg text-clay/60 hover:text-primary hover:bg-primary/10 transition-all"
+                                            title="編輯"
+                                            aria-label="編輯紀錄"
                                         >
-                                            <span className="material-symbols-outlined text-sm">edit</span>
+                                            <span className="material-symbols-outlined text-lg">edit</span>
                                         </button>
                                         <button
                                             onClick={() => onRemovePurchase(holding.id, purchase)}
-                                            className="p-1.5 text-clay hover:text-rust transition-colors"
+                                            className="p-1.5 rounded-lg text-clay/60 hover:text-rust hover:bg-rust/10 transition-all"
+                                            title="刪除"
+                                            aria-label="刪除紀錄"
                                         >
-                                            <span className="material-symbols-outlined text-sm">delete</span>
+                                            <span className="material-symbols-outlined text-lg">delete</span>
                                         </button>
                                     </div>
                                 </div>
