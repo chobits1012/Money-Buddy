@@ -4,10 +4,11 @@ import {
     calculateAllocationMetrics,
     calculateFundingMetrics,
     calculateGlobalIdleCapital,
+    calculateUsdAllocatedTwdBasis,
     selectPoolBuckets,
     summarizePortfolioPnL,
 } from './dashboardMetrics';
-import type { AssetPool, CustomCategory, StockHolding } from '../types';
+import type { AssetPool, CustomCategory, StockHolding, Transaction } from '../types';
 
 const makeHolding = (overrides: Partial<StockHolding>): StockHolding => ({
     id: 'h-1',
@@ -20,6 +21,17 @@ const makeHolding = (overrides: Partial<StockHolding>): StockHolding => ({
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
+});
+
+const makeUsStockDeposit = (amountTwd: number, amountUSD: number, exchangeRate: number): Transaction => ({
+    id: 'tx-us-deposit',
+    type: 'US_STOCK',
+    action: 'DEPOSIT',
+    amount: amountTwd,
+    amountUSD,
+    exchangeRate,
+    date: '2026-01-01T00:00:00.000Z',
+    note: '',
 });
 
 const emptyCustom: CustomCategory[] = [];
@@ -42,11 +54,9 @@ describe('dashboardMetrics', () => {
             capitalWithdrawals: [],
             totalCapitalPool: 1000,
             pools: [],
-            usdAccountCash: 0,
-            usStockFundPool: 0,
-            exchangeRateUSD: 31,
             holdings,
             customCategories: custom,
+            transactions: [],
         });
 
         expect(metrics.idleCapital).toBe(700);
@@ -54,7 +64,8 @@ describe('dashboardMetrics', () => {
         expect(metrics.allocatedPercentage).toBeCloseTo(30, 4);
     });
 
-    it('subtracts USD account allocation from idle capital', () => {
+    it('subtracts fixed USD deposit TWD basis from idle capital', () => {
+        const usdDepositTwd = 493_807;
         const pools: AssetPool[] = [
             {
                 id: 'p-tw',
@@ -71,25 +82,24 @@ describe('dashboardMetrics', () => {
             masterTwdTotal: 5_678_660,
             capitalDeposits: [],
             capitalWithdrawals: [],
-            totalCapitalPool: 1_678_660,
+            totalCapitalPool: 1_184_853,
             pools,
             usdAccountCash: 15_676.41,
             usStockFundPool: 15_676.41,
             exchangeRateUSD: 31.5,
             holdings: [] as StockHolding[],
             customCategories: emptyCustom,
+            transactions: [makeUsStockDeposit(usdDepositTwd, 15_676.41, 31.5)],
         };
 
         const metrics = calculateFundingMetrics(input);
         const view = buildDashboardAllocationView(input);
 
-        // 5,678,660 - 4,000,000 - round(15,676.41 * 31.5 = 493,807)
         expect(metrics.idleCapital).toBe(1_184_853);
         expect(metrics.allocatedCapital).toBe(4_493_807);
         expect(view.idleCapital).toBe(metrics.idleCapital);
         expect(view.masterCapitalTotal).toBe(metrics.masterCapitalTotal);
 
-        // 圓餅：assetTotals + 自訂 + 閒置（來自同一包 buildDashboardAllocationView）= 主資本
         const pieAssetSum =
             view.assetTotals.TAIWAN_STOCK +
             view.assetTotals.US_STOCK +
@@ -167,7 +177,51 @@ describe('dashboardMetrics', () => {
         expect(buckets.usdAllocatedTotal).toBe(5);
     });
 
-    it('idleCapital differs from globalFree when USD account is allocated', () => {
+    it('idleCapital is stable when exchange rate changes', () => {
+        const usdDepositTwd = 496_002;
+        const pools: AssetPool[] = [
+            {
+                id: 'p-tw',
+                name: '台股軍團',
+                allocatedBudget: 4_000_000,
+                currentCash: 4_000_000,
+                type: 'TAIWAN_STOCK',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'p-fund',
+                name: '基金大軍',
+                allocatedBudget: 453_000,
+                currentCash: 453_000,
+                type: 'FUNDS',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ];
+
+        const baseInput = {
+            masterTwdTotal: 5_678_660,
+            capitalDeposits: [],
+            capitalWithdrawals: [],
+            totalCapitalPool: 729_658,
+            pools,
+            usdAccountCash: 15_746.095238,
+            usStockFundPool: 15_746.095238,
+            holdings: [] as StockHolding[],
+            customCategories: emptyCustom,
+            transactions: [makeUsStockDeposit(usdDepositTwd, 15_746.095238, 31.5)],
+        };
+
+        const atRate31 = calculateFundingMetrics({ ...baseInput, exchangeRateUSD: 31.5 });
+        const atRate35 = calculateFundingMetrics({ ...baseInput, exchangeRateUSD: 35 });
+
+        expect(atRate31.idleCapital).toBe(729_658);
+        expect(atRate35.idleCapital).toBe(729_658);
+    });
+
+    it('idleCapital equals globalFree when USD deposit reduced totalCapitalPool', () => {
+        const usdDepositTwd = 496_002;
         const pools: AssetPool[] = [
             {
                 id: 'p-tw',
@@ -193,22 +247,21 @@ describe('dashboardMetrics', () => {
             masterTwdTotal: 5_678_660,
             capitalDeposits: [],
             capitalWithdrawals: [],
-            totalCapitalPool: 1_225_660,
+            totalCapitalPool: 729_658,
             pools,
             usdAccountCash: 15_746.095238,
             usStockFundPool: 15_746.095238,
             exchangeRateUSD: 31.5,
             holdings: [] as StockHolding[],
             customCategories: emptyCustom,
+            transactions: [makeUsStockDeposit(usdDepositTwd, 15_746.095238, 31.5)],
         };
 
         const { idleCapital } = calculateFundingMetrics(input);
         const globalFree = calculateGlobalIdleCapital(input.totalCapitalPool, input.holdings, input.customCategories);
-        const usdAccountTwd = Math.round(input.usdAccountCash * input.exchangeRateUSD);
 
         expect(idleCapital).toBe(729_658);
-        expect(globalFree).toBe(1_225_660);
-        expect(globalFree - idleCapital).toBe(usdAccountTwd);
+        expect(globalFree).toBe(idleCapital);
     });
 
     it('idleCapital equals globalFree when no USD account is allocated', () => {
@@ -235,6 +288,7 @@ describe('dashboardMetrics', () => {
             exchangeRateUSD: 31,
             holdings: [] as StockHolding[],
             customCategories: emptyCustom,
+            transactions: [],
         };
 
         const { idleCapital } = calculateFundingMetrics(input);
@@ -242,6 +296,24 @@ describe('dashboardMetrics', () => {
 
         expect(idleCapital).toBe(700_000);
         expect(globalFree).toBe(idleCapital);
+    });
+
+    it('calculateUsdAllocatedTwdBasis nets deposits and withdrawals', () => {
+        const transactions: Transaction[] = [
+            makeUsStockDeposit(500_000, 15_000, 33.33),
+            {
+                id: 'tx-us-withdraw',
+                type: 'US_STOCK',
+                action: 'WITHDRAWAL',
+                amount: 100_000,
+                amountUSD: 3_000,
+                exchangeRate: 33.33,
+                date: '2026-02-01T00:00:00.000Z',
+                note: '',
+            },
+        ];
+
+        expect(calculateUsdAllocatedTwdBasis(transactions)).toBe(400_000);
     });
 
     it('summarizePortfolioPnL：美股換算 TWD、台股與基金維持 TWD', () => {

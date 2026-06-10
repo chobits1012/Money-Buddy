@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { create } from 'zustand';
 import { createCapitalSlice } from './capitalSlice';
 import { createHoldingSlice } from './holdingSlice';
-import type { AssetPool } from '../../types';
+import type { AssetPool, Transaction } from '../../types';
 
 function createTestStore(initial: {
     masterTwdTotal: number;
@@ -11,6 +11,7 @@ function createTestStore(initial: {
     usdAccountCash?: number;
     usStockFundPool?: number;
     exchangeRateUSD?: number;
+    transactions?: Transaction[];
 }) {
     return create<ReturnType<typeof createCapitalSlice> & ReturnType<typeof createHoldingSlice>>()(
         (set, get, api) => ({
@@ -26,7 +27,7 @@ function createTestStore(initial: {
             usStockFundPool: initial.usStockFundPool ?? 0,
             exchangeRateUSD: initial.exchangeRateUSD ?? 31.5,
             exchangeRateEUR: 34.5,
-            transactions: [],
+            transactions: initial.transactions ?? [],
             holdings: [],
             customCategories: [],
             isConfigured: true,
@@ -59,11 +60,21 @@ describe('allocateToPool idleCapital guard', () => {
 
         const store = createTestStore({
             masterTwdTotal: 5_678_660,
-            totalCapitalPool: 1_225_660,
+            totalCapitalPool: 729_658,
             pools,
             usdAccountCash: 15_746.095238,
             usStockFundPool: 15_746.095238,
             exchangeRateUSD: 31.5,
+            transactions: [{
+                id: 'tx-us',
+                type: 'US_STOCK',
+                action: 'DEPOSIT',
+                amount: 496_002,
+                amountUSD: 15_746.095238,
+                exchangeRate: 31.5,
+                date: '2026-01-01T00:00:00.000Z',
+                note: '',
+            }],
         });
 
         const before = store.getState();
@@ -73,6 +84,6 @@ describe('allocateToPool idleCapital guard', () => {
 
         const after = store.getState();
         expect(after.pools.find((p) => p.id === 'p-fund')?.allocatedBudget).toBe(453_000);
-        expect(after.totalCapitalPool).toBe(1_225_660);
+        expect(after.totalCapitalPool).toBe(729_658);
     });
 });

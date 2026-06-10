@@ -15,6 +15,7 @@ export const AllocationChart = () => {
         holdings,
         pools,
         customCategories: rawCustomCategories,
+        transactions,
     } = usePortfolioStore();
 
     const { assetTotals, customCategories, idleCapital } = buildDashboardAllocationView({
@@ -28,6 +29,7 @@ export const AllocationChart = () => {
         holdings,
         pools,
         customCategories: rawCustomCategories,
+        transactions,
     });
 
     // 固定資產類別

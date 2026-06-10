@@ -5,6 +5,7 @@ import type {
     CapitalWithdrawal,
     CustomCategory,
     StockHolding,
+    Transaction,
 } from '../types';
 import { filterActive } from './entityActive';
 
@@ -19,6 +20,7 @@ interface DashboardMetricsInput {
     holdings: StockHolding[];
     pools: AssetPool[];
     customCategories: CustomCategory[];
+    transactions?: Transaction[];
 }
 
 interface PoolSplitView {
@@ -152,16 +154,26 @@ export const calculateGlobalIdleCapital = (
     return clampNonNegative(Math.round(globalFree));
 };
 
+/** 美股主帳撥入／提領的固定台幣成本（撥入當下記錄，不隨匯率變動） */
+export const calculateUsdAllocatedTwdBasis = (transactions: Transaction[] | undefined): number => {
+    const usTx = filterActive(transactions ?? []).filter((tx) => tx.type === 'US_STOCK');
+    return clampNonNegative(Math.round(
+        usTx.reduce((sum, tx) => {
+            if (tx.action === 'DEPOSIT') return sum + (tx.amount || 0);
+            if (tx.action === 'WITHDRAWAL') return sum - (tx.amount || 0);
+            return sum;
+        }, 0),
+    ));
+};
+
 export const calculateFundingMetrics = ({
     masterTwdTotal: masterTwdTotalFromState,
     capitalDeposits: rawDeposits,
     capitalWithdrawals: rawWithdrawals,
     pools: rawPools,
-    usdAccountCash,
-    usStockFundPool,
-    exchangeRateUSD,
     holdings: rawHoldings,
     customCategories: rawCustom,
+    transactions: rawTransactions,
 }: Pick<
     DashboardMetricsInput,
     | 'masterTwdTotal'
@@ -169,11 +181,9 @@ export const calculateFundingMetrics = ({
     | 'capitalWithdrawals'
     | 'totalCapitalPool'
     | 'pools'
-    | 'usdAccountCash'
-    | 'usStockFundPool'
-    | 'exchangeRateUSD'
     | 'holdings'
     | 'customCategories'
+    | 'transactions'
 >): FundingMetrics => {
     const pools = filterActive(rawPools);
     const holdings = filterActive(rawHoldings);
@@ -189,9 +199,9 @@ export const calculateFundingMetrics = ({
         .filter((h) => !h.poolId && h.type !== 'US_STOCK')
         .reduce((sum, h) => sum + h.totalAmount, 0);
     const customTotal = customCategories.reduce((sum, c) => sum + c.amount, 0);
-    const usdAccountTwd = Math.round(pickUsdBase(usdAccountCash, usStockFundPool) * exchangeRateUSD);
+    const usdAllocatedTwdBasis = calculateUsdAllocatedTwdBasis(rawTransactions);
     const allocatedCapital = clampNonNegative(
-        Math.round(twdAllocatedTotal + directGlobalTwdInvested + customTotal + usdAccountTwd),
+        Math.round(twdAllocatedTotal + directGlobalTwdInvested + customTotal + usdAllocatedTwdBasis),
     );
     const idleCapital = clampNonNegative(masterCapitalTotal - allocatedCapital);
     const allocatedPercentage = masterCapitalTotal > 0
@@ -294,11 +304,9 @@ export function buildDashboardAllocationView(
         capitalWithdrawals: input.capitalWithdrawals,
         totalCapitalPool: input.totalCapitalPool,
         pools: input.pools,
-        usdAccountCash: input.usdAccountCash,
-        usStockFundPool: input.usStockFundPool,
-        exchangeRateUSD: input.exchangeRateUSD,
         holdings: input.holdings,
         customCategories: input.customCategories,
+        transactions: input.transactions,
     });
     const { assetTotals, customCategories } = calculateAllocationMetrics(input);
     return {

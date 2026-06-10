@@ -85,6 +85,7 @@ export async function buildPortfolioReportWorkbook(state: PortfolioState): Promi
         exchangeRateUSD: state.exchangeRateUSD,
         holdings: state.holdings,
         customCategories: state.customCategories,
+        transactions: state.transactions,
     });
 
     const master = view.masterCapitalTotal;

@@ -15,6 +15,7 @@ export function useDashboardViewModel() {
     const customCategories = usePortfolioStore((state) => state.customCategories);
     const capitalDeposits = usePortfolioStore((state) => state.capitalDeposits);
     const capitalWithdrawals = usePortfolioStore((state) => state.capitalWithdrawals);
+    const transactions = usePortfolioStore((state) => state.transactions);
     const isLoadingQuotes = usePortfolioStore((state) => state.isLoadingQuotes);
 
     const { idleCapital, masterCapitalTotal } = useMemo(
@@ -30,6 +31,7 @@ export function useDashboardViewModel() {
                 exchangeRateUSD,
                 holdings,
                 customCategories,
+                transactions,
             }),
         [
             masterTwdTotal,
@@ -42,6 +44,7 @@ export function useDashboardViewModel() {
             exchangeRateUSD,
             holdings,
             customCategories,
+            transactions,
         ],
     );
 

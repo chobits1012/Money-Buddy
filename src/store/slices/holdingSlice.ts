@@ -212,11 +212,9 @@ export const createHoldingSlice: StateCreator<
             capitalWithdrawals: state.capitalWithdrawals,
             totalCapitalPool: state.totalCapitalPool,
             pools: state.pools,
-            usdAccountCash: state.usdAccountCash,
-            usStockFundPool: state.usStockFundPool,
-            exchangeRateUSD: state.exchangeRateUSD,
             holdings: state.holdings,
             customCategories: state.customCategories,
+            transactions: state.transactions,
         }).idleCapital;
     },
 
