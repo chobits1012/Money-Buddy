@@ -14,6 +14,8 @@ import { AddPoolModal } from './AddPoolModal';
 import { UnassignedHoldings } from './UnassignedHoldings';
 import { HoldingCard } from './HoldingCard';
 import { filterActive } from '../../utils/entityActive';
+import { summarizePoolReturn } from '../../utils/poolReturnMetrics';
+import { PoolReturnDisplay } from '../ui/PoolReturnDisplay';
 
 interface HoldingsPageProps {
     type: StockAssetType;
@@ -88,6 +90,11 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const usAccountTotalUSD = Math.max(usdAccountCash || 0, usStockFundPool || 0);
 
     const usStockAvailable = getUsStockAvailableCapital();
+
+    const activePoolReturn = activePoolId && currentPool
+        ? summarizePoolReturn(allHoldingsOfType, activePoolId, currentPool.name, type)
+        : null;
+    const unassignedReturn = summarizePoolReturn(allHoldingsOfType, null, '未歸屬標的', type);
 
     const handleEdit = (holdingId: string, holdingName: string, purchase: PurchaseRecord) => {
         setEditingPurchase(purchase);
@@ -220,39 +227,34 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                 </Card>
             )}
 
-            {/* 台股／其他市場摘要（僅進入軍團後顯示） */}
-            {activePoolId && !isUSStock && (
+            {/* 軍團內持倉摘要（台股／基金／美股） */}
+            {activePoolId && currentPool && activePoolReturn && (
                 <Card className="relative overflow-hidden">
-                    <div className="absolute -top-16 -right-16 w-32 h-32 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
-                    <div className="flex justify-between items-center z-10 relative">
+                    <div className={cn(
+                        "absolute -top-16 -right-16 w-32 h-32 rounded-full blur-3xl pointer-events-none",
+                        isUSStock ? "bg-rust/8" : "bg-primary/8",
+                    )} />
+                    <div className="flex justify-between items-start gap-4 z-10 relative">
                         <div>
-                            <p className="text-clay text-xs font-medium tracking-wide uppercase">總投入金額 (NT)</p>
-                            <p className="text-2xl font-light text-slate-800 mt-0.5">
-                                {FORMAT_TWD.format(filteredHoldings.reduce((sum, h) => sum + h.totalAmount, 0))}
+                            <p className="text-clay text-xs font-medium tracking-wide uppercase">
+                                標的投入成本 {isUSStock ? '(USD)' : '(NT)'}
+                            </p>
+                            <p className="text-2xl font-light text-slate-800 mt-0.5 tabular-nums">
+                                {isUSStock
+                                    ? `$${activePoolReturn.costBasis.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                    : FORMAT_TWD.format(activePoolReturn.costBasis)}
                             </p>
                         </div>
-                        <div className="flex flex-col items-end gap-1 text-clay">
+                        <div className="flex flex-col items-end gap-2 text-clay shrink-0">
                             <div className="flex items-center gap-2">
                                 <span className="material-symbols-outlined text-xl">bar_chart</span>
-                                <span className="text-sm font-medium">{filteredHoldings.length} 檔</span>
+                                <span className="text-sm font-medium">{activePoolReturn.holdingCount} 檔</span>
                             </div>
-                            <p className="text-[11px]">
-                                未實現損益:{' '}
-                                {(() => {
-                                    const totalU = filteredHoldings.reduce(
-                                        (sum, h) => sum + (h.unrealizedPnL || 0),
-                                        0
-                                    );
-                                    const cls =
-                                        totalU > 0 ? 'text-rust' : totalU < 0 ? 'text-moss' : 'text-clay';
-                                    return (
-                                        <span className={cn('font-semibold', cls)}>
-                                            {totalU > 0 ? '+' : ''}
-                                            {FORMAT_TWD.format(totalU)}
-                                        </span>
-                                    );
-                                })()}
-                            </p>
+                            <PoolReturnDisplay
+                                metrics={activePoolReturn}
+                                exchangeRateUSD={exchangeRateUSD}
+                                className="items-end text-right"
+                            />
                         </div>
                     </div>
                 </Card>
@@ -272,7 +274,9 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                     </Button>
 
                     <UnassignedHoldings 
-                        holdings={unassignedHoldings} 
+                        holdings={unassignedHoldings}
+                        returnMetrics={unassignedReturn.holdingCount > 0 ? unassignedReturn : undefined}
+                        exchangeRateUSD={exchangeRateUSD}
                         pools={pools} 
                         type={type}
                         onUpdatePool={updateHoldingPool}

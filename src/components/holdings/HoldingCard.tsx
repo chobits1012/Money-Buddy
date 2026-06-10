@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, PurchaseRecord } from '../../types';
 import { resolveFundPricingCurrency } from '../../utils/fundNav';
+import { calcHoldingReturn } from '../../utils/poolReturnMetrics';
 import { usePortfolioStore } from '../../store/portfolioStore';
 
 const TODAY_TIMESTAMP = Date.now();
@@ -47,10 +48,8 @@ export const HoldingCard = ({
     const fundMarketValue = isFund && holding.currentPrice !== undefined
         ? Math.round(holding.shares * holding.currentPrice)
         : null;
-    const totalPnL = (holding.unrealizedPnL || 0) + (holding.realizedPnL || 0);
-    const pnlPercent = holding.totalAmount > 0 
-        ? (totalPnL / holding.totalAmount) * 100 
-        : 0;
+    const { totalPnL, returnRatePercent } = calcHoldingReturn(holding);
+    const pnlPercent = returnRatePercent ?? 0;
 
     return (
         <Card noPadding className="overflow-hidden">

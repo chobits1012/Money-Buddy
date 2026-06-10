@@ -6,7 +6,10 @@ import { FORMAT_TWD } from '../../utils/constants';
 import type { AssetPool, AssetType } from '../../types';
 import { cn } from '../../utils/cn';
 import { selectPoolBuckets } from '../../utils/dashboardMetrics';
-import { useState } from 'react';
+import { summarizeMarketPoolReturns } from '../../utils/poolReturnMetrics';
+import { filterActive } from '../../utils/entityActive';
+import { PoolReturnDisplay } from '../ui/PoolReturnDisplay';
+import { useMemo, useState } from 'react';
 
 const THEME_CONFIG = {
     TAIWAN_STOCK: {
@@ -60,7 +63,10 @@ const THEME_CONFIG = {
 };
 
 export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string) => void, type: AssetType }) => {
-    const { pools, allocateToPool, withdrawFromPool, getUsStockAvailableCapital, getIdleCapital, totalCapitalPool } = usePortfolioStore();
+    const {
+        pools, holdings, exchangeRateUSD,
+        allocateToPool, withdrawFromPool, getUsStockAvailableCapital, getIdleCapital, totalCapitalPool,
+    } = usePortfolioStore();
     const isUSStock = type === 'US_STOCK';
     const activePools = pools.filter(p => !p.deletedAt);
     const { twdPools, usdPools } = selectPoolBuckets(activePools);
@@ -71,6 +77,15 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
     const twdDeployable = Math.min(idleCapital, totalCapitalPool);
     const allocateMax = isUSStock ? usStockDeployable : twdDeployable;
     const balanceLabel = `可分配餘額: ${FORMAT_TWD.format(idleCapital)}`;
+
+    const poolReturnView = useMemo(
+        () => summarizeMarketPoolReturns(filterActive(holdings), currentTypePools, type),
+        [holdings, currentTypePools, type],
+    );
+    const returnByPoolId = useMemo(
+        () => new Map(poolReturnView.byPool.map((m) => [m.poolId, m])),
+        [poolReturnView.byPool],
+    );
 
     const parseMoneyInput = (raw: string): number => Number(raw.replace(/,/g, '').trim());
 
@@ -102,6 +117,7 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {currentTypePools.map((pool) => {
                         const theme = THEME_CONFIG[type as keyof typeof THEME_CONFIG] || THEME_CONFIG.OTHER;
+                        const poolReturn = returnByPoolId.get(pool.id);
 
                         return (
                             <div 
@@ -135,16 +151,25 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                                 </div>
 
                                 <div className={cn("mt-4 pt-3 border-t", theme.separator)}>
-                                    <div className="flex justify-between items-end">
-                                        <div>
+                                    <div className="flex justify-between items-end gap-3">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-[10px] text-clayDark uppercase tracking-wider">
                                                 分配預算 {isUSStock ? '(USD)' : '(NT)'}
                                             </p>
                                             <p className="text-xs font-medium text-slate-500 mt-0.5">
                                                 {isUSStock ? `$${pool.allocatedBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : FORMAT_TWD.format(pool.allocatedBudget)}
                                             </p>
+                                            {poolReturn && (
+                                                <div className="mt-2.5">
+                                                    <PoolReturnDisplay
+                                                        metrics={poolReturn}
+                                                        exchangeRateUSD={exchangeRateUSD}
+                                                        compact
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex gap-1.5">
+                                        <div className="flex gap-1.5 shrink-0">
                                             <Button 
                                                 variant="secondary" 
                                                 size="sm" 
@@ -184,6 +209,20 @@ export const CapitalPools = ({ onSelectPool, type }: { onSelectPool: (id: string
                         </div>
                     )}
                 </div>
+
+                {currentTypePools.length > 0 && poolReturnView.aggregate.holdingCount > 0 && (
+                    <div className="mt-4 pt-4 border-t border-stoneSoft/60">
+                        <p className="text-[10px] text-clayDark uppercase tracking-wider mb-1.5">全軍團合計</p>
+                        <PoolReturnDisplay
+                            metrics={poolReturnView.aggregate}
+                            exchangeRateUSD={exchangeRateUSD}
+                            showTwdApprox={isUSStock}
+                        />
+                        <p className="text-[10px] text-clay/60 mt-1.5">
+                            依各池已購買標的成本加權；不含池內閒置現金與未歸屬標的
+                        </p>
+                    </div>
+                )}
             </Card>
 
             {/* 撥款/撤資金額 Modal（取代原生 prompt/alert） */}
