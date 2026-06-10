@@ -1,5 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
-const yahooFinance = new YahooFinance();
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 export default async function handler(req: any, res: any) {
     if (req.method !== 'GET') {
