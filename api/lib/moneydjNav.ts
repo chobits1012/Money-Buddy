@@ -1,4 +1,4 @@
-/** MoneyDJ 基金淨值（Vercel serverless / scripts / dev proxy 共用） */
+/** MoneyDJ 基金淨值（Vercel serverless / dev proxy / scripts 共用） */
 
 export type FundNavScope = 'domestic' | 'offshore';
 

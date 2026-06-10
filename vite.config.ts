@@ -3,11 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
-
-import YahooFinance from 'yahoo-finance2';
-import { fetchMoneyDJNavQuotes, parseFundNavQuery } from './api/lib/moneydjNav.ts';
-
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+import { createDevApiMiddleware } from './api/lib/devApiMiddleware'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -51,88 +47,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  server: {
-    // API served via custom plugin locally
-  }
 })
 
 function localApiPlugin() {
   return {
     name: 'local-api-plugin',
-    configureServer(server: any) {
-      server.middlewares.use(async (req: any, res: any, next: any) => {
-        if (req.url?.startsWith('/api/search')) {
-          const urlObj = new URL(req.url, `http://${req.headers.host}`);
-          const q = urlObj.searchParams.get('q');
-          if (!q) {
-            res.statusCode = 400;
-            return res.end(JSON.stringify({ error: 'Missing q' }));
-          }
-          try {
-            const results = await yahooFinance.search(q, {
-              quotesCount: 10,
-              newsCount: 0,
-              enableFuzzyQuery: false,
-            });
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify((results as any).quotes || []));
-          } catch (err) {
-            console.error('Yahoo search error:', err);
-            res.statusCode = 500;
-            res.end(JSON.stringify({ error: 'Proxy error' }));
-          }
-          return;
-        }
-
-        if (req.url?.startsWith('/api/quote')) {
-          const urlObj = new URL(req.url, `http://${req.headers.host}`);
-          const symbolsStr = urlObj.searchParams.get('symbols');
-          if (!symbolsStr) {
-            res.statusCode = 400;
-            return res.end(JSON.stringify({ error: 'Missing symbols' }));
-          }
-          try {
-            const symbolArray = symbolsStr.split(',').map(s => s.trim());
-            const quotes = await yahooFinance.quote(symbolArray);
-            const results = Array.isArray(quotes) ? quotes : [quotes];
-            const mapped = results.map((q: any) => ({
-                symbol: q.symbol,
-                price: q.regularMarketPrice,
-                currency: q.currency,
-            }));
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(mapped));
-          } catch (err) {
-            console.error('Yahoo quote error:', err);
-            res.statusCode = 500;
-            res.end(JSON.stringify({ error: 'Proxy error' }));
-          }
-          return;
-        }
-
-        if (req.url?.startsWith('/api/fund-nav')) {
-          const urlObj = new URL(req.url, `http://${req.headers.host}`);
-          const codes = urlObj.searchParams.get('codes');
-          const scopes = urlObj.searchParams.get('scopes');
-          if (!codes || !scopes) {
-            res.statusCode = 400;
-            return res.end(JSON.stringify({ error: 'Missing codes or scopes' }));
-          }
-          try {
-            const requests = parseFundNavQuery(codes, scopes);
-            const quotes = await fetchMoneyDJNavQuotes(requests);
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(quotes));
-          } catch (err) {
-            console.error('Fund NAV proxy error:', err);
-            const message = err instanceof Error ? err.message : 'Proxy error';
-            res.statusCode = 400;
-            res.end(JSON.stringify({ error: message }));
-          }
-          return;
-        }
-        next();
-      });
+    configureServer(server: { middlewares: { use: (fn: ReturnType<typeof createDevApiMiddleware>) => void } }) {
+      server.middlewares.use(createDevApiMiddleware());
     }
   }
 }

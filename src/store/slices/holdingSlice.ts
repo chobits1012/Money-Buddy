@@ -1,7 +1,9 @@
 import type { StateCreator } from 'zustand';
-import type { 
-    HoldingState, Transaction, StockHolding, StockAssetType, 
-    AssetType, PortfolioStore
+import type {
+    HoldingSlice,
+    Transaction,
+    AssetType,
+    PortfolioStore,
 } from '../../types';
 import { recalcHolding } from '../../utils/finance';
 import { isActive, filterActive } from '../../utils/entityActive';
@@ -16,59 +18,12 @@ import {
 } from '../../utils/accounting';
 import { calculateFundingMetrics } from '../../utils/dashboardMetrics';
 import { applyAccountingImpact } from '../../utils/applyAccountingImpact';
+import { resolveUsdAccountBalance, syncUsdAccountFields } from '../../utils/usdAccount';
 import {
     applyStockQuotesToHoldings,
     fetchStockQuotes,
     toYahooQuoteSymbols,
 } from '../../services/quoteService';
-
-export interface HoldingActions {
-    addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => void;
-    removeTransaction: (id: string) => void;
-    getAvailableCapital: () => number;
-    /** @deprecated 僅內部帳本；UI 請用 getIdleCapital */
-    getGlobalFreeCapital: () => number;
-    getIdleCapital: () => number;
-    getAssetTotals: () => Record<AssetType, number>;
-    
-    buyStock: (params: {
-        type: StockAssetType;
-        name: string;
-        symbol?: string;
-        action?: 'BUY' | 'SELL';
-        shares: number;
-        pricePerShare: number;
-        totalCost: number;
-        totalCostUSD?: number;
-        currentPrice?: number;
-        currentPriceDate?: string;
-        exchangeRate?: number;
-        note?: string;
-        poolId?: string;
-    }) => void;
-    removePurchase: (holdingId: string, purchaseId: string) => void;
-    updateHoldingName: (id: string, name: string) => void;
-    updateHoldingQuote: (id: string, currentPrice: number) => void;
-    updateHoldingPool: (id: string, poolId: string) => void;
-    removeHolding: (id: string) => void;
-    getHoldingsByType: (type: StockAssetType) => StockHolding[];
-    getHoldingsTotalByType: (type: StockAssetType) => number;
-    updatePurchase: (holdingId: string, purchaseId: string, updates: {
-        action?: 'BUY' | 'SELL';
-        shares?: number;
-        pricePerShare?: number;
-        totalCost?: number;
-        totalCostUSD?: number;
-        currentPrice?: number;
-        currentPriceDate?: string;
-        exchangeRate?: number;
-        note?: string;
-    }) => void;
-    fetchQuotesForHoldings: () => Promise<void>;
-    fetchFundNavForHoldings: () => Promise<void>;
-}
-
-export type HoldingSlice = HoldingState & HoldingActions;
 
 export const createHoldingSlice: StateCreator<
     PortfolioStore,
@@ -93,21 +48,19 @@ export const createHoldingSlice: StateCreator<
             };
 
             if (payload.type === 'US_STOCK') {
-                const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+                const usdBase = resolveUsdAccountBalance(state);
                 const twdAmount = payload.amount || 0;
                 if (payload.action === 'DEPOSIT') {
                     // 保護主帳戶：美股入金視為台幣主帳戶轉出，不可超過可分配餘額
                     const idleCapital = get().getIdleCapital();
                     if (twdAmount > idleCapital || state.totalCapitalPool < twdAmount) return {};
-                    updates.usdAccountCash = usdBase + (payload.amountUSD || 0);
-                    updates.usStockFundPool = usdBase + (payload.amountUSD || 0);
+                    Object.assign(updates, syncUsdAccountFields(usdBase + (payload.amountUSD || 0)));
                     // 主帳戶可分配資金（totalCapitalPool）扣除轉出
                     updates.totalCapitalPool = Math.max(0, state.totalCapitalPool - twdAmount);
                 } else if (payload.action === 'WITHDRAWAL') {
                     if (usdBase < (payload.amountUSD || 0)) return {};
                     // 美股提領回台幣，主帳戶可分配資金增加，但不可超過主資產上限
-                    updates.usdAccountCash = usdBase - (payload.amountUSD || 0);
-                    updates.usStockFundPool = usdBase - (payload.amountUSD || 0);
+                    Object.assign(updates, syncUsdAccountFields(usdBase - (payload.amountUSD || 0)));
                     updates.totalCapitalPool = Math.min(
                         state.masterTwdTotal,
                         state.totalCapitalPool + twdAmount
@@ -132,18 +85,16 @@ export const createHoldingSlice: StateCreator<
             };
 
             if (tx.type === 'US_STOCK') {
-                const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+                const usdBase = resolveUsdAccountBalance(state);
                 const twdAmount = tx.amount || 0;
                 if (tx.action === 'DEPOSIT') {
-                    updates.usdAccountCash = usdBase - (tx.amountUSD || 0);
-                    updates.usStockFundPool = usdBase - (tx.amountUSD || 0);
+                    Object.assign(updates, syncUsdAccountFields(usdBase - (tx.amountUSD || 0)));
                     updates.totalCapitalPool = Math.min(
                         state.masterTwdTotal,
                         state.totalCapitalPool + twdAmount
                     );
                 } else if (tx.action === 'WITHDRAWAL') {
-                    updates.usdAccountCash = usdBase + (tx.amountUSD || 0);
-                    updates.usStockFundPool = usdBase + (tx.amountUSD || 0);
+                    Object.assign(updates, syncUsdAccountFields(usdBase + (tx.amountUSD || 0)));
                     updates.totalCapitalPool = Math.max(0, state.totalCapitalPool - twdAmount);
                 }
             }
@@ -167,7 +118,7 @@ export const createHoldingSlice: StateCreator<
             }
         });
 
-        const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+        const usdBase = resolveUsdAccountBalance(state);
         totals.US_STOCK = Math.round(usdBase * state.exchangeRateUSD);
 
         (Object.keys(totals) as AssetType[]).forEach(k => {

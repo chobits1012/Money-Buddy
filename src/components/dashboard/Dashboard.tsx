@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSupabaseSync } from '../../contexts/SyncContext';
 import { usePortfolioStore } from '../../store/portfolioStore';
-import type { StockAssetType, CustomCategory } from '../../types';
+import type { CustomCategory, StockAssetType } from '../../types';
+import { holdingTypeToSlug } from '../../utils/holdingRoutes';
 import { TransactionHistory } from '../history/TransactionHistory';
-import { HoldingsPage } from '../holdings/HoldingsPage';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { CustomCategoryDrawer } from './CustomCategoryDrawer';
 import { CapitalOverview } from './CapitalOverview';
@@ -52,7 +52,6 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         }
     };
 
-    const [activeHoldingsType, setActiveHoldingsType] = useState<StockAssetType | null>(null);
     const [isExportCardExpanded, setIsExportCardExpanded] = useState(false);
 
     // 自訂欄位 Drawer 狀態
@@ -109,15 +108,10 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         setIsCategoryDrawerOpen(true);
     };
 
-    // 如果正在查看台股/美股持倉頁面，渲染 HoldingsPage
-    if (activeHoldingsType) {
-        return (
-            <HoldingsPage
-                type={activeHoldingsType}
-                onBack={() => setActiveHoldingsType(null)}
-            />
-        );
-    }
+    const handleSelectHoldingsType = (type: StockAssetType) => {
+        const slug = holdingTypeToSlug(type);
+        if (slug) navigate(`/holdings/${slug}`);
+    };
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
@@ -229,7 +223,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             />
 
             {/* 資產圓餅圖與操作區 */}
-            <AssetAllocationSection onSelectType={setActiveHoldingsType} />
+            <AssetAllocationSection onSelectType={handleSelectHoldingsType} />
 
             {/* ═══ 自訂欄位區域 ═══ */}
             <CustomCategorySection 

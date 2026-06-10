@@ -1,5 +1,6 @@
 import type { PortfolioState, AssetPool, StockHolding, PoolLedgerEntry } from '../types';
 import { filterActive } from './entityActive';
+import { resolveUsdAccountBalance, syncUsdAccountFields } from './usdAccount';
 
 function toSafeNonNegativeNumber(value: unknown): number {
     const num = Number(value);
@@ -70,8 +71,7 @@ export function reconcilePortfolioState(
     return {
         masterTwdTotal,
         totalCapitalPool,
-        usdAccountCash: safeUsd,
-        usStockFundPool: safeUsd,
+        ...syncUsdAccountFields(safeUsd),
         pools: reconciledPools,
     };
 }
@@ -169,10 +169,10 @@ function reconcileUsd(
     }
 
     // Legacy fallback：無 US_STOCK 交易紀錄，保留 hint 或 state 值
-    const fromState = Math.max(
-        toSafeNonNegativeNumber(state.usdAccountCash),
-        toSafeNonNegativeNumber(state.usStockFundPool),
-    );
+    const fromState = resolveUsdAccountBalance({
+        usdAccountCash: toSafeNonNegativeNumber(state.usdAccountCash),
+        usStockFundPool: toSafeNonNegativeNumber(state.usStockFundPool),
+    });
     return options?.usdBaseHint !== undefined
         ? toSafeNonNegativeNumber(options.usdBaseHint)
         : fromState;

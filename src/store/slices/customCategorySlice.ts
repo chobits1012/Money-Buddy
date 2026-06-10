@@ -1,19 +1,6 @@
 import type { StateCreator } from 'zustand';
-import type { CustomCategory, PortfolioStore } from '../../types';
+import type { CustomCategorySlice, PortfolioStore } from '../../types';
 import { filterActive } from '../../utils/entityActive';
-
-export interface CustomCategoryState {
-    customCategories: CustomCategory[];
-}
-
-export interface CustomCategoryActions {
-    addCustomCategory: (params: { name: string; amount: number; note: string }) => void;
-    updateCustomCategory: (id: string, updates: { name?: string; amount?: number; note?: string }) => void;
-    removeCustomCategory: (id: string) => void;
-    getCustomCategoriesTotal: () => number;
-}
-
-export type CustomCategorySlice = CustomCategoryState & CustomCategoryActions;
 
 export const createCustomCategorySlice: StateCreator<
     PortfolioStore,

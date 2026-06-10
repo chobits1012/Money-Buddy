@@ -1,30 +1,15 @@
 import type { StateCreator } from 'zustand';
 import type {
-    CapitalState,
-    StockAssetType,
-    CapitalDeposit,
-    CapitalWithdrawal,
     AssetPool,
+    CapitalDeposit,
+    CapitalSlice,
+    CapitalWithdrawal,
     PortfolioStore,
     PoolLedgerEntry,
+    StockAssetType,
 } from '../../types';
 import { isActive, filterActive } from '../../utils/entityActive';
-
-export interface CapitalActions {
-    setCapitalPool: (amount: number) => void;
-    addCapitalDeposit: (params: { amount: number; note: string }) => void;
-    removeCapitalDeposit: (id: string) => void;
-    addCapitalWithdrawal: (params: { amount: number; note: string }) => void; // 新增：提領動作
-    setExchangeRate: (rate: number) => void;
-    addPool: (name: string, type: StockAssetType, initialAmount?: number) => void;
-    removePool: (id: string) => void;
-    allocateToPool: (poolId: string, amount: number) => void;
-    withdrawFromPool: (poolId: string, amount: number) => void;
-    setUsStockFundPool: (amount: number) => void;
-    getUsStockAvailableCapital: () => number;
-}
-
-export type CapitalSlice = CapitalState & CapitalActions;
+import { resolveUsdAccountBalance, syncUsdAccountFields } from '../../utils/usdAccount';
 
 export const createCapitalSlice: StateCreator<
     PortfolioStore,
@@ -320,7 +305,7 @@ export const createCapitalSlice: StateCreator<
 
     setUsStockFundPool: (amount: number) => {
         if (amount < 0 || isNaN(amount)) return;
-        set({ usdAccountCash: amount, usStockFundPool: amount });
+        set(syncUsdAccountFields(amount));
     },
 
     getUsStockAvailableCapital: () => {
@@ -328,7 +313,7 @@ export const createCapitalSlice: StateCreator<
         const holdingsInUS = filterActive(state.holdings).filter(h => !h.poolId && h.type === 'US_STOCK');
         const totalInvestedUSD = holdingsInUS.reduce((sum, h) => sum + (h.totalAmountUSD || 0), 0);
         const poolsUSD = filterActive(state.pools).filter(p => p.type === 'US_STOCK').reduce((sum, p) => sum + p.allocatedBudget, 0);
-        const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+        const usdBase = resolveUsdAccountBalance(state);
         const available = usdBase - totalInvestedUSD - poolsUSD;
         return available > 0 ? available : 0;
     },

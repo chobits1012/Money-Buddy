@@ -1,15 +1,6 @@
 import type { StateCreator } from 'zustand';
-import type { SyncState, PortfolioStore, PortfolioState } from '../../types';
+import type { PortfolioStore, SyncSlice } from '../../types';
 import { encryptedLocalStorage } from '../../utils/storageEncryption';
-
-export interface SyncActions {
-    overwriteState: (newState: PortfolioState) => void;
-    setLocalDataOwnerId: (id: string | null) => void;
-    setPendingUpload: (pending: boolean) => void;
-    restoreFromSnapshot: () => boolean;
-}
-
-export type SyncSlice = SyncState & SyncActions;
 
 export const createSyncSlice: StateCreator<
     PortfolioStore,

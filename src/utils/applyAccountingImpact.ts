@@ -1,18 +1,11 @@
-import type { AssetPool, StockAssetType } from '../types';
+import type { CapitalStateSnapshot, StockAssetType } from '../types';
+import type { AccountingImpact } from './accounting';
+import { resolveUsdAccountBalance, syncUsdAccountFields } from './usdAccount';
 
-export interface CapitalStateSnapshot {
-    totalCapitalPool: number;
-    usdAccountCash: number;
-    usStockFundPool: number;
-    pools: AssetPool[];
-}
-
-export interface AccountingImpactDeltas {
-    cashDeltaTWD: number;
-    cashDeltaUSD: number;
-    pnlDeltaTWD: number;
-    pnlDeltaUSD: number;
-}
+export type AccountingImpactDeltas = Pick<
+    AccountingImpact,
+    'cashDeltaTWD' | 'cashDeltaUSD' | 'pnlDeltaTWD' | 'pnlDeltaUSD'
+>;
 
 export interface ApplyAccountingImpactContext {
     poolId?: string;
@@ -32,7 +25,7 @@ export function applyAccountingImpact(
     const { cashDeltaTWD, cashDeltaUSD, pnlDeltaTWD, pnlDeltaUSD } = deltas;
     const { poolId, assetType, updatedAt = new Date().toISOString() } = context;
 
-    const usdBase = Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0);
+    const usdBase = resolveUsdAccountBalance(state);
     const newUsdBalance = usdBase + pnlDeltaUSD;
 
     return {
@@ -40,8 +33,7 @@ export function applyAccountingImpact(
             poolId || assetType === 'US_STOCK'
                 ? state.totalCapitalPool
                 : state.totalCapitalPool + pnlDeltaTWD,
-        usdAccountCash: newUsdBalance,
-        usStockFundPool: newUsdBalance,
+        ...syncUsdAccountFields(newUsdBalance),
         pools: poolId
             ? state.pools.map((p) =>
                   p.id === poolId

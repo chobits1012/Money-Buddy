@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import App from './App';
 import { BackupPage } from './pages/BackupPage';
+import { HoldingsRoutePage } from './pages/HoldingsRoutePage';
 import { SyncProvider } from './contexts/SyncContext';
 import './index.css';
 
@@ -19,6 +20,10 @@ const router = createBrowserRouter([
             {
                 path: 'backup',
                 element: <BackupPage />,
+            },
+            {
+                path: 'holdings/:market',
+                element: <HoldingsRoutePage />,
             },
         ],
     },

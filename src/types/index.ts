@@ -135,6 +135,7 @@ export interface CapitalState {
     /** 入金池操作流水（建立、主帳↔池調撥、移除）；舊資料可能為空陣列 */
     poolLedger: PoolLedgerEntry[];
     usdAccountCash: number;
+    /** @deprecated 與 usdAccountCash 同步；讀取請用 resolveUsdAccountBalance */
     usStockFundPool: number;
     exchangeRateUSD: number;
     exchangeRateEUR: number;
@@ -163,6 +164,92 @@ export interface SyncState {
 
 export interface PortfolioState extends CapitalState, HoldingState, CustomCategoryState, SyncState {}
 
+/** applyAccountingImpact 所需的資本欄位快照 */
+export type CapitalStateSnapshot = Pick<
+    CapitalState,
+    'totalCapitalPool' | 'usdAccountCash' | 'usStockFundPool' | 'pools'
+>;
+
+/** resolveUsdAccountBalance 所需的美元欄位（允許舊資料缺欄） */
+export type UsdAccountFields = Partial<Pick<CapitalState, 'usdAccountCash' | 'usStockFundPool'>>;
+
+export interface BuyStockParams {
+    type: StockAssetType;
+    name: string;
+    symbol?: string;
+    action?: 'BUY' | 'SELL';
+    shares: number;
+    pricePerShare: number;
+    totalCost: number;
+    totalCostUSD?: number;
+    currentPrice?: number;
+    currentPriceDate?: string;
+    exchangeRate?: number;
+    note?: string;
+    poolId?: string;
+}
+
+export interface UpdatePurchaseParams {
+    action?: 'BUY' | 'SELL';
+    shares?: number;
+    pricePerShare?: number;
+    totalCost?: number;
+    totalCostUSD?: number;
+    currentPrice?: number;
+    currentPriceDate?: string;
+    exchangeRate?: number;
+    note?: string;
+}
+
+/** 儀表板資金／配置計算所需的 store 快照 */
+export interface DashboardMetricsInput {
+    masterTwdTotal?: number;
+    capitalDeposits?: CapitalDeposit[];
+    capitalWithdrawals?: CapitalWithdrawal[];
+    totalCapitalPool: number;
+    usdAccountCash?: number;
+    usStockFundPool: number;
+    exchangeRateUSD: number;
+    holdings: StockHolding[];
+    pools: AssetPool[];
+    customCategories: CustomCategory[];
+    transactions?: Transaction[];
+}
+
+export interface PoolBuckets {
+    twdPools: AssetPool[];
+    usdPools: AssetPool[];
+    twdAllocatedTotal: number;
+    usdAllocatedTotal: number;
+}
+
+export interface FundingMetrics {
+    masterCapitalTotal: number;
+    idleCapital: number;
+    allocatedCapital: number;
+    allocatedPercentage: number;
+}
+
+export interface AllocationMetrics {
+    assetTotals: Record<AssetType, number>;
+    idleCapital: number;
+    customCategories: CustomCategory[];
+}
+
+/** 儀表板大卡片 + 圓餅圖共用的單一資料包（閒置與 funding 一致） */
+export interface DashboardAllocationView extends FundingMetrics {
+    assetTotals: Record<AssetType, number>;
+    customCategories: CustomCategory[];
+}
+
+export interface PortfolioPnLSummary {
+    totalUnrealizedPnL: number;
+    totalRealizedPnL: number;
+    taiwanUnrealizedPnL: number;
+    usUnrealizedPnLUSD: number;
+    fundUnrealizedPnL: number;
+}
+
 export interface CapitalActions {
     setCapitalPool: (amount: number) => void;
     addCapitalDeposit: (params: { amount: number; note: string }) => void;
@@ -185,21 +272,7 @@ export interface HoldingActions {
     getGlobalFreeCapital: () => number;
     getIdleCapital: () => number;
     getAssetTotals: () => Record<AssetType, number>;
-    buyStock: (params: {
-        type: StockAssetType;
-        name: string;
-        symbol?: string;
-        action?: 'BUY' | 'SELL';
-        shares: number;
-        pricePerShare: number;
-        totalCost: number;
-        totalCostUSD?: number;
-        currentPrice?: number;
-        currentPriceDate?: string;
-        exchangeRate?: number;
-        note?: string;
-        poolId?: string;
-    }) => void;
+    buyStock: (params: BuyStockParams) => void;
     removePurchase: (holdingId: string, purchaseId: string) => void;
     updateHoldingName: (id: string, name: string) => void;
     updateHoldingQuote: (id: string, currentPrice: number) => void;
@@ -207,17 +280,7 @@ export interface HoldingActions {
     removeHolding: (id: string) => void;
     getHoldingsByType: (type: StockAssetType) => StockHolding[];
     getHoldingsTotalByType: (type: StockAssetType) => number;
-    updatePurchase: (holdingId: string, purchaseId: string, updates: {
-        action?: 'BUY' | 'SELL';
-        shares?: number;
-        pricePerShare?: number;
-        totalCost?: number;
-        totalCostUSD?: number;
-        currentPrice?: number;
-        currentPriceDate?: string;
-        exchangeRate?: number;
-        note?: string;
-    }) => void;
+    updatePurchase: (holdingId: string, purchaseId: string, updates: UpdatePurchaseParams) => void;
     fetchQuotesForHoldings: () => Promise<void>;
     fetchFundNavForHoldings: () => Promise<void>;
 }
@@ -248,3 +311,8 @@ export interface AssetSummary {
     totalAmount: number;
     percentage: number;
 }
+
+export type CapitalSlice = CapitalState & CapitalActions;
+export type HoldingSlice = HoldingState & HoldingActions;
+export type CustomCategorySlice = CustomCategoryState & CustomCategoryActions;
+export type SyncSlice = SyncState & SyncActions;

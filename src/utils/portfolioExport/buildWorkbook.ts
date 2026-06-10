@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import type { AssetType, PortfolioState, StockHolding } from '../../types';
 import { ASSET_LABELS } from '../constants';
 import { buildDashboardAllocationView } from '../dashboardMetrics';
+import { resolveUsdAccountBalance } from '../usdAccount';
 import { buildReportLedgerRows } from './reportLedger';
 
 const SHEET_OVERVIEW = '總覽';
@@ -107,7 +108,7 @@ export async function buildPortfolioReportWorkbook(state: PortfolioState): Promi
         ['已配置資金 (TWD)', view.allocatedCapital],
         ['已配置比例 (%)', Number(view.allocatedPercentage.toFixed(2))],
         ['閒置資金 (TWD)', view.idleCapital],
-        ['美股美元帳戶餘額 (USD)', Math.max(state.usdAccountCash || 0, state.usStockFundPool || 0)],
+        ['美股美元帳戶餘額 (USD)', resolveUsdAccountBalance(state)],
         ['最後同步時間', state.lastSyncedAt ?? '—'],
     ];
     overviewPairs.forEach(([k, v]) => ws0.addRow([k, v]));

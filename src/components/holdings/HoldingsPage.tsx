@@ -16,6 +16,7 @@ import { HoldingCard } from './HoldingCard';
 import { summarizePoolReturn } from '../../utils/poolReturnMetrics';
 import { PoolReturnDisplay } from '../ui/PoolReturnDisplay';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { resolveUsdAccountBalance } from '../../utils/usdAccount';
 
 interface HoldingsPageProps {
     type: StockAssetType;
@@ -65,7 +66,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const totalUnrealizedPnLUSD = isUSStock
         ? usSummaryHoldings.reduce((sum, h) => sum + (h.unrealizedPnL || 0), 0)
         : 0;
-    const usAccountTotalUSD = Math.max(usdAccountCash || 0, usStockFundPool || 0);
+    const usAccountTotalUSD = resolveUsdAccountBalance({ usdAccountCash, usStockFundPool });
 
     const usStockAvailable = getUsStockAvailableCapital();
 

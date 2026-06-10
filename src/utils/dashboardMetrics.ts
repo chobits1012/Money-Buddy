@@ -4,62 +4,30 @@ import type {
     CapitalDeposit,
     CapitalWithdrawal,
     CustomCategory,
+    DashboardAllocationView,
+    DashboardMetricsInput,
+    FundingMetrics,
+    AllocationMetrics,
+    PoolBuckets,
+    PortfolioPnLSummary,
     StockHolding,
     Transaction,
 } from '../types';
 import { filterActive } from './entityActive';
+import { resolveUsdAccountBalance } from './usdAccount';
 
-interface DashboardMetricsInput {
-    masterTwdTotal?: number;
-    capitalDeposits?: CapitalDeposit[];
-    capitalWithdrawals?: CapitalWithdrawal[];
-    totalCapitalPool: number;
-    usdAccountCash?: number;
-    usStockFundPool: number;
-    exchangeRateUSD: number;
-    holdings: StockHolding[];
-    pools: AssetPool[];
-    customCategories: CustomCategory[];
-    transactions?: Transaction[];
-}
+export type {
+    DashboardAllocationView,
+    DashboardMetricsInput,
+    FundingMetrics,
+    AllocationMetrics,
+    PoolBuckets,
+    PortfolioPnLSummary,
+};
 
 interface PoolSplitView {
     twdPools: AssetPool[];
     usdPools: AssetPool[];
-}
-
-export interface PoolBuckets {
-    twdPools: AssetPool[];
-    usdPools: AssetPool[];
-    twdAllocatedTotal: number;
-    usdAllocatedTotal: number;
-}
-
-export interface FundingMetrics {
-    masterCapitalTotal: number;
-    idleCapital: number;
-    allocatedCapital: number;
-    allocatedPercentage: number;
-}
-
-export interface AllocationMetrics {
-    assetTotals: Record<AssetType, number>;
-    idleCapital: number;
-    customCategories: CustomCategory[];
-}
-
-/** 儀表板大卡片 + 圓餅圖共用的單一資料包（閒置與 funding 一致） */
-export interface DashboardAllocationView extends FundingMetrics {
-    assetTotals: Record<AssetType, number>;
-    customCategories: CustomCategory[];
-}
-
-export interface PortfolioPnLSummary {
-    totalUnrealizedPnL: number;
-    totalRealizedPnL: number;
-    taiwanUnrealizedPnL: number;
-    usUnrealizedPnLUSD: number;
-    fundUnrealizedPnL: number;
 }
 
 /** 全體 + 分市場損益（美股未實現以 USD 累計，其餘以 TWD） */
@@ -105,8 +73,6 @@ export function summarizePortfolioPnL(
 }
 
 const clampNonNegative = (value: number): number => (value > 0 ? value : 0);
-const pickUsdBase = (usdAccountCash: number | undefined, usStockFundPool: number): number =>
-    Math.max(usdAccountCash || 0, usStockFundPool || 0);
 
 const splitPoolsByCurrencyView = (pools: AssetPool[]): PoolSplitView => {
     const twdPools: AssetPool[] = [];
@@ -271,7 +237,7 @@ export const calculateAllocationMetrics = ({
     });
 
     // 美股整體以外層美元帳戶為準（含已分配池與未分配美元現金）
-    const usBucket = Math.round(pickUsdBase(usdAccountCash, usStockFundPool) * exchangeRateUSD);
+    const usBucket = Math.round(resolveUsdAccountBalance({ usdAccountCash, usStockFundPool }) * exchangeRateUSD);
 
     const masterCapitalTotal = typeof masterTwdTotalFromState === 'number'
         ? clampNonNegative(Math.round(masterTwdTotalFromState))
