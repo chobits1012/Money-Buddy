@@ -5,6 +5,7 @@ import { SyncIndicator } from '../sync/SyncIndicator';
 import { AccountSwitchDialog } from '../sync/AccountSwitchDialog';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { usePortfolioStore } from '../../store/portfolioStore';
+import { useMarketDataRefresh } from '../../hooks/useMarketDataRefresh';
 
 export default function Layout() {
     const {
@@ -20,6 +21,7 @@ export default function Layout() {
     const navigate = useNavigate();
     const [alertMessage, setAlertMessage] = useState<{ title: string; message: string } | null>(null);
     const isConfigured = usePortfolioStore((state) => state.isConfigured);
+    useMarketDataRefresh(isConfigured);
 
     return (
         <div className="min-h-screen bg-background text-textPrimary flex flex-col items-center concrete-bg">

@@ -5,6 +5,7 @@ import {
     calculateFundingMetrics,
     calculateGlobalIdleCapital,
     selectPoolBuckets,
+    summarizePortfolioPnL,
 } from './dashboardMetrics';
 import type { AssetPool, CustomCategory, StockHolding } from '../types';
 
@@ -241,5 +242,22 @@ describe('dashboardMetrics', () => {
 
         expect(idleCapital).toBe(700_000);
         expect(globalFree).toBe(idleCapital);
+    });
+
+    it('summarizePortfolioPnL：美股換算 TWD、台股與基金維持 TWD', () => {
+        const summary = summarizePortfolioPnL(
+            [
+                makeHolding({ type: 'US_STOCK', unrealizedPnL: 10, realizedPnL: 2 }),
+                makeHolding({ type: 'TAIWAN_STOCK', unrealizedPnL: 1000, realizedPnL: 200 }),
+                makeHolding({ type: 'FUNDS', unrealizedPnL: 500, realizedPnL: 50 }),
+            ],
+            32,
+        );
+
+        expect(summary.usUnrealizedPnLUSD).toBe(10);
+        expect(summary.taiwanUnrealizedPnL).toBe(1000);
+        expect(summary.fundUnrealizedPnL).toBe(500);
+        expect(summary.totalUnrealizedPnL).toBe(10 * 32 + 1000 + 500);
+        expect(summary.totalRealizedPnL).toBe(2 * 32 + 200 + 50);
     });
 });

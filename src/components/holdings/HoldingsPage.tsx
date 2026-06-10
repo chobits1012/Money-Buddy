@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { StockAssetType, PurchaseRecord } from '../../types';
 import { SIMPLE_HOLDING_TYPES } from '../../types';
 import { usePortfolioStore } from '../../store/portfolioStore';
@@ -13,9 +13,9 @@ import { FundTransferDrawer } from './FundTransferDrawer';
 import { AddPoolModal } from './AddPoolModal';
 import { UnassignedHoldings } from './UnassignedHoldings';
 import { HoldingCard } from './HoldingCard';
-import { filterActive } from '../../utils/entityActive';
 import { summarizePoolReturn } from '../../utils/poolReturnMetrics';
 import { PoolReturnDisplay } from '../ui/PoolReturnDisplay';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 
 interface HoldingsPageProps {
     type: StockAssetType;
@@ -26,25 +26,8 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const {
         getHoldingsByType, removeHolding, removePurchase,
         usdAccountCash, usStockFundPool, addPool, pools,
-        fetchQuotesForHoldings, fetchFundNavForHoldings, updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getIdleCapital, totalCapitalPool
+        updateHoldingPool, getUsStockAvailableCapital, exchangeRateUSD, getIdleCapital, totalCapitalPool
     } = usePortfolioStore();
-
-    const fundHoldingsKey = usePortfolioStore((state) =>
-        filterActive(state.holdings)
-            .filter((h) => h.type === 'FUNDS')
-            .map((h) => `${h.id}:${h.symbol ?? ''}:${h.name}`)
-            .join('|'),
-    );
-
-    useEffect(() => {
-        if (type === 'FUNDS') {
-            void fetchFundNavForHoldings();
-            return;
-        }
-        if (!SIMPLE_HOLDING_TYPES.includes(type)) {
-            fetchQuotesForHoldings();
-        }
-    }, [type, fundHoldingsKey, fetchQuotesForHoldings, fetchFundNavForHoldings]);
 
     const [isBuyOpen, setIsBuyOpen] = useState(false);
     const [isDepositOpen, setIsDepositOpen] = useState(false);
@@ -59,12 +42,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
         ? currentPool.currentCash
         : Math.min(idleCapital, totalCapitalPool);
  
-    // ConfirmModal 狀態
-    const [confirmAction, setConfirmAction] = useState<{
-        title: string;
-        message: string;
-        action: () => void;
-    } | null>(null);
+    const { ask: askConfirm, modalProps: confirmModalProps } = useConfirmDialog();
 
     // 編輯模式狀態
     const [editingPurchase, setEditingPurchase] = useState<PurchaseRecord | undefined>(undefined);
@@ -280,10 +258,10 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                         pools={pools} 
                         type={type}
                         onUpdatePool={updateHoldingPool}
-                        onRemove={(id, name) => setConfirmAction({
+                        onRemove={(id, name) => askConfirm({
                             title: '刪除未歸屬標的',
                             message: `確定要刪除「${name}」的所有紀錄嗎？`,
-                            action: () => removeHolding(id)
+                            action: () => removeHolding(id),
                         })}
                     />
                 </div>
@@ -319,15 +297,15 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                                     isUSStock={isUSStock}
                                     onToggleExpand={(id) => setExpandedHoldingId(prev => prev === id ? null : id)}
                                     onEditPurchase={handleEdit}
-                                    onRemovePurchase={(holdingId, purchase) => setConfirmAction({
+                                    onRemovePurchase={(holdingId, purchase) => askConfirm({
                                         title: '刪除紀錄',
                                         message: '確定要刪除這筆交易紀錄嗎？',
-                                        action: () => removePurchase(holdingId, purchase.id)
+                                        action: () => removePurchase(holdingId, purchase.id),
                                     })}
-                                    onRemoveHolding={(id, name) => setConfirmAction({
+                                    onRemoveHolding={(id, name) => askConfirm({
                                         title: '刪除持倉',
                                         message: `確定要刪除 ${name} 的所有紀錄嗎？此動作不可逆。`,
-                                        action: () => removeHolding(id)
+                                        action: () => removeHolding(id),
                                     })}
                                 />
                             ))}
@@ -379,19 +357,7 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                 onClose={() => setIsDepositOpen(false)}
             />
 
-            {/* 確認彈窗 */}
-            {confirmAction && (
-                <ConfirmModal
-                    isOpen={!!confirmAction}
-                    onCancel={() => setConfirmAction(null)}
-                    onConfirm={() => {
-                        confirmAction.action();
-                        setConfirmAction(null);
-                    }}
-                    title={confirmAction.title}
-                    message={confirmAction.message}
-                />
-            )}
+            <ConfirmModal {...confirmModalProps} />
         </div>
     );
 };

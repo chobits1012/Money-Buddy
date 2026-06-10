@@ -6,16 +6,13 @@ import { SyncIndicator } from '../components/sync/SyncIndicator';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
 
 export const BackupPage = () => {
     const navigate = useNavigate();
     const { user, logout, manualSync, syncStatus, lastSyncTime, isSyncing } = useSupabaseSync();
 
-    const [confirmAction, setConfirmAction] = useState<{
-        title: string;
-        message: string;
-        action: () => void;
-    } | null>(null);
+    const { ask: askConfirm, modalProps: confirmModalProps } = useConfirmDialog('確定');
 
     const [alertMessage, setAlertMessage] = useState<{
         title: string;
@@ -25,14 +22,15 @@ export const BackupPage = () => {
     const [exportReportBusy, setExportReportBusy] = useState(false);
 
     const handleManualSync = () => {
-        setConfirmAction({
+        askConfirm({
             title: '立即同步',
             message: '將從雲端拉取最新資料合併後，再上傳至雲端。確定要立即同步嗎？',
-            action: async () => {
-                const result = await manualSync();
-                setAlertMessage({
-                    title: result.success ? '同步成功' : '同步失敗',
-                    message: result.message,
+            action: () => {
+                void manualSync().then((result) => {
+                    setAlertMessage({
+                        title: result.success ? '同步成功' : '同步失敗',
+                        message: result.message,
+                    });
                 });
             },
         });
@@ -163,18 +161,7 @@ export const BackupPage = () => {
                 </Card>
             </main>
 
-            <ConfirmModal
-                isOpen={!!confirmAction}
-                title={confirmAction?.title || ''}
-                message={confirmAction?.message || ''}
-                confirmText="確定"
-                cancelText="取消"
-                onConfirm={() => {
-                    if (confirmAction) confirmAction.action();
-                    setConfirmAction(null);
-                }}
-                onCancel={() => setConfirmAction(null)}
-            />
+            <ConfirmModal {...confirmModalProps} cancelText="取消" />
 
             <ConfirmModal
                 isOpen={!!alertMessage}

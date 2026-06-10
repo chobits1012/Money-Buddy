@@ -12,8 +12,8 @@ import { CapitalOverview } from './CapitalOverview';
 import { AssetAllocationSection } from './AssetAllocationSection';
 import { CustomCategorySection } from './CustomCategorySection';
 import { Button } from '../ui/Button';
-import { buildDashboardAllocationView } from '../../utils/dashboardMetrics';
-import { filterActive } from '../../utils/entityActive';
+import { useDashboardViewModel } from '../../hooks/useDashboardViewModel';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 
 interface DashboardProps {
     onOpenDeposit: () => void; // 從 App.tsx 接收
@@ -23,13 +23,20 @@ interface DashboardProps {
 export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) => {
     const navigate = useNavigate();
     const { user } = useSupabaseSync();
+    const { resetAll, removeCustomCategory, removeCapitalDeposit, restoreFromSnapshot } = usePortfolioStore();
     const {
-        masterTwdTotal,
-        holdings, exchangeRateUSD,
-        totalCapitalPool, pools, usStockFundPool, usdAccountCash, resetAll, customCategories, removeCustomCategory,
-        capitalDeposits, capitalWithdrawals, removeCapitalDeposit, // addCapitalDeposit 已移至 App.tsx
-        fetchQuotesForHoldings, fetchFundNavForHoldings, isLoadingQuotes, restoreFromSnapshot
-    } = usePortfolioStore();
+        idleCapital,
+        masterCapitalTotal,
+        activeCapitalDeposits,
+        activeCustomCategories,
+        exchangeRateUSD,
+        isLoadingQuotes,
+        totalUnrealizedPnL,
+        totalRealizedPnL,
+        taiwanUnrealizedPnL,
+        usUnrealizedPnLUSD,
+        fundUnrealizedPnL,
+    } = useDashboardViewModel();
 
     // 檢查是否有可還原的快照
     const [hasSnapshot, setHasSnapshot] = useState(false);
@@ -45,14 +52,6 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
         }
     };
 
-    useEffect(() => {
-        fetchQuotesForHoldings();
-    }, [fetchQuotesForHoldings]);
-
-    useEffect(() => {
-        void fetchFundNavForHoldings();
-    }, [fetchFundNavForHoldings]);
-
     const [activeHoldingsType, setActiveHoldingsType] = useState<StockAssetType | null>(null);
     const [isExportCardExpanded, setIsExportCardExpanded] = useState(false);
 
@@ -63,21 +62,14 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
     // 入金 Drawer 狀態 (已移至 App.tsx 管理)
     // const [isDepositDrawerOpen, setIsDepositDrawerOpen] = useState(false);
 
-    // ConfirmModal 狀態
-    const [confirmAction, setConfirmAction] = useState<{
-        title: string;
-        message: string;
-        action: () => void;
-        requireText?: string;
-        confirmText?: string;
-    } | null>(null);
+    const { ask: askConfirm, modalProps: confirmModalProps } = useConfirmDialog();
 
     const [exportExcelBusy, setExportExcelBusy] = useState(false);
     const [exportAlert, setExportAlert] = useState<{ title: string; message: string } | null>(null);
 
     const handleResetClick = () => {
         const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
-        setConfirmAction({
+        askConfirm({
             title: '重設所有資料',
             message: '確定要重設所有資料嗎？此操作無法復原。\n(我們會為您保留一份本地快照以防萬一)',
             requireText: randomCode,
@@ -85,7 +77,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             action: () => {
                 resetAll();
                 setHasSnapshot(true);
-            }
+            },
         });
     };
 
@@ -111,48 +103,6 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             setExportExcelBusy(false);
         }
     };
-
-    const { idleCapital, masterCapitalTotal } = buildDashboardAllocationView({
-        masterTwdTotal,
-        capitalDeposits,
-        capitalWithdrawals,
-        totalCapitalPool,
-        pools,
-        usdAccountCash,
-        usStockFundPool,
-        exchangeRateUSD,
-        holdings,
-        customCategories,
-    });
-    
-    // 全體 + 分市場損益（統一換算成 TWD 後給 Dashboard）
-    let totalUnrealizedPnL = 0;
-    let totalRealizedPnL = 0;
-    let taiwanUnrealizedPnL = 0;
-    let usUnrealizedPnLUSD = 0;
-    let fundUnrealizedPnL = 0;
-
-    filterActive(holdings).forEach((h) => {
-        const u = h.unrealizedPnL || 0;
-        const r = h.realizedPnL || 0;
-
-        if (h.type === 'US_STOCK') {
-            usUnrealizedPnLUSD += u;
-            totalUnrealizedPnL += u * exchangeRateUSD;
-            totalRealizedPnL += r * exchangeRateUSD;
-        } else if (h.type === 'TAIWAN_STOCK') {
-            taiwanUnrealizedPnL += u;
-            totalUnrealizedPnL += u;
-            totalRealizedPnL += r;
-        } else if (h.type === 'FUNDS') {
-            fundUnrealizedPnL += u;
-            totalUnrealizedPnL += u;
-            totalRealizedPnL += r;
-        } else {
-            totalUnrealizedPnL += u;
-            totalRealizedPnL += r;
-        }
-    });
 
     const handleEditCategory = (category: CustomCategory) => {
         setEditingCategory(category);
@@ -271,7 +221,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
                 fundUnrealizedPnL={fundUnrealizedPnL}
                 exchangeRateUSD={exchangeRateUSD}
                 isLoadingQuotes={isLoadingQuotes}
-                capitalDeposits={filterActive(capitalDeposits)}
+                capitalDeposits={activeCapitalDeposits}
                 onOpenDeposit={onOpenDeposit} // 傳遞從 App.tsx 接收的 prop
                 onOpenWithdrawal={onOpenWithdrawal} // 傳遞從 App.tsx 接收的 prop
                 onReset={handleResetClick}
@@ -283,14 +233,14 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
 
             {/* ═══ 自訂欄位區域 ═══ */}
             <CustomCategorySection 
-                categories={filterActive(customCategories)}
+                categories={activeCustomCategories}
                 onAdd={() => { setEditingCategory(undefined); setIsCategoryDrawerOpen(true); }}
                 onEdit={handleEditCategory}
-                onRemove={(cat) => setConfirmAction({
+                onRemove={(cat) => askConfirm({
                     title: '刪除自訂欄位',
                     message: `確定要刪除「${cat.name}」嗎？`,
                     confirmText: '刪除欄位',
-                    action: () => removeCustomCategory(cat.id)
+                    action: () => removeCustomCategory(cat.id),
                 })}
             />
 
@@ -312,18 +262,7 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
             /> */}
 
             {/* Confirm Modal */}
-            <ConfirmModal
-                isOpen={!!confirmAction}
-                title={confirmAction?.title || ''}
-                message={confirmAction?.message || ''}
-                requireText={confirmAction?.requireText}
-                confirmText={confirmAction?.confirmText || '確認'}
-                onConfirm={() => {
-                    if (confirmAction) confirmAction.action();
-                    setConfirmAction(null);
-                }}
-                onCancel={() => setConfirmAction(null)}
-            />
+            <ConfirmModal {...confirmModalProps} />
 
             <ConfirmModal
                 isOpen={!!exportAlert}

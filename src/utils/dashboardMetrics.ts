@@ -52,6 +52,56 @@ export interface DashboardAllocationView extends FundingMetrics {
     customCategories: CustomCategory[];
 }
 
+export interface PortfolioPnLSummary {
+    totalUnrealizedPnL: number;
+    totalRealizedPnL: number;
+    taiwanUnrealizedPnL: number;
+    usUnrealizedPnLUSD: number;
+    fundUnrealizedPnL: number;
+}
+
+/** 全體 + 分市場損益（美股未實現以 USD 累計，其餘以 TWD） */
+export function summarizePortfolioPnL(
+    holdings: StockHolding[],
+    exchangeRateUSD: number,
+): PortfolioPnLSummary {
+    let totalUnrealizedPnL = 0;
+    let totalRealizedPnL = 0;
+    let taiwanUnrealizedPnL = 0;
+    let usUnrealizedPnLUSD = 0;
+    let fundUnrealizedPnL = 0;
+
+    filterActive(holdings).forEach((h) => {
+        const u = h.unrealizedPnL || 0;
+        const r = h.realizedPnL || 0;
+
+        if (h.type === 'US_STOCK') {
+            usUnrealizedPnLUSD += u;
+            totalUnrealizedPnL += u * exchangeRateUSD;
+            totalRealizedPnL += r * exchangeRateUSD;
+        } else if (h.type === 'TAIWAN_STOCK') {
+            taiwanUnrealizedPnL += u;
+            totalUnrealizedPnL += u;
+            totalRealizedPnL += r;
+        } else if (h.type === 'FUNDS') {
+            fundUnrealizedPnL += u;
+            totalUnrealizedPnL += u;
+            totalRealizedPnL += r;
+        } else {
+            totalUnrealizedPnL += u;
+            totalRealizedPnL += r;
+        }
+    });
+
+    return {
+        totalUnrealizedPnL,
+        totalRealizedPnL,
+        taiwanUnrealizedPnL,
+        usUnrealizedPnLUSD,
+        fundUnrealizedPnL,
+    };
+}
+
 const clampNonNegative = (value: number): number => (value > 0 ? value : 0);
 const pickUsdBase = (usdAccountCash: number | undefined, usStockFundPool: number): number =>
     Math.max(usdAccountCash || 0, usStockFundPool || 0);
