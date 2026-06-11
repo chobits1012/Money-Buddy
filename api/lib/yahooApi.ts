@@ -1,3 +1,4 @@
+/** 僅供本地 dev middleware / scripts 使用；Vercel 上的 api/*.ts 必須自包含。 */
 import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });

@@ -1,3 +1,4 @@
+/** 僅供本地 dev 使用；Vercel 上的 api/*.ts 必須自包含，不可 import 此檔。 */
 export class ApiQueryError extends Error {
     constructor(
         public status: number,
