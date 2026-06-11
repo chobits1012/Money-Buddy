@@ -1,11 +1,16 @@
-import type { StockHolding } from '../types';
+import type { PurchaseRecord, StockHolding } from '../types';
+import { filterActive } from './entityActive';
 
+/** 持倉計算與 UI 顯示用的有效交易紀錄（排除已軟刪除） */
+export function getActivePurchases(purchases: PurchaseRecord[] | undefined): PurchaseRecord[] {
+    return filterActive(purchases ?? []);
+}
 
 /**
  * 從購買紀錄重新計算持倉聚合值 (均價、總額、損益等)
  */
 export function recalcHolding(holding: StockHolding): StockHolding {
-    const purchases = holding.purchases;
+    const purchases = getActivePurchases(holding.purchases);
     if (purchases.length === 0) {
         return { ...holding, shares: 0, avgPrice: 0, totalAmount: 0, totalAmountUSD: undefined, unrealizedPnL: undefined, realizedPnL: 0 };
     }

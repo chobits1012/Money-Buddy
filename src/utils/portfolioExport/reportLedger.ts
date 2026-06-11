@@ -1,5 +1,7 @@
 import type { PortfolioState, PoolLedgerEntry, StockHolding } from '../../types';
 import { ASSET_LABELS } from '../constants';
+import { filterActive } from '../entityActive';
+import { getActivePurchases } from '../finance';
 
 export type ReportLedgerCategoryZh =
     | '入金'
@@ -147,10 +149,10 @@ export function buildReportLedgerRows(state: PortfolioState): ReportLedgerRow[] 
         });
     }
 
-    for (const h of state.holdings ?? []) {
+    for (const h of filterActive(state.holdings ?? [])) {
         const poolLabel = poolNameForHolding(state, h);
         const isUs = h.type === 'US_STOCK';
-        for (const p of h.purchases ?? []) {
+        for (const p of getActivePurchases(h.purchases)) {
             const when = pickTime(p.updatedAt, p.date);
             const side = p.action === 'SELL' ? '賣出' : '買入';
             const categoryZh: ReportLedgerCategoryZh = side === '買入' ? '買入' : '賣出';

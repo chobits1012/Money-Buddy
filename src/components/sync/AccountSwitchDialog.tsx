@@ -36,7 +36,10 @@ export function AccountSwitchDialog({
                         <p className="text-sm text-clayDark leading-relaxed">
                             目前登入：<span className="font-medium text-slate-800">{email ?? '（未知）'}</span>
                             <br />
-                            此裝置上的資料屬於另一帳號或未綁定帳號。請選擇如何處理，以避免誤將資料寫入錯誤的雲端帳號。
+                            此裝置上的資料屬於另一帳號或未綁定帳號。在選擇前，同步已暫停，避免誤寫入錯誤的雲端帳號。
+                        </p>
+                        <p className="text-xs text-clay leading-relaxed">
+                            建議：若這是換帳號，請選「僅使用雲端」。「合併」僅在確定要把兩邊資料混在一起時才使用。
                         </p>
                     </div>
                     <div className="flex flex-col gap-2">

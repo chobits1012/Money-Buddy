@@ -5,6 +5,7 @@ import { FORMAT_TWD } from '../../utils/constants';
 import type { StockHolding, PurchaseRecord } from '../../types';
 import { resolveFundPricingCurrency } from '../../utils/fundNav';
 import { calcHoldingReturn } from '../../utils/poolReturnMetrics';
+import { getActivePurchases } from '../../utils/finance';
 import { usePortfolioStore } from '../../store/portfolioStore';
 
 const TODAY_TIMESTAMP = Date.now();
@@ -50,6 +51,7 @@ export const HoldingCard = ({
         : null;
     const { totalPnL, returnRatePercent } = calcHoldingReturn(holding);
     const pnlPercent = returnRatePercent ?? 0;
+    const activePurchases = getActivePurchases(holding.purchases);
 
     return (
         <Card noPadding className="overflow-hidden">
@@ -64,7 +66,7 @@ export const HoldingCard = ({
                             {holding.name}
                         </h4>
                         <span className="text-[10px] text-clay bg-stoneSoft/40 px-1.5 py-0.5 rounded shrink-0">
-                            {holding.purchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
+                            {activePurchases.length} 筆{isSimpleMode ? '紀錄' : '交易'}
                         </span>
                     </div>
                     {isSimpleMode ? (
@@ -212,7 +214,7 @@ export const HoldingCard = ({
                                 全部刪除
                             </Button>
                         </div>
-                        {(holding.purchases || []).slice(-5).reverse().map((purchase) => (
+                        {activePurchases.slice(-5).reverse().map((purchase) => (
                             <div key={purchase.id} className="flex flex-col gap-2 p-3 bg-white/50 rounded-xl border border-stoneSoft/30 group relative">
                                 <div className="flex justify-between items-start">
                                     <div>

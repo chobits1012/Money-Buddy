@@ -13,8 +13,10 @@ import type {
     CapitalWithdrawal,
     AssetPool,
     PoolLedgerEntry,
+    PurchaseRecord,
 } from '../types';
 import { reconcilePortfolioState } from './reconcilePortfolioState';
+import { recalcHolding } from './finance';
 
 // ═══ 通用型別 ═══
 interface Mergeable {
@@ -74,6 +76,59 @@ function mergeArrayById<T extends Mergeable>(
     return merged;
 }
 
+/**
+ * 合併同一 holding 的外殼欄位與 purchases，並重算聚合值。
+ * 僅在雙方 holding 皆未刪除時使用。
+ */
+function mergeHoldingDetail(local: StockHolding, cloud: StockHolding): StockHolding {
+    const mergedPurchases = mergeArrayById<PurchaseRecord>(
+        local.purchases ?? [],
+        cloud.purchases ?? [],
+    );
+    const localNewer = getTimestamp(local.updatedAt) >= getTimestamp(cloud.updatedAt);
+    const shell = localNewer ? local : cloud;
+    const other = localNewer ? cloud : local;
+
+    return recalcHolding({
+        ...other,
+        ...shell,
+        purchases: mergedPurchases,
+        currentPrice: shell.currentPrice ?? other.currentPrice,
+        currentPriceDate: shell.currentPriceDate ?? other.currentPriceDate,
+        updatedAt:
+            getTimestamp(local.updatedAt) > getTimestamp(cloud.updatedAt)
+                ? local.updatedAt
+                : cloud.updatedAt,
+    });
+}
+
+function mergeHoldings(localHoldings: StockHolding[], cloudHoldings: StockHolding[]): StockHolding[] {
+    const idToLocal = new Map(localHoldings.map((h) => [h.id, h]));
+    const idToCloud = new Map(cloudHoldings.map((h) => [h.id, h]));
+    const allIds = new Set([...idToLocal.keys(), ...idToCloud.keys()]);
+    const merged: StockHolding[] = [];
+
+    for (const id of allIds) {
+        const L = idToLocal.get(id);
+        const C = idToCloud.get(id);
+        if (L && C) {
+            if (L.deletedAt && C.deletedAt) {
+                merged.push(getTimestamp(L.deletedAt) <= getTimestamp(C.deletedAt) ? L : C);
+            } else if (L.deletedAt) {
+                merged.push(L);
+            } else if (C.deletedAt) {
+                merged.push(C);
+            } else {
+                merged.push(mergeHoldingDetail(L, C));
+            }
+        } else {
+            merged.push((L ?? C)!);
+        }
+    }
+
+    return merged;
+}
+
 // ═══ 主要合併函式 ═══
 
 /**
@@ -89,10 +144,7 @@ export function syncMerge(
 ): PortfolioState {
     // ═══ 1. 陣列資料合併（tombstone 優先 + LWW fallback） ═══
 
-    const mergedHoldings = mergeArrayById<StockHolding>(
-        local.holdings,
-        cloud.holdings,
-    );
+    const mergedHoldings = mergeHoldings(local.holdings, cloud.holdings);
 
     const mergedCustomCategories = mergeArrayById<CustomCategory>(
         local.customCategories,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PortfolioState } from '../types';
+import type { PortfolioState, StockHolding } from '../types';
 import { syncMerge } from './syncMerge';
 
 const baseState = (overrides: Partial<PortfolioState>): PortfolioState => ({
@@ -318,5 +318,86 @@ describe('syncMerge', () => {
         const merged = syncMerge(local, cloud);
         expect(merged.usdAccountCash).toBe(4000);
         expect(merged.usStockFundPool).toBe(4000);
+    });
+
+    describe('holding purchase-level merge', () => {
+        const holdingShell = {
+            id: 'h1',
+            type: 'TAIWAN_STOCK' as const,
+            name: '2330',
+            symbol: '2330.TW',
+            purchases: [] as StockHolding['purchases'],
+            shares: 0,
+            avgPrice: 0,
+            totalAmount: 0,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+
+        it('keeps different purchases added on each device within the same holding', () => {
+            const pLocal = {
+                id: 'p-local',
+                date: '2026-03-01T08:00:00.000Z',
+                shares: 10,
+                pricePerShare: 100,
+                totalCost: 1000,
+                updatedAt: '2026-03-01T08:00:00.000Z',
+            };
+            const pCloud = {
+                id: 'p-cloud',
+                date: '2026-03-01T09:00:00.000Z',
+                shares: 5,
+                pricePerShare: 110,
+                totalCost: 550,
+                updatedAt: '2026-03-01T09:00:00.000Z',
+            };
+
+            const local = baseState({
+                lastSyncedAt: '2026-03-01T08:00:00.000Z',
+                holdings: [{ ...holdingShell, purchases: [pLocal], updatedAt: '2026-03-01T08:00:00.000Z' }],
+            });
+            const cloud = baseState({
+                lastSyncedAt: '2026-03-01T07:00:00.000Z',
+                holdings: [{ ...holdingShell, purchases: [pCloud], updatedAt: '2026-03-01T09:00:00.000Z' }],
+            });
+
+            const merged = syncMerge(local, cloud);
+            const h = merged.holdings.find((item) => item.id === 'h1')!;
+            expect(h.purchases.map((p) => p.id).sort()).toEqual(['p-cloud', 'p-local']);
+            expect(h.shares).toBe(15);
+            expect(h.totalAmount).toBe(1550);
+        });
+
+        it('local soft-deleted purchase wins over cloud active copy', () => {
+            const pDeleted = {
+                id: 'p1',
+                date: '2026-03-01T08:00:00.000Z',
+                shares: 10,
+                pricePerShare: 100,
+                totalCost: 1000,
+                updatedAt: '2026-03-01T10:00:00.000Z',
+                deletedAt: '2026-03-01T10:00:00.000Z',
+            };
+            const pActiveOnCloud = {
+                id: 'p1',
+                date: '2026-03-01T08:00:00.000Z',
+                shares: 10,
+                pricePerShare: 100,
+                totalCost: 1000,
+                updatedAt: '2026-03-01T09:00:00.000Z',
+            };
+
+            const local = baseState({
+                holdings: [{ ...holdingShell, purchases: [pDeleted], updatedAt: '2026-03-01T10:00:00.000Z' }],
+            });
+            const cloud = baseState({
+                holdings: [{ ...holdingShell, purchases: [pActiveOnCloud], updatedAt: '2026-03-01T09:00:00.000Z' }],
+            });
+
+            const merged = syncMerge(local, cloud);
+            const p = merged.holdings.find((item) => item.id === 'h1')!.purchases.find((item) => item.id === 'p1')!;
+            expect(p.deletedAt).toBeTruthy();
+            expect(merged.holdings.find((item) => item.id === 'h1')!.shares).toBe(0);
+        });
     });
 });

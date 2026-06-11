@@ -1,5 +1,5 @@
 import { useSupabaseSync } from '../../contexts/SyncContext';
-import { LogIn, LogOut, UploadCloud, DownloadCloud, AlertTriangle } from 'lucide-react';
+import { LogIn, LogOut, UploadCloud, DownloadCloud } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 export function CloudSyncPanel() {
@@ -67,9 +67,9 @@ export function CloudSyncPanel() {
         <div className="p-4 rounded-xl bg-bg-secondary flex flex-col gap-3">
           <div className="flex items-start justify-between">
              <div>
-                <h4 className="font-medium text-text-primary">上傳資料至雲端</h4>
+                <h4 className="font-medium text-text-primary">同步至雲端</h4>
                 <p className="text-xs text-text-secondary mt-1 line-clamp-2">
-                  將目前裝置上的所有紀錄備份到雲端，這將會覆蓋雲端上的舊資料。
+                  將此裝置與雲端資料合併後上傳。兩邊各自新增的紀錄通常都會保留。
                 </p>
              </div>
           </div>
@@ -80,31 +80,31 @@ export function CloudSyncPanel() {
             className="w-full mt-auto"
           >
             <UploadCloud className="w-4 h-4 mr-2" />
-            {isSyncing ? '處理中...' : '開始上傳'}
+            {isSyncing ? '處理中...' : '立即同步'}
           </Button>
         </div>
 
         {/* 下載區塊 */}
-        <div className="p-4 rounded-xl bg-status-danger/5 border border-status-danger/20 flex flex-col gap-3">
+        <div className="p-4 rounded-xl bg-bg-secondary flex flex-col gap-3">
           <div className="flex items-start justify-between">
              <div>
-                <h4 className="font-medium text-status-danger flex items-center gap-1.5">
-                   <AlertTriangle className="w-4 h-4" />
-                   從雲端下載資料
+                <h4 className="font-medium text-text-primary flex items-center gap-1.5">
+                   <DownloadCloud className="w-4 h-4" />
+                   再次同步
                 </h4>
                 <p className="text-xs text-text-secondary mt-1 line-clamp-2">
-                  從雲端下載最新的備份。注意：目前裝置上的資料將會被完全覆蓋！
+                  與「同步至雲端」相同：會先合併本地與雲端，再更新雙方。不會單向清掉本地資料。
                 </p>
              </div>
           </div>
           <Button 
-            variant="danger" 
+            variant="secondary" 
             onClick={downloadData}
             disabled={isSyncing}
             className="w-full mt-auto"
           >
             <DownloadCloud className="w-4 h-4 mr-2" />
-            {isSyncing ? '處理中...' : '強制下載覆蓋'}
+            {isSyncing ? '處理中...' : '再次同步'}
           </Button>
         </div>
       </div>

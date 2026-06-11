@@ -28,7 +28,7 @@ export interface Transaction extends SoftDeletable {
 }
 
 // 單次交易紀錄 (原購買紀錄擴充)
-export interface PurchaseRecord {
+export interface PurchaseRecord extends SoftDeletable {
     id: string;
     action?: 'BUY' | 'SELL'; // 買或賣 (為了向後相容，預設為 BUY)
     date: string;

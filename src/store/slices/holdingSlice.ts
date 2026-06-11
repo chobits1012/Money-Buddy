@@ -230,9 +230,11 @@ export const createHoldingSlice: StateCreator<
             const holdingIndex = state.holdings.findIndex(h => h.id === holdingId);
 
             if (isHoldingEmpty) {
-                updatedHoldings = state.holdings.map((h) =>
-                    h.id === holdingId ? { ...h, deletedAt: now, updatedAt: now } : h
-                );
+                updatedHoldings[holdingIndex] = {
+                    ...updatedHolding,
+                    deletedAt: now,
+                    updatedAt: now,
+                };
             } else {
                 updatedHoldings[holdingIndex] = updatedHolding;
             }
