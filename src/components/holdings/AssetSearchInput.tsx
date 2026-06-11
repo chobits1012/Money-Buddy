@@ -78,7 +78,7 @@ export const AssetSearchInput = ({
             if (type === 'TAIWAN_STOCK') {
                 const lowerVal = value.toLowerCase();
                 const matched = (twStocks as TaiwanStockEntry[]).filter((s) =>
-                    s.symbol.includes(lowerVal) || s.name.toLowerCase().includes(lowerVal)
+                    s.symbol.toLowerCase().includes(lowerVal) || s.name.toLowerCase().includes(lowerVal)
                 ).slice(0, 10);
                 const formattedMatched = matched.map((s) => ({
                     ...s,
