@@ -16,6 +16,7 @@ export default function Layout() {
         isSyncing,
         resolveAccountSwitchUseCloud,
         resolveAccountSwitchMerge,
+        resolveAccountSwitchUseLocal,
         resolveAccountSwitchCancel,
     } = useSupabaseSync();
     const navigate = useNavigate();
@@ -74,6 +75,7 @@ export default function Layout() {
                 isBusy={isSyncing || syncGate === 'resolving'}
                 onUseCloud={() => void resolveAccountSwitchUseCloud()}
                 onMerge={() => void resolveAccountSwitchMerge()}
+                onUseLocal={() => void resolveAccountSwitchUseLocal()}
                 onCancel={() => void resolveAccountSwitchCancel()}
             />
         </div>

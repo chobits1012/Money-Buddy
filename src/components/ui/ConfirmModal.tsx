@@ -62,13 +62,13 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             {/* 背景遮罩 */}
             <div
                 className={cn(
-                    "fixed inset-0 bg-black/30 backdrop-blur-sm z-[100] transition-opacity duration-300",
+                    "fixed inset-0 bg-black/30 backdrop-blur-sm z-[120] transition-opacity duration-300",
                     isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
                 )}
                 onClick={isAlert ? onConfirm : (onCancel || onConfirm)}
             />
             {/* 彈出視窗容器 */}
-            <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
+            <div className="fixed inset-0 z-[121] flex items-center justify-center p-4 pointer-events-none">
                 <Card 
                     className={cn(
                         "w-full max-w-sm flex flex-col gap-4 pointer-events-auto transition-all duration-300 transform shadow-2xl border-stoneSoft",

@@ -385,6 +385,65 @@ export function useSupabaseSyncInternal() {
         }
     }, [overwriteState, runInternalSyncMutation, setLocalDataOwnerId, syncWithServer]);
 
+    const resolveAccountSwitchUseLocal = useCallback(async () => {
+        const u = userRef.current;
+        if (!u) return;
+        setSyncGate('resolving');
+        setIsSyncing(true);
+        setSyncError(null);
+        try {
+            if (!navigator.onLine) {
+                setSyncError('需要網路才能上傳本地資料');
+                setSyncGate('blocked_account_mismatch');
+                return;
+            }
+
+            const prepared = prepareStateForSyncUpload(
+                usePortfolioStore.getState() as PortfolioState,
+                null,
+                u.id,
+            );
+            runInternalSyncMutation(() => {
+                overwriteState(prepared);
+            });
+            setPersistSuffix(u.id);
+            setLocalDataOwnerId(u.id);
+
+            const now = new Date().toISOString();
+            const finalState = usePortfolioStore.getState() as PortfolioState;
+            const payload: PortfolioState = {
+                ...finalState,
+                lastSyncedAt: now,
+                pendingUpload: false,
+                localDataOwnerId: u.id,
+            };
+
+            const { error } = await supabase.from('user_backup').upsert(
+                {
+                    id: u.id,
+                    portfolio_data: payload,
+                    updated_at: now,
+                    last_synced_at: now,
+                },
+                { onConflict: 'id' },
+            );
+            if (error) throw error;
+
+            runInternalSyncMutation(() => {
+                usePortfolioStore.setState({ lastSyncedAt: now, pendingUpload: false });
+            });
+            setLastSyncTime(now);
+            setSyncGate('idle');
+            setSyncStatus('synced');
+        } catch (e) {
+            console.error('[AccountSwitch] use local failed', e);
+            setSyncError('以本地覆蓋雲端失敗');
+            setSyncGate('blocked_account_mismatch');
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [overwriteState, runInternalSyncMutation, setLocalDataOwnerId]);
+
     const resolveAccountSwitchCancel = useCallback(async () => {
         try {
             await supabase.auth.signOut();
@@ -440,6 +499,7 @@ export function useSupabaseSyncInternal() {
         downloadData: manualSync,
         resolveAccountSwitchUseCloud,
         resolveAccountSwitchMerge,
+        resolveAccountSwitchUseLocal,
         resolveAccountSwitchCancel,
     };
 }
