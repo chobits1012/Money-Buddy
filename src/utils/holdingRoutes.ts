@@ -20,3 +20,10 @@ export function parseHoldingMarketParam(market: string | undefined): StockAssetT
     if (!market) return null;
     return SLUG_TO_TYPE[market.toLowerCase()] ?? null;
 }
+
+export function buildHoldingsRoute(type: StockAssetType, poolId?: string): string {
+    const slug = holdingTypeToSlug(type);
+    if (!slug) return '/';
+    if (!poolId) return `/holdings/${slug}`;
+    return `/holdings/${slug}?pool=${encodeURIComponent(poolId)}`;
+}

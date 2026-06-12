@@ -90,13 +90,15 @@ export async function bootstrapPersistSuffix(): Promise<void> {
         return;
     }
 
-    const {
-        data: { session },
-    } = await supabase.auth.getSession();
+    if (supabase) {
+        const {
+            data: { session },
+        } = await supabase.auth.getSession();
 
-    if (session?.user?.id) {
-        setPersistSuffix(session.user.id);
-        return;
+        if (session?.user?.id) {
+            setPersistSuffix(session.user.id);
+            return;
+        }
     }
 
     migrateLegacySlotIfNeeded();

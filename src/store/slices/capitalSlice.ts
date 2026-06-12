@@ -10,6 +10,11 @@ import type {
 } from '../../types';
 import { isActive, filterActive } from '../../utils/entityActive';
 import { resolveUsdAccountBalance, syncUsdAccountFields } from '../../utils/usdAccount';
+import {
+    getDefaultCompanionId,
+    isValidCompanionId,
+    type CourtyardAssetType,
+} from '../../utils/companionRegistry';
 
 export const createCapitalSlice: StateCreator<
     PortfolioStore,
@@ -98,7 +103,7 @@ export const createCapitalSlice: StateCreator<
         }));
     },
 
-    addPool: (name: string, type: StockAssetType, initialAmount: number = 0) => {
+    addPool: (name: string, type: StockAssetType, initialAmount: number = 0, companionId?: string) => {
         const now = new Date().toISOString();
         const state = get();
         const normalizedInitialAmount = Number(initialAmount);
@@ -112,12 +117,27 @@ export const createCapitalSlice: StateCreator<
             if (normalizedInitialAmount > idleCapital || normalizedInitialAmount > state.totalCapitalPool) return;
         }
 
+        const courtyardType = type as CourtyardAssetType;
+        const resolvedCompanionId =
+            companionId &&
+            (courtyardType === 'TAIWAN_STOCK' ||
+                courtyardType === 'US_STOCK' ||
+                courtyardType === 'FUNDS') &&
+            isValidCompanionId(courtyardType, companionId)
+                ? companionId
+                : courtyardType === 'TAIWAN_STOCK' ||
+                    courtyardType === 'US_STOCK' ||
+                    courtyardType === 'FUNDS'
+                  ? getDefaultCompanionId(courtyardType)
+                  : undefined;
+
         const newPool: AssetPool = {
             id: crypto.randomUUID(),
             name: name.trim(),
             allocatedBudget: normalizedInitialAmount,
             currentCash: normalizedInitialAmount,
             type,
+            companionId: resolvedCompanionId,
             createdAt: now,
             updatedAt: now,
         };

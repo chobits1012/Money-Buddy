@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { holdingTypeToSlug, parseHoldingMarketParam } from './holdingRoutes';
+import { buildHoldingsRoute, holdingTypeToSlug, parseHoldingMarketParam } from './holdingRoutes';
 
 describe('holdingRoutes', () => {
     it('maps slugs and asset types both ways', () => {
@@ -13,5 +13,10 @@ describe('holdingRoutes', () => {
     it('returns null for unknown markets', () => {
         expect(parseHoldingMarketParam('crypto')).toBeNull();
         expect(holdingTypeToSlug('CRYPTO')).toBeNull();
+    });
+
+    it('builds holdings routes with optional pool query', () => {
+        expect(buildHoldingsRoute('TAIWAN_STOCK')).toBe('/holdings/taiwan');
+        expect(buildHoldingsRoute('US_STOCK', 'pool-abc')).toBe('/holdings/us?pool=pool-abc');
     });
 });

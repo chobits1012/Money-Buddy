@@ -133,4 +133,96 @@
     animation: spin 1.2s linear infinite;
     display: inline-flex;
   }
+
+  /* ═══ 狗狗庭院：呼吸動畫 ═══ */
+  @keyframes pet-breathe {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  @keyframes pet-sleepy {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(2px) rotate(-2deg); }
+  }
+
+  .pet-breathe {
+    animation: pet-breathe 3s ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+
+  .pet-sleepy {
+    animation: pet-sleepy 4s ease-in-out infinite;
+  }
+
+  .pet-avatar {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pet-courtyard .pet-avatar {
+    filter: drop-shadow(0 2px 4px rgba(45, 42, 38, 0.2));
+  }
+
+  .pet-courtyard .pet-breathe,
+  .pet-courtyard .pet-sleepy {
+    animation: none;
+  }
+
+  /* 錨定式漫畫對話框尾巴（跟著動物位置） */
+  .comic-bubble--anchored {
+    transition: opacity 150ms ease, transform 150ms ease;
+    transform-origin: center bottom;
+  }
+
+  .comic-bubble--above::after,
+  .comic-bubble--above::before {
+    content: "";
+    position: absolute;
+    left: var(--tail-left, 50%);
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .comic-bubble--above::after {
+    bottom: -12px;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 12px solid rgba(51, 65, 85, 0.8);
+  }
+
+  .comic-bubble--above::before {
+    bottom: -9px;
+    z-index: 1;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid rgba(255, 255, 255, 0.95);
+  }
+
+  .comic-bubble--below::after,
+  .comic-bubble--below::before {
+    content: "";
+    position: absolute;
+    left: var(--tail-left, 50%);
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .comic-bubble--below::after {
+    top: -12px;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-bottom: 12px solid rgba(51, 65, 85, 0.8);
+  }
+
+  .comic-bubble--below::before {
+    top: -9px;
+    z-index: 1;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid rgba(255, 255, 255, 0.95);
+  }
 }

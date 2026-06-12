@@ -57,6 +57,7 @@ export function useSupabaseSyncInternal() {
     }, []);
 
     const syncWithServer = useCallback(async (options?: { bypassGate?: boolean }) => {
+        if (!supabase) return;
         const currentUser = userRef.current;
         if (!currentUser) return;
         if (!options?.bypassGate && syncGateRef.current !== 'idle') return;
@@ -176,6 +177,8 @@ export function useSupabaseSyncInternal() {
     }, []);
 
     useEffect(() => {
+        if (!supabase) return;
+
         supabase.auth.getSession().then(({ data: { session } }) => {
             setUser(session?.user ?? null);
         });
@@ -271,6 +274,9 @@ export function useSupabaseSyncInternal() {
     }, [setPendingUpload]);
 
     const loginWithGoogle = async () => {
+        if (!supabase) {
+            return { success: false, message: '本機未設定雲端同步，請使用 Vercel 正式版登入。' };
+        }
         try {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
@@ -295,8 +301,10 @@ export function useSupabaseSyncInternal() {
                     /* 忽略 */
                 }
             }
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
+            if (supabase) {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+            }
             if (typeof ownerId === 'string' && ownerId.length > 0) {
                 setPersistSuffix(ownerId);
             }
@@ -418,6 +426,10 @@ export function useSupabaseSyncInternal() {
                 localDataOwnerId: u.id,
             };
 
+            if (!supabase) {
+                throw new Error('Missing Supabase environment variables');
+            }
+
             const { error } = await supabase.from('user_backup').upsert(
                 {
                     id: u.id,
@@ -446,7 +458,9 @@ export function useSupabaseSyncInternal() {
 
     const resolveAccountSwitchCancel = useCallback(async () => {
         try {
-            await supabase.auth.signOut();
+            if (supabase) {
+                await supabase.auth.signOut();
+            }
             setSyncGate('idle');
         } catch (e) {
             console.error('[AccountSwitch] cancel signOut failed', e);

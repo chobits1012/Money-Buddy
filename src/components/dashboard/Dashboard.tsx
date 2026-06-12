@@ -14,13 +14,24 @@ import { CustomCategorySection } from './CustomCategorySection';
 import { Button } from '../ui/Button';
 import { useDashboardViewModel } from '../../hooks/useDashboardViewModel';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { ViewModeToggle } from '../pet-dashboard/ViewModeToggle';
+import type { HomeViewMode } from '../../hooks/useHomeViewMode';
 
 interface DashboardProps {
-    onOpenDeposit: () => void; // 從 App.tsx 接收
-    onOpenWithdrawal: () => void; // 從 App.tsx 接收
+    onOpenDeposit: () => void;
+    onOpenWithdrawal: () => void;
+    petDashboardEnabled?: boolean;
+    viewMode?: HomeViewMode;
+    onViewModeChange?: (mode: HomeViewMode) => void;
 }
 
-export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) => {
+export const Dashboard = ({
+    onOpenDeposit,
+    onOpenWithdrawal,
+    petDashboardEnabled = false,
+    viewMode = 'classic',
+    onViewModeChange,
+}: DashboardProps) => {
     const navigate = useNavigate();
     const { user } = useSupabaseSync();
     const { resetAll, removeCustomCategory, removeCapitalDeposit, restoreFromSnapshot } = usePortfolioStore();
@@ -115,6 +126,16 @@ export const Dashboard = ({ onOpenDeposit, onOpenWithdrawal }: DashboardProps) =
 
     return (
         <div className="flex flex-col gap-6 animate-in fade-in duration-500">
+            {petDashboardEnabled && onViewModeChange && (
+                <div className="glass-panel rounded-2xl px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800">首頁視圖</p>
+                        <p className="text-[11px] text-clay mt-0.5">可切換到動物庭院體驗</p>
+                    </div>
+                    <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
+                </div>
+            )}
+
             {/* ═══ 還原橫幅 (如果有快照) ═══ */}
             {hasSnapshot && (
                 <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top duration-500">

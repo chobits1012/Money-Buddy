@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { StockAssetType, PurchaseRecord } from '../../types';
 import { SIMPLE_HOLDING_TYPES } from '../../types';
 import { usePortfolioStore } from '../../store/portfolioStore';
@@ -21,9 +21,10 @@ import { resolveUsdAccountBalance } from '../../utils/usdAccount';
 interface HoldingsPageProps {
     type: StockAssetType;
     onBack: () => void;
+    initialPoolId?: string | null;
 }
 
-export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
+export const HoldingsPage = ({ type, onBack, initialPoolId }: HoldingsPageProps) => {
     const {
         getHoldingsByType, removeHolding, removePurchase,
         usdAccountCash, usStockFundPool, addPool, pools,
@@ -35,7 +36,15 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
     const [expandedHoldingId, setExpandedHoldingId] = useState<string | null>(null);
     const [activePoolId, setActivePoolId] = useState<string | null>(null);
     const [isAddPoolOpen, setIsAddPoolOpen] = useState(false);
-    
+
+    useEffect(() => {
+        if (!initialPoolId) return;
+        const pool = pools.find((p) => p.id === initialPoolId && !p.deletedAt && p.type === type);
+        if (pool) {
+            setActivePoolId(pool.id);
+        }
+    }, [initialPoolId, pools, type]);
+
     // 取得當前可用餘額：若是進入軍團視圖，則顯示軍團內的現金；否則為全局可分配餘額
     const currentPool = pools.find(p => p.id === activePoolId && !p.deletedAt);
     const idleCapital = getIdleCapital();
@@ -335,8 +344,8 @@ export const HoldingsPage = ({ type, onBack }: HoldingsPageProps) => {
                   usStockAvailable={usStockAvailable}
                   exchangeRateUSD={exchangeRateUSD}
                   onClose={() => setIsAddPoolOpen(false)}
-                  onSubmit={(name, amount) => {
-                    addPool(name, type, amount);
+                  onSubmit={(name, amount, companionId) => {
+                    addPool(name, type, amount, companionId);
                     setIsAddPoolOpen(false);
                   }}
                 />

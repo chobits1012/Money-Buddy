@@ -1,8 +1,12 @@
 import type { PortfolioState } from '../types';
 import { reconcilePortfolioState } from '../utils/reconcilePortfolioState';
 import { resolveUsdAccountBalance, syncUsdAccountFields } from '../utils/usdAccount';
+import {
+    getDefaultCompanionId,
+    type CourtyardAssetType,
+} from '../utils/companionRegistry';
 
-export const PORTFOLIO_PERSIST_VERSION = 5;
+export const PORTFOLIO_PERSIST_VERSION = 6;
 
 export function migratePortfolioState(
     persistedState: unknown,
@@ -102,6 +106,24 @@ export function migratePortfolioState(
     if (version < 5) {
         if (typeof state.exchangeRateEUR !== 'number' || (state.exchangeRateEUR as number) <= 0) {
             state.exchangeRateEUR = 34.5;
+        }
+    }
+
+    if (version < 6) {
+        if (Array.isArray(state.pools)) {
+            state.pools = (state.pools as Record<string, unknown>[]).map((pool) => {
+                if (typeof pool.companionId === 'string' && pool.companionId.length > 0) {
+                    return pool;
+                }
+                const marketType = pool.type as CourtyardAssetType;
+                const companionId =
+                    marketType === 'TAIWAN_STOCK' ||
+                    marketType === 'US_STOCK' ||
+                    marketType === 'FUNDS'
+                        ? getDefaultCompanionId(marketType)
+                        : undefined;
+                return { ...pool, companionId };
+            });
         }
     }
 

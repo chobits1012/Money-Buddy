@@ -3,6 +3,11 @@ import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import type { StockAssetType } from '../../types';
+import { CompanionBreedPicker } from '../pet-dashboard/CompanionBreedPicker';
+import {
+    getDefaultCompanionId,
+    type CourtyardAssetType,
+} from '../../utils/companionRegistry';
 
 interface AddPoolModalProps {
     type: StockAssetType;
@@ -10,8 +15,11 @@ interface AddPoolModalProps {
     usStockAvailable: number;
     exchangeRateUSD: number;
     onClose: () => void;
-    onSubmit: (name: string, amount: number) => void;
+    onSubmit: (name: string, amount: number, companionId: string) => void;
 }
+
+const isCourtyardType = (type: StockAssetType): type is CourtyardAssetType =>
+    type === 'TAIWAN_STOCK' || type === 'US_STOCK' || type === 'FUNDS';
 
 export const AddPoolModal = ({
     type,
@@ -19,12 +27,15 @@ export const AddPoolModal = ({
     usStockAvailable,
     exchangeRateUSD,
     onClose,
-    onSubmit
+    onSubmit,
 }: AddPoolModalProps) => {
     const [poolName, setPoolName] = useState('');
     const [poolAmount, setPoolAmount] = useState('');
     const [poolAmountTWD, setPoolAmountTWD] = useState('');
     const [poolError, setPoolError] = useState('');
+    const [companionId, setCompanionId] = useState(() =>
+        isCourtyardType(type) ? getDefaultCompanionId(type) : '',
+    );
 
     const isUSStock = type === 'US_STOCK';
 
@@ -32,41 +43,48 @@ export const AddPoolModal = ({
         const amount = Number(poolAmount.replace(/,/g, ''));
         if (!poolName) { setPoolError('請輸入軍團名稱'); return; }
         if (isNaN(amount) || amount <= 0) { setPoolError('請輸入有效金額'); return; }
-        
+
         const limit = isUSStock ? usStockAvailable : availableTotal;
-        if (amount > limit) { 
-            setPoolError(`金額不可大於可用${isUSStock ? '美金' : '資產'}`); 
-            return; 
+        if (amount > limit) {
+            setPoolError(`金額不可大於可用${isUSStock ? '美金' : '資產'}`);
+            return;
         }
-        
-        onSubmit(poolName, amount);
+
+        onSubmit(poolName, amount, companionId);
     };
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-            <Card className="w-full max-w-sm z-[101] flex flex-col gap-5 animate-in zoom-in-95 duration-200 shadow-2xl">
+            <Card className="w-full max-w-sm z-[101] flex flex-col gap-5 animate-in zoom-in-95 duration-200 shadow-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex flex-col gap-1">
                     <h3 className="text-xl font-light text-slate-800">新增戰備軍團</h3>
-                    <p className="text-xs text-clay">建立獨立入金池，隔離資產損益</p>
+                    <p className="text-xs text-clay">建立獨立入金池，並選擇軍團吉祥物</p>
                 </div>
                 <div className="flex flex-col gap-4">
-                    <Input 
-                        label="軍團名稱" 
-                        placeholder="例如：防禦大軍" 
-                        value={poolName} 
+                    <Input
+                        label="軍團名稱"
+                        placeholder="例如：防禦大軍"
+                        value={poolName}
                         onChange={(e) => { setPoolName(e.target.value); setPoolError(''); }}
                         error={poolError && !poolName ? poolError : ''}
                         autoFocus
                     />
+                    {isCourtyardType(type) && (
+                        <CompanionBreedPicker
+                            assetType={type}
+                            value={companionId}
+                            onChange={setCompanionId}
+                        />
+                    )}
                     <div className="flex flex-col gap-4">
                         {isUSStock ? (
                             <>
-                                <Input 
-                                    label="撥款金額 (USD)" 
+                                <Input
+                                    label="撥款金額 (USD)"
                                     placeholder="0.00"
                                     value={poolAmount}
-                                    onChange={(e) => { 
+                                    onChange={(e) => {
                                         const val = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
                                         setPoolAmount(val);
                                         const usd = Number(val);
@@ -80,11 +98,11 @@ export const AddPoolModal = ({
                                     icon={<span className="font-semibold px-1 text-xs">$</span>}
                                     error={poolError && !poolAmount ? poolError : ''}
                                 />
-                                <Input 
-                                    label="撥款金額 (TWD)" 
+                                <Input
+                                    label="撥款金額 (TWD)"
                                     placeholder="0"
                                     value={poolAmountTWD}
-                                    onChange={(e) => { 
+                                    onChange={(e) => {
                                         const val = e.target.value.replace(/,/g, '').replace(/[^\d]/g, '');
                                         const twd = Number(val);
                                         setPoolAmountTWD(val ? twd.toLocaleString('en-US') : '');
@@ -99,11 +117,11 @@ export const AddPoolModal = ({
                                 />
                             </>
                         ) : (
-                            <Input 
-                                label="撥款金額 (TWD)" 
+                            <Input
+                                label="撥款金額 (TWD)"
                                 placeholder="0"
                                 value={poolAmount}
-                                onChange={(e) => { 
+                                onChange={(e) => {
                                     const val = e.target.value.replace(/,/g, '').replace(/[^\d]/g, '');
                                     setPoolAmount(val ? Number(val).toLocaleString('en-US') : '');
                                     setPoolError('');

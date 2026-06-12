@@ -7,6 +7,8 @@ export interface CloudBackupRow {
 }
 
 export async function fetchCloudBackup(userId: string): Promise<CloudBackupRow | null> {
+    if (!supabase) return null;
+
     const { data, error } = await supabase
         .from('user_backup')
         .select('portfolio_data, updated_at')

@@ -98,6 +98,8 @@ export interface AssetPool extends SoftDeletable {
     allocatedBudget: number;
     currentCash: number;
     type: AssetType;
+    /** 軍團吉祥物品種（狗／貓／豬等），見 companionRegistry */
+    companionId?: string;
     note?: string;
     createdAt: string;
     updatedAt: string;
@@ -256,7 +258,7 @@ export interface CapitalActions {
     removeCapitalDeposit: (id: string) => void;
     addCapitalWithdrawal: (params: { amount: number; note: string }) => void; // 新增：提領動作
     setExchangeRate: (rate: number) => void;
-    addPool: (name: string, type: StockAssetType, initialAmount?: number) => void;
+    addPool: (name: string, type: StockAssetType, initialAmount?: number, companionId?: string) => void;
     removePool: (id: string) => void;
     allocateToPool: (poolId: string, amount: number) => void;
     withdrawFromPool: (poolId: string, amount: number) => void;

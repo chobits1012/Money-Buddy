@@ -13,6 +13,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: false,
+      },
+      workbox: {
+        navigateFallbackDenylist: [/^\/api\//],
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: '個人理財追蹤',
@@ -52,8 +58,11 @@ export default defineConfig({
 function localApiPlugin() {
   return {
     name: 'local-api-plugin',
-    configureServer(server: { middlewares: { use: (fn: ReturnType<typeof createDevApiMiddleware>) => void } }) {
-      server.middlewares.use(createDevApiMiddleware());
-    }
-  }
+    configureServer: {
+      order: 'pre' as const,
+      handler(server: { middlewares: { use: (fn: ReturnType<typeof createDevApiMiddleware>) => void } }) {
+        server.middlewares.use(createDevApiMiddleware());
+      },
+    },
+  };
 }
