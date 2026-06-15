@@ -8,7 +8,7 @@ interface PetAvatarProps {
     onSelect: (anchorRect: DOMRect) => void;
     /** 庭院場景：無標籤、無選取框，融入背景 */
     variant?: 'default' | 'courtyard';
-    /** 庭院遠近縮放（1.0 = 最靠近鏡頭） */
+    /** 庭院遠近縮放（愈大愈靠近鏡頭；編輯器上限 2.0） */
     courtyardSpotScale?: number;
 }
 
@@ -30,6 +30,52 @@ export function PetAvatar({
         ? courtyardSpotScale
         : companion.scale;
 
+    if (isCourtyard) {
+        return (
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                    const anchor = e.currentTarget.querySelector('[data-pet-anchor]');
+                    const rect = anchor instanceof HTMLElement
+                        ? anchor.getBoundingClientRect()
+                        : e.currentTarget.getBoundingClientRect();
+                    onSelect(rect);
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const anchor = e.currentTarget.querySelector('[data-pet-anchor]');
+                        const rect = anchor instanceof HTMLElement
+                            ? anchor.getBoundingClientRect()
+                            : e.currentTarget.getBoundingClientRect();
+                        onSelect(rect);
+                    }
+                }}
+                className={cn(
+                    'pet-avatar group inline-flex flex-col justify-end items-center leading-none',
+                    'cursor-pointer touch-manipulation active:scale-[0.97]',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss/40',
+                    companion.isPlaceholder && 'opacity-70',
+                )}
+                aria-label={`${companion.displayName}，${subtitle}`}
+            >
+                <div
+                    data-pet-anchor
+                    className="relative block leading-none"
+                    style={{ transform: `scale(${displayScale})`, transformOrigin: 'center bottom' }}
+                >
+                    <div className={cn('pet-breathe block leading-none', companion.mood === 'sleepy' && 'pet-sleepy')}>
+                        <CompanionSilhouette
+                            companion={companion}
+                            size="courtyard"
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <button
             type="button"
@@ -43,14 +89,12 @@ export function PetAvatar({
             className={cn(
                 'pet-avatar group flex flex-col items-center transition-transform touch-manipulation',
                 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss/40',
-                isCourtyard
-                    ? 'p-0 min-w-0 active:scale-[0.97]'
-                    : cn(
-                          'gap-2 min-w-[88px] p-2 sm:p-3 rounded-2xl active:scale-95',
-                          selected
-                              ? 'bg-white/70 ring-2 ring-moss/40 shadow-sm'
-                              : 'hover:bg-white/50 active:bg-white/60',
-                      ),
+                cn(
+                    'gap-2 min-w-[88px] p-2 sm:p-3 rounded-2xl active:scale-95',
+                    selected
+                        ? 'bg-white/70 ring-2 ring-moss/40 shadow-sm'
+                        : 'hover:bg-white/50 active:bg-white/60',
+                ),
                 companion.isPlaceholder && 'opacity-70',
             )}
             aria-label={`${companion.displayName}，${subtitle}`}
@@ -63,7 +107,7 @@ export function PetAvatar({
                 <div className={cn('pet-breathe', companion.mood === 'sleepy' && 'pet-sleepy')}>
                     <CompanionSilhouette
                         companion={companion}
-                        size={isCourtyard ? 'courtyard' : 'default'}
+                        size="default"
                     />
                 </div>
             </div>

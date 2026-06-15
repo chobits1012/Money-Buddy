@@ -28,10 +28,10 @@ describe('assignCourtyardRestSpots', () => {
 });
 
 describe('COURTYARD_REST_SPOTS', () => {
-    it('only deck-cushion uses maximum scale', () => {
-        const maxSpots = COURTYARD_REST_SPOTS.filter((spot) => spot.scale >= 1);
-        expect(maxSpots).toHaveLength(1);
-        expect(maxSpots[0]?.id).toBe('deck-cushion');
+    it('deck-cushion has the largest scale', () => {
+        const maxScale = Math.max(...COURTYARD_REST_SPOTS.map((spot) => spot.scale));
+        const deckCushion = COURTYARD_REST_SPOTS.find((spot) => spot.id === 'deck-cushion');
+        expect(deckCushion?.scale).toBe(maxScale);
     });
 });
 

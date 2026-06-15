@@ -1,18 +1,21 @@
-import { useCallback, useRef, useState } from 'react';
-import { PetAvatar } from './PetAvatar';
-import { COURTYARD_BACKGROUND } from '../../utils/courtyardAssets';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { CourtyardPetAtSpot } from './CourtyardPetAtSpot';
+import { CourtyardSceneCanvas } from './CourtyardSceneCanvas';
 import {
     buildCourtyardSpotDebugEntries,
     cloneCourtyardRestSpots,
     copyCourtyardSpotsToClipboard,
     type CourtyardSpotDebugEntry,
 } from '../../utils/courtyardSpotDebug';
-import type { CourtyardRestSpot } from '../../utils/courtyardRestSpots';
-import { cn } from '../../utils/cn';
+import {
+    clampCourtyardSpotScale,
+    COURTYARD_SPOT_SCALE_MAX,
+    COURTYARD_SPOT_SCALE_MIN,
+    COURTYARD_SPOT_SCALE_STEP,
+    type CourtyardRestSpot,
+} from '../../utils/courtyardRestSpots';
+import { getCourtyardRestSpotsLayoutKey } from '../../utils/courtyardRestSpots';
 
-const SCALE_STEP = 0.02;
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 1.0;
 const DRAG_THRESHOLD_PX = 4;
 
 function clamp(value: number, min: number, max: number): number {
@@ -37,6 +40,17 @@ export function PetCourtyardSpotEditor() {
     const [spots, setSpots] = useState<CourtyardRestSpot[]>(() => cloneCourtyardRestSpots());
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+    const spotsLayoutKey = getCourtyardRestSpotsLayoutKey();
+    const isFirstLayoutSyncRef = useRef(true);
+
+    useEffect(() => {
+        if (isFirstLayoutSyncRef.current) {
+            isFirstLayoutSyncRef.current = false;
+            return;
+        }
+        if (dragSpotIdRef.current) return;
+        setSpots(cloneCourtyardRestSpots());
+    }, [spotsLayoutKey]);
 
     const entries: CourtyardSpotDebugEntry[] = buildCourtyardSpotDebugEntries(spots);
     const selectedSpot = spots.find((spot) => spot.id === selectedId);
@@ -81,14 +95,17 @@ export function PetCourtyardSpotEditor() {
         window.addEventListener('pointercancel', endDrag);
     }, [endDrag, handlePointerMove]);
 
-    const roundScaleClamp = (value: number) =>
-        Math.round(clamp(value, MIN_SCALE, MAX_SCALE) * 100) / 100;
+    const roundScaleClamp = clampCourtyardSpotScale;
 
-    const adjustScale = (spotId: string, delta: number) => {
-        const spot = spots.find((s) => s.id === spotId);
-        if (!spot) return;
-        updateSpot(spotId, { scale: roundScaleClamp(spot.scale + delta) });
-    };
+    const adjustScale = useCallback((spotId: string, delta: number) => {
+        setSpots((prev) =>
+            prev.map((spot) =>
+                spot.id === spotId
+                    ? { ...spot, scale: roundScaleClamp(spot.scale + delta) }
+                    : spot,
+            ),
+        );
+    }, []);
 
     const handleCopy = async () => {
         try {
@@ -102,7 +119,7 @@ export function PetCourtyardSpotEditor() {
     };
 
     return (
-        <section className="pet-courtyard overflow-hidden rounded-2xl border-2 border-amber-500/50 shadow-sm">
+        <section className="pet-courtyard overflow-visible rounded-2xl border-2 border-amber-500/50 shadow-sm">
             <div className="border-b border-amber-200/70 bg-amber-50/95 px-3 py-2.5 space-y-2">
                 <p className="text-center text-[10px] text-amber-950/85 leading-relaxed">
                     <strong>休息點編輯模式</strong> · 在圖上拖曳移動 · 點一下選取
@@ -125,29 +142,39 @@ export function PetCourtyardSpotEditor() {
                         {copyState === 'copied' ? '已複製！' : copyState === 'error' ? '複製失敗' : '複製座標'}
                     </button>
                 </div>
-                <div className="rounded-xl border border-amber-300/80 bg-white px-3 py-2.5 shadow-sm">
+                <div
+                    className="rounded-xl border border-amber-300/80 bg-white px-3 py-2.5 shadow-sm"
+                    onPointerDown={(event) => event.stopPropagation()}
+                >
                     {selectedSpot ? (
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 text-[11px] text-slate-800">
                                 <p className="font-medium truncate">選取：{selectedSpot.label}</p>
                                 <p className="text-clay truncate">
-                                    {selectedSpot.id} · x {selectedSpot.x} y {selectedSpot.y} · scale {selectedSpot.scale}
+                                    {selectedSpot.id} · x {selectedSpot.x} y {selectedSpot.y} · scale{' '}
+                                    {selectedSpot.scale.toFixed(2)}
+                                    <span className="text-amber-800/70">
+                                        {' '}
+                                        （{COURTYARD_SPOT_SCALE_MIN}–{COURTYARD_SPOT_SCALE_MAX}）
+                                    </span>
                                 </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                                 <button
                                     type="button"
                                     aria-label="縮小"
-                                    onClick={() => adjustScale(selectedSpot.id, -SCALE_STEP)}
-                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stoneSoft/70 bg-stone-50 text-lg font-bold text-slate-800 active:bg-stone-100"
+                                    disabled={selectedSpot.scale <= COURTYARD_SPOT_SCALE_MIN + 0.001}
+                                    onClick={() => adjustScale(selectedSpot.id, -COURTYARD_SPOT_SCALE_STEP)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stoneSoft/70 bg-stone-50 text-lg font-bold text-slate-800 active:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     −
                                 </button>
                                 <button
                                     type="button"
                                     aria-label="放大"
-                                    onClick={() => adjustScale(selectedSpot.id, SCALE_STEP)}
-                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stoneSoft/70 bg-stone-50 text-lg font-bold text-slate-800 active:bg-stone-100"
+                                    disabled={selectedSpot.scale >= COURTYARD_SPOT_SCALE_MAX - 0.001}
+                                    onClick={() => adjustScale(selectedSpot.id, COURTYARD_SPOT_SCALE_STEP)}
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-stoneSoft/70 bg-stone-50 text-lg font-bold text-slate-800 active:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     ＋
                                 </button>
@@ -161,61 +188,25 @@ export function PetCourtyardSpotEditor() {
                 </div>
             </div>
 
-            <div
-                ref={fieldRef}
-                className="relative aspect-[16/9] w-full bg-moss/5 touch-none"
-                onPointerDown={() => setSelectedId(null)}
+            <CourtyardSceneCanvas
+                fieldRef={fieldRef}
+                className="touch-none"
+                onFieldPointerDown={() => setSelectedId(null)}
             >
-                <img
-                    src={COURTYARD_BACKGROUND}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-                    aria-hidden
-                    draggable={false}
-                />
-                <div className="absolute inset-0">
-                    {entries.map(({ spot, companion }) => {
-                        const isSelected = selectedId === spot.id;
-                        return (
-                            <div
-                                key={spot.id}
-                                className="absolute"
-                                style={{
-                                    left: `${spot.x}%`,
-                                    top: `${spot.y}%`,
-                                    transform: 'translate(-50%, -100%)',
-                                    zIndex: Math.round(spot.y),
-                                }}
-                            >
-                                {/* 僅動物參與定位高度；標籤 absolute 不撐高、避免點選位移 */}
-                                <div
-                                    onPointerDown={(e) => {
-                                        e.stopPropagation();
-                                        startDrag(spot.id, e);
-                                    }}
-                                    className={cn(
-                                        'relative inline-flex cursor-grab active:cursor-grabbing',
-                                        isSelected && 'outline outline-1 outline-amber-400 rounded-sm',
-                                    )}
-                                >
-                                    <div className="pointer-events-none">
-                                        <PetAvatar
-                                            companion={companion}
-                                            variant="courtyard"
-                                            courtyardSpotScale={spot.scale}
-                                            onSelect={() => {}}
-                                        />
-                                    </div>
-                                    <p className="absolute left-1/2 top-full -translate-x-1/2 mt-0.5 text-center text-[8px] font-medium leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] whitespace-nowrap pointer-events-none">
-                                        {spot.id}
-                                        <span className="text-white/80"> · {spot.scale}</span>
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+                {entries.map(({ spot, companion }) => (
+                    <CourtyardPetAtSpot
+                        key={`${spot.id}-${spot.scale}-${spotsLayoutKey}`}
+                        spot={spot}
+                        companion={companion}
+                        showSpotLabel
+                        isSelected={selectedId === spot.id}
+                        onPointerDown={(e) => {
+                            e.stopPropagation();
+                            startDrag(spot.id, e);
+                        }}
+                    />
+                ))}
+            </CourtyardSceneCanvas>
 
             <p className="text-[10px] text-amber-900/80 text-center py-2 bg-amber-50/80 border-t border-amber-200/50">
                 在圖上拖曳調位置 · 大小請用圖上方的 − / ＋

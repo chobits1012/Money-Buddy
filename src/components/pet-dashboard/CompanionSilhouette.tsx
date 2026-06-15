@@ -33,17 +33,30 @@ export function CompanionSilhouette({ companion, size = 'default' }: CompanionSi
     const [candidateIndex, setCandidateIndex] = useState(0);
 
     if (!companion.isPlaceholder && candidateIndex < candidates.length) {
-        return (
+        const img = (
             <img
                 src={candidates[candidateIndex]}
                 alt=""
                 width={imageSize.width}
                 height={imageSize.height}
-                className="drop-shadow-sm object-contain"
+                className="block max-h-full max-w-full object-contain object-bottom drop-shadow-sm"
                 aria-hidden
                 onError={() => setCandidateIndex((index) => index + 1)}
             />
         );
+
+        if (size === 'courtyard') {
+            return (
+                <div
+                    className="flex items-end justify-center"
+                    style={{ width: imageSize.width, height: imageSize.height }}
+                >
+                    {img}
+                </div>
+            );
+        }
+
+        return img;
     }
 
     return <CompanionSilhouetteSvg companion={companion} size={size} />;
