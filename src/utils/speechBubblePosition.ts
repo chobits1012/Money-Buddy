@@ -19,7 +19,6 @@ export interface SpeechBubbleLayout {
     tailOffset: number;
 }
 
-const DEFAULT_BUBBLE_WIDTH = 280;
 const VIEWPORT_PADDING = 12;
 const TAIL_GAP = 10;
 const TAIL_CLAMP = 20;
@@ -33,7 +32,6 @@ export function computeSpeechBubbleLayout(
 ): SpeechBubbleLayout {
     const width = Math.min(
         Math.max(bubbleSize.width, 200),
-        DEFAULT_BUBBLE_WIDTH,
         viewport.width - padding * 2,
     );
     const height = bubbleSize.height;

@@ -54,7 +54,7 @@ export function PetAnchoredSpeechBubble({
             const anchor = toRectLike(anchorRect);
             const next = computeSpeechBubbleLayout(
                 anchor,
-                { width: fullscreenMode ? 260 : 280, height: el.offsetHeight },
+                { width: fullscreenMode ? 360 : 280, height: el.offsetHeight },
                 viewport,
             );
             setLayout(next);
@@ -108,7 +108,8 @@ export function PetAnchoredSpeechBubble({
                 aria-modal
                 className={cn(
                     'comic-bubble comic-bubble--anchored fixed z-50',
-                    'bg-white/95 border-2 border-slate-700/80 rounded-2xl px-4 py-3 shadow-lg',
+                    'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
+                    fullscreenMode ? 'px-3.5 py-2.5' : 'px-4 py-3',
                     layout?.placement === 'below' && 'comic-bubble--below',
                     layout?.placement === 'above' && 'comic-bubble--above',
                     layout?.placement === 'left' && 'comic-bubble--left',
@@ -120,7 +121,7 @@ export function PetAnchoredSpeechBubble({
                 style={{
                     top: layout?.top ?? -9999,
                     left: layout?.left ?? 0,
-                    width: layout?.width ?? 280,
+                    width: layout?.width ?? (fullscreenMode ? 360 : 280),
                     ['--tail-offset' as string]: layout ? `${layout.tailOffset}px` : '50%',
                 }}
             >
@@ -136,12 +137,18 @@ export function PetAnchoredSpeechBubble({
                 <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
                     {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
                 </p>
-                <p className="text-sm text-slate-800 leading-relaxed mt-1 font-medium pr-4">
+                <p className={cn(
+                    'text-slate-800 leading-relaxed mt-1 font-medium pr-4',
+                    fullscreenMode ? 'text-[13px]' : 'text-sm',
+                )}>
                     {companion.companionMessage}
                 </p>
 
                 {!companion.isPlaceholder && (
-                    <div className="mt-2.5 pt-2.5 border-t border-stoneSoft/70 grid grid-cols-3 gap-1.5 text-center text-[11px]">
+                    <div className={cn(
+                        'pt-2.5 border-t border-stoneSoft/70 text-center text-[11px]',
+                        fullscreenMode ? 'mt-2 grid grid-cols-3 gap-1' : 'mt-2.5 grid grid-cols-3 gap-1.5',
+                    )}>
                         <div>
                             <p className="text-[10px] text-clay">市值</p>
                             <p className="font-medium text-slate-800">
@@ -172,7 +179,7 @@ export function PetAnchoredSpeechBubble({
                     type="button"
                     variant="primary"
                     size="sm"
-                    className="w-full mt-3"
+                    className={cn('w-full', fullscreenMode ? 'mt-2.5' : 'mt-3')}
                     onClick={goToHoldings}
                 >
                     {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
