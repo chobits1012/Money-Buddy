@@ -63,12 +63,12 @@ export function PetAvatar({
                 <div
                     data-pet-anchor
                     className="relative block leading-none"
-                    style={{ transform: `scale(${displayScale})`, transformOrigin: 'center bottom' }}
                 >
                     <div className={cn('pet-breathe block leading-none', companion.mood === 'sleepy' && 'pet-sleepy')}>
                         <CompanionSilhouette
                             companion={companion}
                             size="courtyard"
+                            scale={displayScale}
                         />
                     </div>
                 </div>

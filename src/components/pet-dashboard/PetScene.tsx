@@ -65,7 +65,7 @@ export function PetScene({
     const isFullscreen = presentation === 'fullscreen';
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className={isFullscreen ? 'h-full w-full' : 'flex flex-col gap-4'}>
             <section
                 className={
                     isFullscreen

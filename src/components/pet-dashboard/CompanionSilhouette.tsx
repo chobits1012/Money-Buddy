@@ -10,6 +10,8 @@ interface CompanionSilhouetteProps {
         'family' | 'companionId' | 'mood' | 'color' | 'isPlaceholder'
     >;
     size?: CompanionSilhouetteSize;
+    /** 庭院遠近縮放；用實際尺寸而非 transform，避免邊角被裁切 */
+    scale?: number;
 }
 
 const MOOD_EYE: Record<CompanionAvatarViewModel['mood'], string> = {
@@ -24,8 +26,16 @@ const IMAGE_SIZES: Record<CompanionSilhouetteSize, { width: number; height: numb
     courtyard: { width: 56, height: 48 },
 };
 
-export function CompanionSilhouette({ companion, size = 'default' }: CompanionSilhouetteProps) {
-    const imageSize = IMAGE_SIZES[size];
+export function CompanionSilhouette({
+    companion,
+    size = 'default',
+    scale = 1,
+}: CompanionSilhouetteProps) {
+    const baseSize = IMAGE_SIZES[size];
+    const imageSize = {
+        width: baseSize.width * scale,
+        height: baseSize.height * scale,
+    };
     const candidates = useMemo(
         () => getCompanionImageCandidates(companion),
         [companion.family, companion.companionId, companion.mood],
@@ -59,17 +69,23 @@ export function CompanionSilhouette({ companion, size = 'default' }: CompanionSi
         return img;
     }
 
-    return <CompanionSilhouetteSvg companion={companion} size={size} />;
+    return <CompanionSilhouetteSvg companion={companion} size={size} scale={scale} />;
 }
 
 function CompanionSilhouetteSvg({
     companion,
     size = 'default',
+    scale = 1,
 }: {
     companion: Pick<CompanionAvatarViewModel, 'family' | 'companionId' | 'mood' | 'color'>;
     size?: CompanionSilhouetteSize;
+    scale?: number;
 }) {
-    const imageSize = IMAGE_SIZES[size];
+    const baseSize = IMAGE_SIZES[size];
+    const imageSize = {
+        width: baseSize.width * scale,
+        height: baseSize.height * scale,
+    };
     const { family, color, mood } = companion;
     const eye = MOOD_EYE[mood];
 

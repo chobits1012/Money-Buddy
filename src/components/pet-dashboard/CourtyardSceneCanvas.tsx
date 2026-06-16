@@ -35,7 +35,7 @@ export function CourtyardSceneCanvas({
                 aria-hidden
                 draggable={false}
             />
-            <div className="absolute inset-0">{children}</div>
+            <div className="absolute inset-0 overflow-visible">{children}</div>
         </div>
     );
 }

@@ -22,6 +22,8 @@ function readViewport(): ViewportSize {
 
 const BASE_WIDTH = 360;
 const BASE_HEIGHT = (BASE_WIDTH * 9) / 16;
+/** 邏輯舞台外圈留白，讓大隻動物在邊角時不被 scale 外框裁切 */
+const STAGE_BLEED = 48;
 
 export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscreenStageProps) {
     const [viewport, setViewport] = useState<ViewportSize>(() => readViewport());
@@ -51,10 +53,12 @@ export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscre
         };
     }, []);
 
-    const scale = useMemo(
-        () => Math.min(viewport.width / BASE_WIDTH, viewport.height / BASE_HEIGHT),
-        [viewport.height, viewport.width],
-    );
+    const stageMetrics = useMemo(() => {
+        const outerWidth = BASE_WIDTH + STAGE_BLEED * 2;
+        const outerHeight = BASE_HEIGHT + STAGE_BLEED * 2;
+        const scale = Math.min(viewport.width / outerWidth, viewport.height / outerHeight);
+        return { outerWidth, outerHeight, scale };
+    }, [viewport.height, viewport.width]);
 
     if (typeof document === 'undefined') {
         return null;
@@ -74,13 +78,23 @@ export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscre
                 <div
                     className="relative overflow-visible"
                     style={{
-                        width: `${BASE_WIDTH}px`,
-                        height: `${BASE_HEIGHT}px`,
-                        transform: `scale(${scale})`,
+                        width: `${stageMetrics.outerWidth}px`,
+                        height: `${stageMetrics.outerHeight}px`,
+                        transform: `scale(${stageMetrics.scale})`,
                         transformOrigin: 'center center',
                     }}
                 >
-                    {children}
+                    <div
+                        className="absolute overflow-visible"
+                        style={{
+                            left: `${STAGE_BLEED}px`,
+                            top: `${STAGE_BLEED}px`,
+                            width: `${BASE_WIDTH}px`,
+                            height: `${BASE_HEIGHT}px`,
+                        }}
+                    >
+                        {children}
+                    </div>
                 </div>
             </div>
         </div>,
