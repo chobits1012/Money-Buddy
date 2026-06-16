@@ -13,6 +13,8 @@ import { isCourtyardSpotDebugEnabled, shouldShowCourtyardSpotLabels } from '../.
 interface PetSceneProps {
     zones: CourtyardZoneViewModel[];
     presentation?: 'card' | 'fullscreen';
+    hideSpeechBubble?: boolean;
+    onCompanionSelect?: (companion: CompanionAvatarViewModel, anchorRect: DOMRect) => void;
 }
 
 interface SelectionState {
@@ -20,7 +22,12 @@ interface SelectionState {
     anchorRect: DOMRect;
 }
 
-export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
+export function PetScene({
+    zones,
+    presentation = 'card',
+    hideSpeechBubble = false,
+    onCompanionSelect,
+}: PetSceneProps) {
     const [selection, setSelection] = useState<SelectionState | null>(null);
     const isSpotDebug = isCourtyardSpotDebugEnabled();
     const companions = useMemo(
@@ -40,6 +47,10 @@ export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
     );
 
     const handleSelect = (companion: CompanionAvatarViewModel, anchorRect: DOMRect) => {
+        if (onCompanionSelect) {
+            onCompanionSelect(companion, anchorRect);
+            return;
+        }
         setSelection((prev) =>
             prev?.companion.id === companion.id ? null : { companion, anchorRect },
         );
@@ -85,12 +96,14 @@ export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
                 )}
             </section>
 
-            <PetAnchoredSpeechBubble
-                companion={selection?.companion ?? null}
-                anchorRect={selection?.anchorRect ?? null}
-                fullscreenMode={isFullscreen}
-                onClose={() => setSelection(null)}
-            />
+            {!hideSpeechBubble && (
+                <PetAnchoredSpeechBubble
+                    companion={selection?.companion ?? null}
+                    anchorRect={selection?.anchorRect ?? null}
+                    fullscreenMode={isFullscreen}
+                    onClose={() => setSelection(null)}
+                />
+            )}
         </div>
     );
 }

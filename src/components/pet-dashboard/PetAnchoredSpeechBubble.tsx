@@ -11,7 +11,6 @@ import {
     toRectLike,
     type SpeechBubbleLayout,
 } from '../../utils/speechBubblePosition';
-import { useCourtyardFullscreenOverlay } from './CourtyardFullscreenOverlayContext';
 
 interface PetAnchoredSpeechBubbleProps {
     companion: CompanionAvatarViewModel | null;
@@ -35,12 +34,9 @@ export function PetAnchoredSpeechBubble({
     onClose,
 }: PetAnchoredSpeechBubbleProps) {
     const navigate = useNavigate();
-    const fullscreenOverlay = useCourtyardFullscreenOverlay();
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [layout, setLayout] = useState<SpeechBubbleLayout | null>(null);
     const isOpen = !!companion && !!anchorRect;
-    const useFullscreenOverlay = fullscreenMode && !!fullscreenOverlay;
-    const positionMode = useFullscreenOverlay ? 'absolute' : 'fixed';
     useLayoutEffect(() => {
         if (!companion || !anchorRect || !bubbleRef.current) {
             setLayout(null);
@@ -101,10 +97,7 @@ export function PetAnchoredSpeechBubble({
     const bubbleNode = (
         <>
             <div
-                className={cn(
-                    positionMode === 'absolute' ? 'absolute inset-0' : 'fixed inset-0',
-                    'z-40 bg-black/15 pointer-events-auto',
-                )}
+                className="fixed inset-0 z-[70] bg-black/15"
                 onClick={onClose}
                 aria-hidden
             />
@@ -114,8 +107,7 @@ export function PetAnchoredSpeechBubble({
                 role="dialog"
                 aria-modal
                 className={cn(
-                    'comic-bubble comic-bubble--anchored z-50 pointer-events-auto',
-                    positionMode,
+                    'comic-bubble comic-bubble--anchored fixed z-[71]',
                     'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
                     fullscreenMode ? 'px-3.5 py-2.5' : 'px-4 py-3',
                     layout?.placement === 'below' && 'comic-bubble--below',
@@ -130,6 +122,8 @@ export function PetAnchoredSpeechBubble({
                     top: layout?.top ?? -9999,
                     left: layout?.left ?? 0,
                     width: layout?.width ?? (fullscreenMode ? 360 : 280),
+                    writingMode: 'horizontal-tb',
+                    transform: 'none',
                     ['--tail-offset' as string]: layout ? `${layout.tailOffset}px` : '50%',
                 }}
             >
@@ -196,6 +190,5 @@ export function PetAnchoredSpeechBubble({
         </>
     );
 
-    const portalTarget = useFullscreenOverlay ? fullscreenOverlay : document.body;
-    return createPortal(bubbleNode, portalTarget);
+    return createPortal(bubbleNode, document.body);
 }

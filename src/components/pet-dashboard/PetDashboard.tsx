@@ -1,9 +1,12 @@
 import { FORMAT_TWD } from '../../utils/constants';
 import { cn } from '../../utils/cn';
+import { useState } from 'react';
 import { usePetDashboardViewModel } from '../../hooks/usePetDashboardViewModel';
 import { ViewModeToggle } from './ViewModeToggle';
 import { PetScene } from './PetScene';
+import { PetAnchoredSpeechBubble } from './PetAnchoredSpeechBubble';
 import type { HomeViewMode } from '../../hooks/useHomeViewMode';
+import type { CompanionAvatarViewModel } from '../../types/petDashboard';
 import { useCourtyardFullscreenPreference } from '../../hooks/useCourtyardFullscreenPreference';
 import { CourtyardFullscreenStage } from './CourtyardFullscreenStage';
 
@@ -12,6 +15,11 @@ interface PetDashboardProps {
     onOpenWithdrawal: () => void;
     viewMode: HomeViewMode;
     onViewModeChange: (mode: HomeViewMode) => void;
+}
+
+interface FullscreenSelectionState {
+    companion: CompanionAvatarViewModel;
+    anchorRect: DOMRect;
 }
 
 export function PetDashboard({
@@ -33,6 +41,16 @@ export function PetDashboard({
     } = usePetDashboardViewModel();
 
     const pnlPositive = totalUnrealizedPnL >= 0;
+    const [fullscreenSelection, setFullscreenSelection] = useState<FullscreenSelectionState | null>(null);
+
+    const handleFullscreenSelection = (
+        companion: CompanionAvatarViewModel,
+        anchorRect: DOMRect,
+    ) => {
+        setFullscreenSelection((prev) =>
+            prev?.companion.id === companion.id ? null : { companion, anchorRect },
+        );
+    };
 
     return (
         <div className="flex flex-col gap-5 animate-in fade-in duration-500">
@@ -105,9 +123,27 @@ export function PetDashboard({
             </div>
 
             {isFullscreen && (
-                <CourtyardFullscreenStage onExit={closeFullscreen}>
-                    <PetScene zones={courtyard.zones} presentation="fullscreen" />
-                </CourtyardFullscreenStage>
+                <>
+                    <CourtyardFullscreenStage
+                        onExit={() => {
+                            setFullscreenSelection(null);
+                            closeFullscreen();
+                        }}
+                    >
+                        <PetScene
+                            zones={courtyard.zones}
+                            presentation="fullscreen"
+                            hideSpeechBubble
+                            onCompanionSelect={handleFullscreenSelection}
+                        />
+                    </CourtyardFullscreenStage>
+                    <PetAnchoredSpeechBubble
+                        companion={fullscreenSelection?.companion ?? null}
+                        anchorRect={fullscreenSelection?.anchorRect ?? null}
+                        fullscreenMode
+                        onClose={() => setFullscreenSelection(null)}
+                    />
+                </>
             )}
         </div>
     );
