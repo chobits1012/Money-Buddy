@@ -52,19 +52,8 @@ export function PetAnchoredSpeechBubble({
         const measure = () => {
             const el = bubbleRef.current;
             if (!el) return;
-            const rootRect = positioningRoot?.getBoundingClientRect();
-            const viewport = rootRect
-                ? { width: rootRect.width, height: rootRect.height }
-                : { width: window.innerWidth, height: window.innerHeight };
-            const anchor = rootRect
-                ? {
-                    top: anchorRect.top - rootRect.top,
-                    left: anchorRect.left - rootRect.left,
-                    width: anchorRect.width,
-                    height: anchorRect.height,
-                    bottom: anchorRect.bottom - rootRect.top,
-                }
-                : toRectLike(anchorRect);
+            const viewport = { width: window.innerWidth, height: window.innerHeight };
+            const anchor = toRectLike(anchorRect);
             const next = computeSpeechBubbleLayout(
                 anchor,
                 { width: 280, height: el.offsetHeight },
