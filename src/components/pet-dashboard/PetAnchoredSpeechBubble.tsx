@@ -34,6 +34,10 @@ export function PetAnchoredSpeechBubble({
     onClose,
 }: PetAnchoredSpeechBubbleProps) {
     const navigate = useNavigate();
+    const forceLandscapeVisual = fullscreenMode
+        && typeof window !== 'undefined'
+        && (window.visualViewport?.height ?? window.innerHeight)
+            > (window.visualViewport?.width ?? window.innerWidth);
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [layout, setLayout] = useState<SpeechBubbleLayout | null>(null);
     const isOpen = !!companion && !!anchorRect;
@@ -136,56 +140,68 @@ export function PetAnchoredSpeechBubble({
                     <span className="material-symbols-outlined text-base">close</span>
                 </button>
 
-                <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
-                    {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
-                </p>
-                <p className={cn(
-                    'text-slate-800 leading-relaxed mt-1 font-medium pr-4',
-                    fullscreenMode ? 'text-[13px]' : 'text-sm',
-                )}>
-                    {companion.companionMessage}
-                </p>
-
-                {!companion.isPlaceholder && (
-                    <div className={cn(
-                        'pt-2.5 border-t border-stoneSoft/70 text-center text-[11px]',
-                        fullscreenMode ? 'mt-2 grid grid-cols-3 gap-1' : 'mt-2.5 grid grid-cols-3 gap-1.5',
-                    )}>
-                        <div>
-                            <p className="text-[10px] text-clay">市值</p>
-                            <p className="font-medium text-slate-800">
-                                {FORMAT_TWD.format(companion.marketValueTWD)}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] text-clay">佔比</p>
-                            <p className="font-medium text-slate-800">
-                                {companion.allocationPercent}%
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] text-clay">損益</p>
-                            <p
-                                className={cn(
-                                    'font-medium',
-                                    companion.unrealizedPnL >= 0 ? 'text-rust' : 'text-moss',
-                                )}
-                            >
-                                {formatPnL(companion)}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    className={cn('w-full', fullscreenMode ? 'mt-2.5' : 'mt-3')}
-                    onClick={goToHoldings}
+                <div
+                    style={{
+                        transform: forceLandscapeVisual ? 'rotate(-90deg)' : 'none',
+                        transformOrigin: 'center center',
+                        width: '100%',
+                    }}
                 >
-                    {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
-                </Button>
+                    <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
+                        {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
+                    </p>
+                    <p
+                        className={cn(
+                            'text-slate-800 leading-relaxed mt-1 font-medium pr-4',
+                            fullscreenMode ? 'text-[13px]' : 'text-sm',
+                        )}
+                    >
+                        {companion.companionMessage}
+                    </p>
+
+                    {!companion.isPlaceholder && (
+                        <div
+                            className={cn(
+                                'pt-2.5 border-t border-stoneSoft/70 text-center text-[11px]',
+                                fullscreenMode ? 'mt-2 grid grid-cols-3 gap-1' : 'mt-2.5 grid grid-cols-3 gap-1.5',
+                            )}
+                        >
+                            <div>
+                                <p className="text-[10px] text-clay">市值</p>
+                                <p className="font-medium text-slate-800">
+                                    {FORMAT_TWD.format(companion.marketValueTWD)}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-clay">佔比</p>
+                                <p className="font-medium text-slate-800">
+                                    {companion.allocationPercent}%
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-clay">損益</p>
+                                <p
+                                    className={cn(
+                                        'font-medium',
+                                        companion.unrealizedPnL >= 0 ? 'text-rust' : 'text-moss',
+                                    )}
+                                >
+                                    {formatPnL(companion)}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className={cn('w-full', fullscreenMode ? 'mt-2.5' : 'mt-3')}
+                        onClick={goToHoldings}
+                    >
+                        {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
+                    </Button>
+                </div>
             </div>
         </>
     );
