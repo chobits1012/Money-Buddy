@@ -1,0 +1,96 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+
+interface CourtyardFullscreenStageProps {
+    children: ReactNode;
+    onExit: () => void;
+}
+
+interface ViewportSize {
+    width: number;
+    height: number;
+}
+
+const BASE_WIDTH = 360;
+const BASE_HEIGHT = (BASE_WIDTH * 9) / 16;
+
+function readViewport(): ViewportSize {
+    if (typeof window === 'undefined') {
+        return { width: BASE_WIDTH, height: BASE_HEIGHT };
+    }
+
+    const vv = window.visualViewport;
+    return {
+        width: Math.max(1, Math.floor(vv?.width ?? window.innerWidth)),
+        height: Math.max(1, Math.floor(vv?.height ?? window.innerHeight)),
+    };
+}
+
+export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscreenStageProps) {
+    const [viewport, setViewport] = useState<ViewportSize>(() => readViewport());
+
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, []);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setViewport(readViewport());
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        window.visualViewport?.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+            window.visualViewport?.removeEventListener('resize', handleResize);
+        };
+    }, []);
+
+    const stageLayout = useMemo(() => {
+        const isPortraitViewport = viewport.height > viewport.width;
+        const forceLandscapeVisual = isPortraitViewport;
+        const visualWidth = forceLandscapeVisual ? viewport.height : viewport.width;
+        const visualHeight = forceLandscapeVisual ? viewport.width : viewport.height;
+        const scale = Math.min(visualWidth / BASE_WIDTH, visualHeight / BASE_HEIGHT);
+        return {
+            forceLandscapeVisual,
+            scale,
+        };
+    }, [viewport.height, viewport.width]);
+
+    return (
+        <div className="fixed inset-0 z-50 bg-slate-950/92 backdrop-blur-sm">
+            <button
+                type="button"
+                onClick={onExit}
+                className="absolute right-3 top-3 z-20 rounded-lg border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black/55 transition-colors"
+            >
+                離開全螢幕
+            </button>
+
+            <div className="relative h-full w-full overflow-hidden">
+                <div
+                    className="absolute left-1/2 top-1/2"
+                    style={{
+                        width: `${BASE_WIDTH}px`,
+                        height: `${BASE_HEIGHT}px`,
+                        transform: stageLayout.forceLandscapeVisual
+                            ? `translate(-50%, -50%) rotate(90deg) scale(${stageLayout.scale})`
+                            : `translate(-50%, -50%) scale(${stageLayout.scale})`,
+                        transformOrigin: 'center center',
+                    }}
+                >
+                    <div className="h-full w-full">{children}</div>
+                </div>
+            </div>
+        </div>
+    );
+}

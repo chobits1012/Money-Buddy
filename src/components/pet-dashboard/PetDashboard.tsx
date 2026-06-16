@@ -4,6 +4,8 @@ import { usePetDashboardViewModel } from '../../hooks/usePetDashboardViewModel';
 import { ViewModeToggle } from './ViewModeToggle';
 import { PetScene } from './PetScene';
 import type { HomeViewMode } from '../../hooks/useHomeViewMode';
+import { useCourtyardFullscreenPreference } from '../../hooks/useCourtyardFullscreenPreference';
+import { CourtyardFullscreenStage } from './CourtyardFullscreenStage';
 
 interface PetDashboardProps {
     onOpenDeposit: () => void;
@@ -18,6 +20,11 @@ export function PetDashboard({
     viewMode,
     onViewModeChange,
 }: PetDashboardProps) {
+    const {
+        isFullscreen,
+        openFullscreen,
+        closeFullscreen,
+    } = useCourtyardFullscreenPreference();
     const {
         courtyard,
         masterCapitalTotal,
@@ -38,10 +45,19 @@ export function PetDashboard({
                         所有軍團夥伴住在同一座庭院，點擊牠們聊聊
                     </p>
                 </div>
-                <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={isFullscreen ? closeFullscreen : openFullscreen}
+                        className="rounded-lg border border-stoneSoft/80 bg-white/65 px-3 py-1.5 text-xs font-medium text-clayDark hover:bg-white/80 transition-colors"
+                    >
+                        {isFullscreen ? '一般模式' : '全螢幕'}
+                    </button>
+                    <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
+                </div>
             </div>
 
-            <PetScene zones={courtyard.zones} />
+            {!isFullscreen && <PetScene zones={courtyard.zones} />}
 
             <div className="glass-panel rounded-2xl p-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -87,6 +103,12 @@ export function PetDashboard({
                     </button>
                 </div>
             </div>
+
+            {isFullscreen && (
+                <CourtyardFullscreenStage onExit={closeFullscreen}>
+                    <PetScene zones={courtyard.zones} presentation="fullscreen" />
+                </CourtyardFullscreenStage>
+            )}
         </div>
     );
 }

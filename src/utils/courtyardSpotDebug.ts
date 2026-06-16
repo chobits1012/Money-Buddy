@@ -9,7 +9,6 @@ export function isCourtyardSpotDebugEnabled(): boolean {
 
 /** dev 或 ?pet-labels=1：在正式庭院顯示休息點 id */
 export function shouldShowCourtyardSpotLabels(): boolean {
-    if (import.meta.env.DEV) return true;
     return new URLSearchParams(window.location.search).get('pet-labels') === '1';
 }
 

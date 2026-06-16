@@ -5,13 +5,14 @@ import { PetCourtyardSpotEditor } from './PetCourtyardSpotEditor';
 import type { CourtyardZoneViewModel, CompanionAvatarViewModel } from '../../types/petDashboard';
 import { CourtyardSceneCanvas } from './CourtyardSceneCanvas';
 import {
-    assignCourtyardRestSpots,
+    assignCourtyardRestSpotsRandom,
     getCourtyardRestSpotsLayoutKey,
 } from '../../utils/courtyardRestSpots';
 import { isCourtyardSpotDebugEnabled, shouldShowCourtyardSpotLabels } from '../../utils/courtyardSpotDebug';
 
 interface PetSceneProps {
     zones: CourtyardZoneViewModel[];
+    presentation?: 'card' | 'fullscreen';
 }
 
 interface SelectionState {
@@ -19,7 +20,7 @@ interface SelectionState {
     anchorRect: DOMRect;
 }
 
-export function PetScene({ zones }: PetSceneProps) {
+export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
     const [selection, setSelection] = useState<SelectionState | null>(null);
     const isSpotDebug = isCourtyardSpotDebugEnabled();
     const companions = useMemo(
@@ -31,10 +32,11 @@ export function PetScene({ zones }: PetSceneProps) {
         [companions],
     );
     const spotsLayoutKey = getCourtyardRestSpotsLayoutKey();
+    const sessionRandomSeed = useMemo(() => Math.random(), []);
 
     const restSpots = useMemo(
-        () => assignCourtyardRestSpots(companionIds),
-        [companionIds, spotsLayoutKey],
+        () => assignCourtyardRestSpotsRandom(companionIds, sessionRandomSeed),
+        [companionIds, sessionRandomSeed, spotsLayoutKey],
     );
 
     const handleSelect = (companion: CompanionAvatarViewModel, anchorRect: DOMRect) => {
@@ -49,9 +51,17 @@ export function PetScene({ zones }: PetSceneProps) {
 
     const showSpotLabels = shouldShowCourtyardSpotLabels();
 
+    const isFullscreen = presentation === 'fullscreen';
+
     return (
         <div className="flex flex-col gap-4">
-            <section className="pet-courtyard relative overflow-hidden rounded-2xl border border-stoneSoft/50 shadow-sm">
+            <section
+                className={
+                    isFullscreen
+                        ? 'pet-courtyard relative overflow-hidden rounded-none border-0 shadow-none h-full w-full'
+                        : 'pet-courtyard relative overflow-hidden rounded-2xl border border-stoneSoft/50 shadow-sm'
+                }
+            >
                 <CourtyardSceneCanvas>
                     {companions.map((companion) => {
                         const spot = restSpots.get(companion.id);
@@ -68,9 +78,11 @@ export function PetScene({ zones }: PetSceneProps) {
                         );
                     })}
                 </CourtyardSceneCanvas>
-                <p className="text-[10px] text-clay/80 text-center py-2 bg-white/50 backdrop-blur-[2px]">
-                    點擊動物，在頭上對話
-                </p>
+                {!isFullscreen && (
+                    <p className="text-[10px] text-clay/80 text-center py-2 bg-white/50 backdrop-blur-[2px]">
+                        點擊動物，在頭上對話
+                    </p>
+                )}
             </section>
 
             <PetAnchoredSpeechBubble
