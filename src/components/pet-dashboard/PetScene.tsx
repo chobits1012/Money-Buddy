@@ -69,7 +69,7 @@ export function PetScene({
             <section
                 className={
                     isFullscreen
-                        ? 'pet-courtyard relative overflow-hidden rounded-none border-0 shadow-none h-full w-full'
+                        ? 'pet-courtyard relative overflow-visible rounded-none border-0 shadow-none h-full w-full'
                         : 'pet-courtyard relative overflow-hidden rounded-2xl border border-stoneSoft/50 shadow-sm'
                 }
             >

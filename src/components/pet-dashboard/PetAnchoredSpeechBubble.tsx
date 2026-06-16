@@ -111,13 +111,8 @@ export function PetAnchoredSpeechBubble({
                 role="dialog"
                 aria-modal
                 className={cn(
-                    'comic-bubble comic-bubble--anchored fixed z-[71]',
-                    'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
+                    'fixed z-[71]',
                     fullscreenMode ? 'px-3.5 py-2.5' : 'px-4 py-3',
-                    layout?.placement === 'below' && 'comic-bubble--below',
-                    layout?.placement === 'above' && 'comic-bubble--above',
-                    layout?.placement === 'left' && 'comic-bubble--left',
-                    layout?.placement === 'right' && 'comic-bubble--right',
                     positioned
                         ? 'opacity-100 scale-100'
                         : 'opacity-0 scale-95 pointer-events-none',
@@ -131,22 +126,31 @@ export function PetAnchoredSpeechBubble({
                     ['--tail-offset' as string]: layout ? `${layout.tailOffset}px` : '50%',
                 }}
             >
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-1.5 right-1.5 text-clay hover:text-slate-800 p-1"
-                    aria-label="關閉"
-                >
-                    <span className="material-symbols-outlined text-base">close</span>
-                </button>
-
                 <div
+                    className={cn(
+                        'comic-bubble comic-bubble--anchored',
+                        'relative',
+                        'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
+                        layout?.placement === 'below' && 'comic-bubble--below',
+                        layout?.placement === 'above' && 'comic-bubble--above',
+                        layout?.placement === 'left' && 'comic-bubble--left',
+                        layout?.placement === 'right' && 'comic-bubble--right',
+                    )}
                     style={{
-                        transform: forceLandscapeVisual ? 'rotate(-90deg)' : 'none',
+                        transform: forceLandscapeVisual ? 'rotate(90deg)' : 'none',
                         transformOrigin: 'center center',
                         width: '100%',
                     }}
                 >
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="absolute top-1.5 right-1.5 text-clay hover:text-slate-800 p-1"
+                        aria-label="關閉"
+                    >
+                        <span className="material-symbols-outlined text-base">close</span>
+                    </button>
+
                     <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
                         {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
                     </p>

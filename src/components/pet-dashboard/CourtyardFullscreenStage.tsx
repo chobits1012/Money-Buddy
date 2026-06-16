@@ -76,12 +76,16 @@ export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscre
             <button
                 type="button"
                 onClick={onExit}
-                className="absolute right-3 top-3 z-[60] rounded-lg border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black/55 transition-colors"
+                className="absolute right-3 top-3 z-[60] inline-flex items-center justify-center rounded-lg border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black/55 transition-colors"
+                style={{
+                    transform: stageLayout.forceLandscapeVisual ? 'rotate(90deg)' : 'none',
+                    transformOrigin: 'top right',
+                }}
             >
                 離開全螢幕
             </button>
 
-            <div className="relative h-full w-full overflow-hidden">
+            <div className="relative h-full w-full overflow-visible">
                 <div
                     className="absolute left-1/2 top-1/2"
                     style={{
