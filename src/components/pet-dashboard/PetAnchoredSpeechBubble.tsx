@@ -40,6 +40,10 @@ export function PetAnchoredSpeechBubble({
     const isInlineOverlay = !!positioningRoot;
 
     useLayoutEffect(() => {
+        if (isInlineOverlay) {
+            setLayout(null);
+            return;
+        }
         if (!companion || !anchorRect || !bubbleRef.current) {
             setLayout(null);
             return;
@@ -99,10 +103,86 @@ export function PetAnchoredSpeechBubble({
 
     const positioned = layout !== null;
 
+    if (isInlineOverlay) {
+        return (
+            <>
+                <div
+                    className="absolute inset-0 z-40 bg-black/15"
+                    onClick={onClose}
+                    aria-hidden
+                />
+                <div
+                    ref={bubbleRef}
+                    role="dialog"
+                    aria-modal
+                    className={cn(
+                        'absolute left-1/2 bottom-3 z-50 -translate-x-1/2',
+                        'w-[calc(100%-24px)] max-w-[320px]',
+                        'bg-white/95 border-2 border-slate-700/80 rounded-2xl px-4 py-3 shadow-lg',
+                    )}
+                >
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="absolute top-1.5 right-1.5 text-clay hover:text-slate-800 p-1"
+                        aria-label="關閉"
+                    >
+                        <span className="material-symbols-outlined text-base">close</span>
+                    </button>
+
+                    <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
+                        {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
+                    </p>
+                    <p className="text-sm text-slate-800 leading-relaxed mt-1 font-medium pr-4">
+                        {companion.companionMessage}
+                    </p>
+
+                    {!companion.isPlaceholder && (
+                        <div className="mt-2.5 pt-2.5 border-t border-stoneSoft/70 grid grid-cols-3 gap-1.5 text-center text-[11px]">
+                            <div>
+                                <p className="text-[10px] text-clay">市值</p>
+                                <p className="font-medium text-slate-800">
+                                    {FORMAT_TWD.format(companion.marketValueTWD)}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-clay">佔比</p>
+                                <p className="font-medium text-slate-800">
+                                    {companion.allocationPercent}%
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-clay">損益</p>
+                                <p
+                                    className={cn(
+                                        'font-medium',
+                                        companion.unrealizedPnL >= 0 ? 'text-rust' : 'text-moss',
+                                    )}
+                                >
+                                    {formatPnL(companion)}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className="w-full mt-3"
+                        onClick={goToHoldings}
+                    >
+                        {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
+                    </Button>
+                </div>
+            </>
+        );
+    }
+
     const bubbleNode = (
         <>
             <div
-                className={isInlineOverlay ? 'absolute inset-0 z-40 bg-black/15' : 'fixed inset-0 z-40 bg-black/15'}
+                className="fixed inset-0 z-40 bg-black/15"
                 onClick={onClose}
                 aria-hidden
             />
@@ -112,9 +192,7 @@ export function PetAnchoredSpeechBubble({
                 role="dialog"
                 aria-modal
                 className={cn(
-                    isInlineOverlay
-                        ? 'comic-bubble comic-bubble--anchored absolute z-50'
-                        : 'comic-bubble comic-bubble--anchored fixed z-50',
+                    'comic-bubble comic-bubble--anchored fixed z-50',
                     'bg-white/95 border-2 border-slate-700/80 rounded-2xl px-4 py-3 shadow-lg',
                     layout?.placement === 'below'
                         ? 'comic-bubble--below'
@@ -186,10 +264,6 @@ export function PetAnchoredSpeechBubble({
             </div>
         </>
     );
-
-    if (isInlineOverlay) {
-        return bubbleNode;
-    }
 
     return createPortal(bubbleNode, document.body);
 }
