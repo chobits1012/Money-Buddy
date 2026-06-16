@@ -1,6 +1,6 @@
 import { FORMAT_TWD } from '../../utils/constants';
 import { cn } from '../../utils/cn';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { usePetDashboardViewModel } from '../../hooks/usePetDashboardViewModel';
 import { ViewModeToggle } from './ViewModeToggle';
 import { PetScene } from './PetScene';
@@ -8,7 +8,10 @@ import { PetAnchoredSpeechBubble } from './PetAnchoredSpeechBubble';
 import type { HomeViewMode } from '../../hooks/useHomeViewMode';
 import type { CompanionAvatarViewModel } from '../../types/petDashboard';
 import { useCourtyardFullscreenPreference } from '../../hooks/useCourtyardFullscreenPreference';
-import { CourtyardFullscreenStage } from './CourtyardFullscreenStage';
+import {
+    CourtyardFullscreenStage,
+    type LandscapeShellLayout,
+} from './CourtyardFullscreenStage';
 
 interface PetDashboardProps {
     onOpenDeposit: () => void;
@@ -42,6 +45,14 @@ export function PetDashboard({
 
     const pnlPositive = totalUnrealizedPnL >= 0;
     const [fullscreenSelection, setFullscreenSelection] = useState<FullscreenSelectionState | null>(null);
+    const [shellElement, setShellElement] = useState<HTMLElement | null>(null);
+    const [shellLayout, setShellLayout] = useState<LandscapeShellLayout | null>(null);
+    const handleShellElement = useCallback((element: HTMLElement | null) => {
+        setShellElement(element);
+    }, []);
+    const handleShellLayout = useCallback((layout: LandscapeShellLayout | null) => {
+        setShellLayout(layout);
+    }, []);
 
     const handleFullscreenSelection = (
         companion: CompanionAvatarViewModel,
@@ -129,6 +140,8 @@ export function PetDashboard({
                             setFullscreenSelection(null);
                             closeFullscreen();
                         }}
+                        onShellElement={handleShellElement}
+                        onShellLayout={handleShellLayout}
                     >
                         <PetScene
                             zones={courtyard.zones}
@@ -141,6 +154,8 @@ export function PetDashboard({
                         companion={fullscreenSelection?.companion ?? null}
                         anchorRect={fullscreenSelection?.anchorRect ?? null}
                         fullscreenMode
+                        shellElement={shellElement}
+                        shellLayout={shellLayout}
                         onClose={() => setFullscreenSelection(null)}
                     />
                 </>

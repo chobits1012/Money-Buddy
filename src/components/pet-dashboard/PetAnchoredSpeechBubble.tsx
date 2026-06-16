@@ -11,11 +11,17 @@ import {
     toRectLike,
     type SpeechBubbleLayout,
 } from '../../utils/speechBubblePosition';
+import { mapScreenRectToLandscapeShell } from '../../utils/mapScreenToLandscapeShell';
+import type { LandscapeShellLayout } from './CourtyardFullscreenStage';
+
+const BUBBLE_WIDTH = 280;
 
 interface PetAnchoredSpeechBubbleProps {
     companion: CompanionAvatarViewModel | null;
     anchorRect: DOMRect | null;
     fullscreenMode?: boolean;
+    shellElement?: HTMLElement | null;
+    shellLayout?: LandscapeShellLayout | null;
     onClose: () => void;
 }
 
@@ -27,20 +33,28 @@ function formatPnL(companion: CompanionAvatarViewModel): string {
     return `${sign}${FORMAT_TWD.format(companion.unrealizedPnL)}`;
 }
 
+function readScreenViewport() {
+    const vv = window.visualViewport;
+    return {
+        width: Math.floor(vv?.width ?? window.innerWidth),
+        height: Math.floor(vv?.height ?? window.innerHeight),
+    };
+}
+
 export function PetAnchoredSpeechBubble({
     companion,
     anchorRect,
     fullscreenMode = false,
+    shellElement = null,
+    shellLayout = null,
     onClose,
 }: PetAnchoredSpeechBubbleProps) {
     const navigate = useNavigate();
-    const forceLandscapeVisual = fullscreenMode
-        && typeof window !== 'undefined'
-        && (window.visualViewport?.height ?? window.innerHeight)
-            > (window.visualViewport?.width ?? window.innerWidth);
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [layout, setLayout] = useState<SpeechBubbleLayout | null>(null);
     const isOpen = !!companion && !!anchorRect;
+    const usesShellPortal = fullscreenMode && !!shellElement && !!shellLayout;
+
     useLayoutEffect(() => {
         if (!companion || !anchorRect || !bubbleRef.current) {
             setLayout(null);
@@ -50,16 +64,19 @@ export function PetAnchoredSpeechBubble({
         const measure = () => {
             const el = bubbleRef.current;
             if (!el) return;
-            const vv = window.visualViewport;
-            const viewport = {
-                width: Math.floor(vv?.width ?? window.innerWidth),
-                height: Math.floor(vv?.height ?? window.innerHeight),
-            };
-            const anchor = toRectLike(anchorRect);
+
+            const screenViewport = readScreenViewport();
+            const anchor = usesShellPortal && shellLayout?.forceLandscapeVisual
+                ? mapScreenRectToLandscapeShell(toRectLike(anchorRect), screenViewport)
+                : toRectLike(anchorRect);
+            const layoutViewport = usesShellPortal && shellLayout
+                ? shellLayout.layoutViewport
+                : screenViewport;
+
             const next = computeSpeechBubbleLayout(
                 anchor,
-                { width: fullscreenMode ? 360 : 280, height: el.offsetHeight },
-                viewport,
+                { width: BUBBLE_WIDTH, height: el.offsetHeight },
+                layoutViewport,
             );
             setLayout(next);
         };
@@ -72,7 +89,7 @@ export function PetAnchoredSpeechBubble({
             observer.disconnect();
             window.visualViewport?.removeEventListener('resize', measure);
         };
-    }, [companion, anchorRect, fullscreenMode]);
+    }, [companion, anchorRect, usesShellPortal, shellLayout]);
 
     useLayoutEffect(() => {
         if (!isOpen) return;
@@ -90,6 +107,10 @@ export function PetAnchoredSpeechBubble({
         return null;
     }
 
+    if (fullscreenMode && !shellElement) {
+        return null;
+    }
+
     const goToHoldings = () => {
         if (!companion) return;
         onClose();
@@ -97,11 +118,12 @@ export function PetAnchoredSpeechBubble({
     };
 
     const positioned = layout !== null;
+    const positionClass = usesShellPortal ? 'absolute' : 'fixed';
 
     const bubbleNode = (
         <>
             <div
-                className="fixed inset-0 z-[70] bg-black/15"
+                className={cn(positionClass, 'inset-0 z-[70] bg-black/15')}
                 onClick={onClose}
                 aria-hidden
             />
@@ -111,8 +133,15 @@ export function PetAnchoredSpeechBubble({
                 role="dialog"
                 aria-modal
                 className={cn(
-                    'fixed z-[71]',
+                    'comic-bubble comic-bubble--anchored',
+                    positionClass,
+                    'z-[71]',
+                    'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
                     fullscreenMode ? 'px-3.5 py-2.5' : 'px-4 py-3',
+                    layout?.placement === 'below' && 'comic-bubble--below',
+                    layout?.placement === 'above' && 'comic-bubble--above',
+                    layout?.placement === 'left' && 'comic-bubble--left',
+                    layout?.placement === 'right' && 'comic-bubble--right',
                     positioned
                         ? 'opacity-100 scale-100'
                         : 'opacity-0 scale-95 pointer-events-none',
@@ -120,95 +149,81 @@ export function PetAnchoredSpeechBubble({
                 style={{
                     top: layout?.top ?? -9999,
                     left: layout?.left ?? 0,
-                    width: layout?.width ?? (fullscreenMode ? 360 : 280),
-                    writingMode: 'horizontal-tb',
-                    transform: 'none',
+                    width: layout?.width ?? BUBBLE_WIDTH,
                     ['--tail-offset' as string]: layout ? `${layout.tailOffset}px` : '50%',
                 }}
             >
-                <div
-                    className={cn(
-                        'comic-bubble comic-bubble--anchored',
-                        'relative',
-                        'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
-                        layout?.placement === 'below' && 'comic-bubble--below',
-                        layout?.placement === 'above' && 'comic-bubble--above',
-                        layout?.placement === 'left' && 'comic-bubble--left',
-                        layout?.placement === 'right' && 'comic-bubble--right',
-                    )}
-                    style={{
-                        transform: forceLandscapeVisual ? 'rotate(90deg)' : 'none',
-                        transformOrigin: 'center center',
-                        width: '100%',
-                    }}
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="absolute top-1.5 right-1.5 text-clay hover:text-slate-800 p-1"
+                    aria-label="關閉"
                 >
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="absolute top-1.5 right-1.5 text-clay hover:text-slate-800 p-1"
-                        aria-label="關閉"
-                    >
-                        <span className="material-symbols-outlined text-base">close</span>
-                    </button>
+                    <span className="material-symbols-outlined text-base">close</span>
+                </button>
 
-                    <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
-                        {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
-                    </p>
-                    <p
+                <p className="text-[10px] text-clay uppercase tracking-wide pr-6">
+                    {companion.breedLabel} · {getPetAssetLabel(companion.assetType)}
+                </p>
+                <p
+                    className={cn(
+                        'text-slate-800 leading-relaxed mt-1 font-medium pr-4',
+                        fullscreenMode ? 'text-[13px]' : 'text-sm',
+                    )}
+                >
+                    {companion.companionMessage}
+                </p>
+
+                {!companion.isPlaceholder && (
+                    <div
                         className={cn(
-                            'text-slate-800 leading-relaxed mt-1 font-medium pr-4',
-                            fullscreenMode ? 'text-[13px]' : 'text-sm',
+                            'pt-2.5 border-t border-stoneSoft/70 text-center text-[11px]',
+                            fullscreenMode ? 'mt-2 grid grid-cols-3 gap-1' : 'mt-2.5 grid grid-cols-3 gap-1.5',
                         )}
                     >
-                        {companion.companionMessage}
-                    </p>
-
-                    {!companion.isPlaceholder && (
-                        <div
-                            className={cn(
-                                'pt-2.5 border-t border-stoneSoft/70 text-center text-[11px]',
-                                fullscreenMode ? 'mt-2 grid grid-cols-3 gap-1' : 'mt-2.5 grid grid-cols-3 gap-1.5',
-                            )}
-                        >
-                            <div>
-                                <p className="text-[10px] text-clay">市值</p>
-                                <p className="font-medium text-slate-800">
-                                    {FORMAT_TWD.format(companion.marketValueTWD)}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-clay">佔比</p>
-                                <p className="font-medium text-slate-800">
-                                    {companion.allocationPercent}%
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-clay">損益</p>
-                                <p
-                                    className={cn(
-                                        'font-medium',
-                                        companion.unrealizedPnL >= 0 ? 'text-rust' : 'text-moss',
-                                    )}
-                                >
-                                    {formatPnL(companion)}
-                                </p>
-                            </div>
+                        <div>
+                            <p className="text-[10px] text-clay">市值</p>
+                            <p className="font-medium text-slate-800">
+                                {FORMAT_TWD.format(companion.marketValueTWD)}
+                            </p>
                         </div>
-                    )}
+                        <div>
+                            <p className="text-[10px] text-clay">佔比</p>
+                            <p className="font-medium text-slate-800">
+                                {companion.allocationPercent}%
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-clay">損益</p>
+                            <p
+                                className={cn(
+                                    'font-medium',
+                                    companion.unrealizedPnL >= 0 ? 'text-rust' : 'text-moss',
+                                )}
+                            >
+                                {formatPnL(companion)}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        className={cn('w-full', fullscreenMode ? 'mt-2.5' : 'mt-3')}
-                        onClick={goToHoldings}
-                    >
-                        {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
-                    </Button>
-                </div>
+                <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    className={cn('w-full', fullscreenMode ? 'mt-2.5' : 'mt-3')}
+                    onClick={goToHoldings}
+                >
+                    {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
+                </Button>
             </div>
         </>
     );
 
-    return createPortal(bubbleNode, document.body);
+    const portalTarget = usesShellPortal ? shellElement : document.body;
+    if (!portalTarget) {
+        return null;
+    }
+
+    return createPortal(bubbleNode, portalTarget);
 }

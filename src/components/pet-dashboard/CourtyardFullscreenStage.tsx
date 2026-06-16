@@ -1,23 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
+import type { ViewportSize } from '../../utils/speechBubblePosition';
+import { getLandscapeShellLayoutViewport } from '../../utils/mapScreenToLandscapeShell';
+
+export interface LandscapeShellLayout {
+    forceLandscapeVisual: boolean;
+    layoutViewport: ViewportSize;
+}
 
 interface CourtyardFullscreenStageProps {
     children: ReactNode;
     onExit: () => void;
+    onShellElement?: (element: HTMLElement | null) => void;
+    onShellLayout?: (layout: LandscapeShellLayout | null) => void;
 }
-
-interface ViewportSize {
-    width: number;
-    height: number;
-}
-
-const BASE_WIDTH = 360;
-const BASE_HEIGHT = (BASE_WIDTH * 9) / 16;
 
 function readViewport(): ViewportSize {
     if (typeof window === 'undefined') {
-        return { width: BASE_WIDTH, height: BASE_HEIGHT };
+        return { width: 360, height: 202 };
     }
 
     const vv = window.visualViewport;
@@ -27,7 +28,16 @@ function readViewport(): ViewportSize {
     };
 }
 
-export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscreenStageProps) {
+const BASE_WIDTH = 360;
+const BASE_HEIGHT = (BASE_WIDTH * 9) / 16;
+
+export function CourtyardFullscreenStage({
+    children,
+    onExit,
+    onShellElement,
+    onShellLayout,
+}: CourtyardFullscreenStageProps) {
+    const shellRef = useRef<HTMLDivElement>(null);
     const [viewport, setViewport] = useState<ViewportSize>(() => readViewport());
 
     useEffect(() => {
@@ -58,14 +68,37 @@ export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscre
     const stageLayout = useMemo(() => {
         const isPortraitViewport = viewport.height > viewport.width;
         const forceLandscapeVisual = isPortraitViewport;
-        const visualWidth = forceLandscapeVisual ? viewport.height : viewport.width;
-        const visualHeight = forceLandscapeVisual ? viewport.width : viewport.height;
-        const scale = Math.min(visualWidth / BASE_WIDTH, visualHeight / BASE_HEIGHT);
+        const layoutViewport = getLandscapeShellLayoutViewport(viewport);
+        const scale = Math.min(
+            layoutViewport.width / BASE_WIDTH,
+            layoutViewport.height / BASE_HEIGHT,
+        );
+
         return {
             forceLandscapeVisual,
+            layoutViewport,
+            shellWidth: layoutViewport.width,
+            shellHeight: layoutViewport.height,
             scale,
         };
     }, [viewport.height, viewport.width]);
+
+    useEffect(() => {
+        onShellElement?.(shellRef.current);
+        return () => {
+            onShellElement?.(null);
+        };
+    }, [onShellElement]);
+
+    useEffect(() => {
+        onShellLayout?.({
+            forceLandscapeVisual: stageLayout.forceLandscapeVisual,
+            layoutViewport: stageLayout.layoutViewport,
+        });
+        return () => {
+            onShellLayout?.(null);
+        };
+    }, [onShellLayout, stageLayout.forceLandscapeVisual, stageLayout.layoutViewport]);
 
     if (typeof document === 'undefined') {
         return null;
@@ -73,31 +106,37 @@ export function CourtyardFullscreenStage({ children, onExit }: CourtyardFullscre
 
     return createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/92 backdrop-blur-sm">
-            <button
-                type="button"
-                onClick={onExit}
-                className="absolute right-3 top-3 z-[60] inline-flex items-center justify-center rounded-lg border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black/55 transition-colors"
+            <div
+                ref={shellRef}
+                className="absolute left-1/2 top-1/2 overflow-visible"
                 style={{
-                    transform: stageLayout.forceLandscapeVisual ? 'rotate(90deg)' : 'none',
-                    transformOrigin: 'top right',
+                    width: `${stageLayout.shellWidth}px`,
+                    height: `${stageLayout.shellHeight}px`,
+                    transform: stageLayout.forceLandscapeVisual
+                        ? 'translate(-50%, -50%) rotate(90deg)'
+                        : 'translate(-50%, -50%)',
                 }}
             >
-                離開全螢幕
-            </button>
-
-            <div className="relative h-full w-full overflow-visible">
-                <div
-                    className="absolute left-1/2 top-1/2"
-                    style={{
-                        width: `${BASE_WIDTH}px`,
-                        height: `${BASE_HEIGHT}px`,
-                        transform: stageLayout.forceLandscapeVisual
-                            ? `translate(-50%, -50%) rotate(90deg) scale(${stageLayout.scale})`
-                            : `translate(-50%, -50%) scale(${stageLayout.scale})`,
-                        transformOrigin: 'center center',
-                    }}
+                <button
+                    type="button"
+                    onClick={onExit}
+                    className="absolute right-3 top-3 z-[80] rounded-lg border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black/55 transition-colors"
                 >
-                    <div className="h-full w-full">{children}</div>
+                    離開全螢幕
+                </button>
+
+                <div className="relative h-full w-full overflow-visible">
+                    <div
+                        className="absolute left-1/2 top-1/2"
+                        style={{
+                            width: `${BASE_WIDTH}px`,
+                            height: `${BASE_HEIGHT}px`,
+                            transform: `translate(-50%, -50%) scale(${stageLayout.scale})`,
+                            transformOrigin: 'center center',
+                        }}
+                    >
+                        <div className="h-full w-full">{children}</div>
+                    </div>
                 </div>
             </div>
         </div>,
