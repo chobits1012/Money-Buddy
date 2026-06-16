@@ -178,7 +178,7 @@
   .comic-bubble--above::before {
     content: "";
     position: absolute;
-    left: var(--tail-left, 50%);
+    left: var(--tail-offset, 50%);
     transform: translateX(-50%);
     width: 0;
     height: 0;
@@ -204,7 +204,7 @@
   .comic-bubble--below::before {
     content: "";
     position: absolute;
-    left: var(--tail-left, 50%);
+    left: var(--tail-offset, 50%);
     transform: translateX(-50%);
     width: 0;
     height: 0;
@@ -224,5 +224,57 @@
     border-left: 10px solid transparent;
     border-right: 10px solid transparent;
     border-bottom: 10px solid rgba(255, 255, 255, 0.95);
+  }
+
+  .comic-bubble--left::after,
+  .comic-bubble--left::before {
+    content: "";
+    position: absolute;
+    top: var(--tail-offset, 50%);
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .comic-bubble--left::after {
+    right: -12px;
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-left: 12px solid rgba(51, 65, 85, 0.8);
+  }
+
+  .comic-bubble--left::before {
+    right: -9px;
+    z-index: 1;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 10px solid rgba(255, 255, 255, 0.95);
+  }
+
+  .comic-bubble--right::after,
+  .comic-bubble--right::before {
+    content: "";
+    position: absolute;
+    top: var(--tail-offset, 50%);
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .comic-bubble--right::after {
+    left: -12px;
+    border-top: 12px solid transparent;
+    border-bottom: 12px solid transparent;
+    border-right: 12px solid rgba(51, 65, 85, 0.8);
+  }
+
+  .comic-bubble--right::before {
+    left: -9px;
+    z-index: 1;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-right: 10px solid rgba(255, 255, 255, 0.95);
   }
 }

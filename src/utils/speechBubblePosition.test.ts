@@ -34,4 +34,22 @@ describe('speechBubblePosition', () => {
         expect(layout.left).toBeGreaterThanOrEqual(12);
         expect(layout.left + layout.width).toBeLessThanOrEqual(viewport.width - 12);
     });
+
+    it('uses left placement near right edge', () => {
+        const layout = computeSpeechBubbleLayout(
+            { top: 340, left: 340, width: 40, height: 40, bottom: 380 },
+            bubble,
+            viewport,
+        );
+        expect(layout.placement).toBe('left');
+    });
+
+    it('uses right placement near left edge when vertical space is tight', () => {
+        const layout = computeSpeechBubbleLayout(
+            { top: 400, left: 5, width: 20, height: 20, bottom: 420 },
+            { width: 260, height: 500 },
+            viewport,
+        );
+        expect(layout.placement).toBe('right');
+    });
 });

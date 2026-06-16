@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CourtyardPetAtSpot } from './CourtyardPetAtSpot';
 import { PetAnchoredSpeechBubble } from './PetAnchoredSpeechBubble';
 import { PetCourtyardSpotEditor } from './PetCourtyardSpotEditor';
@@ -21,7 +21,6 @@ interface SelectionState {
 }
 
 export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
-    const sceneRef = useRef<HTMLElement>(null);
     const [selection, setSelection] = useState<SelectionState | null>(null);
     const isSpotDebug = isCourtyardSpotDebugEnabled();
     const companions = useMemo(
@@ -57,7 +56,6 @@ export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
     return (
         <div className="flex flex-col gap-4">
             <section
-                ref={sceneRef}
                 className={
                     isFullscreen
                         ? 'pet-courtyard relative overflow-hidden rounded-none border-0 shadow-none h-full w-full'
@@ -90,7 +88,7 @@ export function PetScene({ zones, presentation = 'card' }: PetSceneProps) {
             <PetAnchoredSpeechBubble
                 companion={selection?.companion ?? null}
                 anchorRect={selection?.anchorRect ?? null}
-                positioningRoot={isFullscreen ? sceneRef.current : null}
+                fullscreenMode={isFullscreen}
                 onClose={() => setSelection(null)}
             />
         </div>

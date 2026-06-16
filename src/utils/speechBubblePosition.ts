@@ -15,8 +15,8 @@ export interface SpeechBubbleLayout {
     top: number;
     left: number;
     width: number;
-    placement: 'above' | 'below';
-    tailLeft: number;
+    placement: 'above' | 'below' | 'left' | 'right';
+    tailOffset: number;
 }
 
 const DEFAULT_BUBBLE_WIDTH = 280;
@@ -38,30 +38,72 @@ export function computeSpeechBubbleLayout(
     );
     const height = bubbleSize.height;
     const anchorCenterX = anchor.left + anchor.width / 2;
+    const anchorCenterY = anchor.top + anchor.height / 2;
+    const minLeft = padding;
+    const maxLeft = viewport.width - width - padding;
+    const minTop = padding;
+    const maxTop = viewport.height - height - padding;
 
-    let placement: 'above' | 'below' = 'above';
-    let top = anchor.top - height - TAIL_GAP;
-
-    const fitsAbove = top >= padding;
-    const fitsBelow = anchor.bottom + TAIL_GAP + height <= viewport.height - padding;
-
-    if (!fitsAbove && fitsBelow) {
-        placement = 'below';
-        top = anchor.bottom + TAIL_GAP;
-    } else if (!fitsAbove && !fitsBelow) {
-        placement = 'above';
-        top = Math.max(padding, viewport.height - padding - height);
+    type Placement = SpeechBubbleLayout['placement'];
+    interface Candidate {
+        placement: Placement;
+        top: number;
+        left: number;
+        overflow: number;
     }
 
-    let left = anchorCenterX - width / 2;
-    left = Math.max(padding, Math.min(left, viewport.width - width - padding));
+    const calcOverflow = (left: number, top: number): number => {
+        const overflowLeft = Math.max(0, minLeft - left);
+        const overflowRight = Math.max(0, left + width - (viewport.width - padding));
+        const overflowTop = Math.max(0, minTop - top);
+        const overflowBottom = Math.max(0, top + height - (viewport.height - padding));
+        return overflowLeft + overflowRight + overflowTop + overflowBottom;
+    };
 
-    const tailLeft = Math.max(
-        TAIL_CLAMP,
-        Math.min(width - TAIL_CLAMP, anchorCenterX - left),
-    );
+    const baseCandidates: Array<Omit<Candidate, 'overflow'>> = [
+        {
+            placement: 'above',
+            left: anchorCenterX - width / 2,
+            top: anchor.top - height - TAIL_GAP,
+        },
+        {
+            placement: 'below',
+            left: anchorCenterX - width / 2,
+            top: anchor.bottom + TAIL_GAP,
+        },
+        {
+            placement: 'left',
+            left: anchor.left - width - TAIL_GAP,
+            top: anchorCenterY - height / 2,
+        },
+        {
+            placement: 'right',
+            left: anchor.left + anchor.width + TAIL_GAP,
+            top: anchorCenterY - height / 2,
+        },
+    ];
 
-    return { top, left, width, placement, tailLeft };
+    const candidates: Candidate[] = baseCandidates.map((candidate) => ({
+        ...candidate,
+        overflow: calcOverflow(candidate.left, candidate.top),
+    }));
+
+    const placementOrder: Placement[] = ['above', 'below', 'left', 'right'];
+    const chosen = candidates.reduce((best, current) => {
+        if (current.overflow < best.overflow) return current;
+        if (current.overflow > best.overflow) return best;
+        return placementOrder.indexOf(current.placement) < placementOrder.indexOf(best.placement)
+            ? current
+            : best;
+    });
+
+    const left = Math.max(minLeft, Math.min(chosen.left, maxLeft));
+    const top = Math.max(minTop, Math.min(chosen.top, maxTop));
+    const tailOffset = chosen.placement === 'left' || chosen.placement === 'right'
+        ? Math.max(TAIL_CLAMP, Math.min(height - TAIL_CLAMP, anchorCenterY - top))
+        : Math.max(TAIL_CLAMP, Math.min(width - TAIL_CLAMP, anchorCenterX - left));
+
+    return { top, left, width, placement: chosen.placement, tailOffset };
 }
 
 export function toRectLike(rect: DOMRect): RectLike {
