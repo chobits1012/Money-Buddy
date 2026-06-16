@@ -15,6 +15,7 @@ import {
 interface PetAnchoredSpeechBubbleProps {
     companion: CompanionAvatarViewModel | null;
     anchorRect: DOMRect | null;
+    positioningRoot?: HTMLElement | null;
     onClose: () => void;
 }
 
@@ -29,12 +30,14 @@ function formatPnL(companion: CompanionAvatarViewModel): string {
 export function PetAnchoredSpeechBubble({
     companion,
     anchorRect,
+    positioningRoot = null,
     onClose,
 }: PetAnchoredSpeechBubbleProps) {
     const navigate = useNavigate();
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [layout, setLayout] = useState<SpeechBubbleLayout | null>(null);
     const isOpen = !!companion && !!anchorRect;
+    const isInlineOverlay = !!positioningRoot;
 
     useLayoutEffect(() => {
         if (!companion || !anchorRect || !bubbleRef.current) {
@@ -45,10 +48,23 @@ export function PetAnchoredSpeechBubble({
         const measure = () => {
             const el = bubbleRef.current;
             if (!el) return;
+            const rootRect = positioningRoot?.getBoundingClientRect();
+            const viewport = rootRect
+                ? { width: rootRect.width, height: rootRect.height }
+                : { width: window.innerWidth, height: window.innerHeight };
+            const anchor = rootRect
+                ? {
+                    top: anchorRect.top - rootRect.top,
+                    left: anchorRect.left - rootRect.left,
+                    width: anchorRect.width,
+                    height: anchorRect.height,
+                    bottom: anchorRect.bottom - rootRect.top,
+                }
+                : toRectLike(anchorRect);
             const next = computeSpeechBubbleLayout(
-                toRectLike(anchorRect),
+                anchor,
                 { width: 280, height: el.offsetHeight },
-                { width: window.innerWidth, height: window.innerHeight },
+                viewport,
             );
             setLayout(next);
         };
@@ -57,7 +73,7 @@ export function PetAnchoredSpeechBubble({
         const observer = new ResizeObserver(measure);
         observer.observe(bubbleRef.current);
         return () => observer.disconnect();
-    }, [companion, anchorRect]);
+    }, [companion, anchorRect, positioningRoot]);
 
     useLayoutEffect(() => {
         if (!isOpen) return;
@@ -83,10 +99,10 @@ export function PetAnchoredSpeechBubble({
 
     const positioned = layout !== null;
 
-    return createPortal(
+    const bubbleNode = (
         <>
             <div
-                className="fixed inset-0 z-40 bg-black/15"
+                className={isInlineOverlay ? 'absolute inset-0 z-40 bg-black/15' : 'fixed inset-0 z-40 bg-black/15'}
                 onClick={onClose}
                 aria-hidden
             />
@@ -96,7 +112,9 @@ export function PetAnchoredSpeechBubble({
                 role="dialog"
                 aria-modal
                 className={cn(
-                    'comic-bubble comic-bubble--anchored fixed z-50',
+                    isInlineOverlay
+                        ? 'comic-bubble comic-bubble--anchored absolute z-50'
+                        : 'comic-bubble comic-bubble--anchored fixed z-50',
                     'bg-white/95 border-2 border-slate-700/80 rounded-2xl px-4 py-3 shadow-lg',
                     layout?.placement === 'below'
                         ? 'comic-bubble--below'
@@ -166,7 +184,12 @@ export function PetAnchoredSpeechBubble({
                     {companion.poolId ? '進入這個軍團' : '查看持倉明細'}
                 </Button>
             </div>
-        </>,
-        document.body,
+        </>
     );
+
+    if (isInlineOverlay) {
+        return bubbleNode;
+    }
+
+    return createPortal(bubbleNode, document.body);
 }
