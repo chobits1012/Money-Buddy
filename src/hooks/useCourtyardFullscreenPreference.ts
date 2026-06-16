@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 const STORAGE_KEY = 'portfolio-tracker-courtyard-fullscreen';
 
 function readStoredPreference(): boolean {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === null) return true;
+    if (stored === null) return false;
     return stored !== 'off';
 }
 

@@ -11,8 +11,6 @@ import {
     toRectLike,
     type SpeechBubbleLayout,
 } from '../../utils/speechBubblePosition';
-import { mapScreenRectToLandscapeShell } from '../../utils/mapScreenToLandscapeShell';
-import type { LandscapeShellLayout } from './CourtyardFullscreenStage';
 
 const BUBBLE_WIDTH = 280;
 
@@ -20,8 +18,6 @@ interface PetAnchoredSpeechBubbleProps {
     companion: CompanionAvatarViewModel | null;
     anchorRect: DOMRect | null;
     fullscreenMode?: boolean;
-    shellElement?: HTMLElement | null;
-    shellLayout?: LandscapeShellLayout | null;
     onClose: () => void;
 }
 
@@ -33,27 +29,16 @@ function formatPnL(companion: CompanionAvatarViewModel): string {
     return `${sign}${FORMAT_TWD.format(companion.unrealizedPnL)}`;
 }
 
-function readScreenViewport() {
-    const vv = window.visualViewport;
-    return {
-        width: Math.floor(vv?.width ?? window.innerWidth),
-        height: Math.floor(vv?.height ?? window.innerHeight),
-    };
-}
-
 export function PetAnchoredSpeechBubble({
     companion,
     anchorRect,
     fullscreenMode = false,
-    shellElement = null,
-    shellLayout = null,
     onClose,
 }: PetAnchoredSpeechBubbleProps) {
     const navigate = useNavigate();
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [layout, setLayout] = useState<SpeechBubbleLayout | null>(null);
     const isOpen = !!companion && !!anchorRect;
-    const usesShellPortal = fullscreenMode && !!shellElement && !!shellLayout;
 
     useLayoutEffect(() => {
         if (!companion || !anchorRect || !bubbleRef.current) {
@@ -64,19 +49,16 @@ export function PetAnchoredSpeechBubble({
         const measure = () => {
             const el = bubbleRef.current;
             if (!el) return;
-
-            const screenViewport = readScreenViewport();
-            const anchor = usesShellPortal && shellLayout?.forceLandscapeVisual
-                ? mapScreenRectToLandscapeShell(toRectLike(anchorRect), screenViewport)
-                : toRectLike(anchorRect);
-            const layoutViewport = usesShellPortal && shellLayout
-                ? shellLayout.layoutViewport
-                : screenViewport;
-
+            const vv = window.visualViewport;
+            const viewport = {
+                width: Math.floor(vv?.width ?? window.innerWidth),
+                height: Math.floor(vv?.height ?? window.innerHeight),
+            };
+            const anchor = toRectLike(anchorRect);
             const next = computeSpeechBubbleLayout(
                 anchor,
                 { width: BUBBLE_WIDTH, height: el.offsetHeight },
-                layoutViewport,
+                viewport,
             );
             setLayout(next);
         };
@@ -89,7 +71,7 @@ export function PetAnchoredSpeechBubble({
             observer.disconnect();
             window.visualViewport?.removeEventListener('resize', measure);
         };
-    }, [companion, anchorRect, usesShellPortal, shellLayout]);
+    }, [companion, anchorRect]);
 
     useLayoutEffect(() => {
         if (!isOpen) return;
@@ -107,10 +89,6 @@ export function PetAnchoredSpeechBubble({
         return null;
     }
 
-    if (fullscreenMode && !shellElement) {
-        return null;
-    }
-
     const goToHoldings = () => {
         if (!companion) return;
         onClose();
@@ -118,12 +96,11 @@ export function PetAnchoredSpeechBubble({
     };
 
     const positioned = layout !== null;
-    const positionClass = usesShellPortal ? 'absolute' : 'fixed';
 
     const bubbleNode = (
         <>
             <div
-                className={cn(positionClass, 'inset-0 z-[70] bg-black/15')}
+                className="fixed inset-0 z-[70] bg-black/15"
                 onClick={onClose}
                 aria-hidden
             />
@@ -133,9 +110,7 @@ export function PetAnchoredSpeechBubble({
                 role="dialog"
                 aria-modal
                 className={cn(
-                    'comic-bubble comic-bubble--anchored',
-                    positionClass,
-                    'z-[71]',
+                    'comic-bubble comic-bubble--anchored fixed z-[71]',
                     'bg-white/95 border-2 border-slate-700/80 rounded-2xl shadow-lg',
                     fullscreenMode ? 'px-3.5 py-2.5' : 'px-4 py-3',
                     layout?.placement === 'below' && 'comic-bubble--below',
@@ -220,10 +195,5 @@ export function PetAnchoredSpeechBubble({
         </>
     );
 
-    const portalTarget = usesShellPortal ? shellElement : document.body;
-    if (!portalTarget) {
-        return null;
-    }
-
-    return createPortal(bubbleNode, portalTarget);
+    return createPortal(bubbleNode, document.body);
 }
