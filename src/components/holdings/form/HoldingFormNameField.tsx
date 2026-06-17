@@ -27,9 +27,7 @@ export const HoldingFormNameField = ({
                 type={type}
                 value={name}
                 onChange={onNameChange}
-                onSelect={(selectedName, sym) => {
-                    onSelect(type === 'FUNDS' ? selectedName : `${selectedName} (${sym})`, sym);
-                }}
+                onSelect={onSelect}
                 placeholder={placeholder}
                 error={error}
                 disabled={isEditMode}

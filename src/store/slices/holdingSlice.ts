@@ -24,6 +24,7 @@ import {
     fetchStockQuotes,
     toYahooQuoteSymbols,
 } from '../../services/quoteService';
+import { findMatchingHoldingIndex } from '../../utils/holdingMatch';
 
 export const createHoldingSlice: StateCreator<
     PortfolioStore,
@@ -171,9 +172,12 @@ export const createHoldingSlice: StateCreator<
 
     buyStock: (params) => {
         set((state) => {
-            const existingIndex = state.holdings.findIndex(
-                (h) => isActive(h) && h.type === params.type && h.name.toLowerCase() === params.name.toLowerCase() && h.poolId === params.poolId
-            );
+            const existingIndex = findMatchingHoldingIndex(state.holdings, {
+                type: params.type,
+                name: params.name,
+                symbol: params.symbol,
+                poolId: params.poolId,
+            });
 
             let impact: AccountingImpact;
             let updatedHoldings = [...state.holdings];

@@ -6,6 +6,7 @@ import { FORMAT_TWD } from '../../../utils/constants';
 import { resolveFundPricingCurrency } from '../../../utils/fundNav';
 import { fetchLiveExchangeRates } from '../../../utils/exchangeRates';
 import type { FundPricingCurrency } from '../../../utils/fundCatalog';
+import { findMatchingHoldingIndex } from '../../../utils/holdingMatch';
 
 export interface UseHoldingFormParams {
     isOpen: boolean;
@@ -58,13 +59,14 @@ export function useHoldingForm({
     const [note, setNote] = useState('');
     const [error, setError] = useState('');
 
-    const currentHolding = holdings.find(
-        (h) =>
-            !h.deletedAt &&
-            h.type === type &&
-            h.name.toLowerCase() === name.trim().toLowerCase() &&
-            h.poolId === poolId,
-    );
+    const currentHoldingIndex = findMatchingHoldingIndex(holdings, {
+        type,
+        name: name.trim(),
+        symbol: symbol || undefined,
+        poolId,
+    });
+    const currentHolding =
+        currentHoldingIndex >= 0 ? holdings[currentHoldingIndex] : undefined;
     const availableShares = currentHolding ? currentHolding.shares : 0;
     const availableAmount = currentHolding ? currentHolding.totalAmount : 0;
 
